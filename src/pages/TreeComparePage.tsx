@@ -1,36 +1,26 @@
 import { useState, useMemo } from "react";
-import { parseTree, diffTrees } from "../utils/treeParser";
+import { parseCsv, diffCsv } from "../utils/csvParser";
 import TreeDiffView from "../components/TreeDiffView";
-import {
-  sampleTreeLeft,
-  sampleTreeRight,
-  sampleTreeLeftSmall,
-  sampleTreeRightSmall,
-} from "../data/sampleTrees";
+import { sampleCsvLeft, sampleCsvRight } from "../data/sampleData";
 import "./TreeComparePage.css";
 
 export default function TreeComparePage() {
-  const [leftInput, setLeftInput] = useState(sampleTreeLeft);
-  const [rightInput, setRightInput] = useState(sampleTreeRight);
+  const [leftInput, setLeftInput] = useState(sampleCsvLeft);
+  const [rightInput, setRightInput] = useState(sampleCsvRight);
 
   const diff = useMemo(() => {
     try {
-      const leftTree = parseTree(leftInput);
-      const rightTree = parseTree(rightInput);
-      return diffTrees(leftTree, rightTree);
+      const leftEntries = parseCsv(leftInput);
+      const rightEntries = parseCsv(rightInput);
+      return diffCsv(leftEntries, rightEntries);
     } catch {
       return null;
     }
   }, [leftInput, rightInput]);
 
-  const loadSample = (variant: "large" | "small") => {
-    if (variant === "large") {
-      setLeftInput(sampleTreeLeft);
-      setRightInput(sampleTreeRight);
-    } else {
-      setLeftInput(sampleTreeLeftSmall);
-      setRightInput(sampleTreeRightSmall);
-    }
+  const loadSample = () => {
+    setLeftInput(sampleCsvLeft);
+    setRightInput(sampleCsvRight);
   };
 
   const handleClear = () => {
@@ -41,43 +31,36 @@ export default function TreeComparePage() {
   return (
     <div className="tree-compare-page">
       <div className="page-header">
-        <h1>🌳 Directory Tree Comparison</h1>
+        <h1>📂 Directory Comparison</h1>
         <p className="page-subtitle">
-          Paste the output of <code>tree</code> commands to compare two
-          directory structures side by side.
+          Paste CSV data to compare two directory structures side by side.
+          Format: <code>type;path;size;timestamp;hash</code>
         </p>
       </div>
 
       <div className="sample-buttons">
-        <button onClick={() => loadSample("large")}>
-          Load Large Sample
-        </button>
-        <button onClick={() => loadSample("small")}>
-          Load Small Sample
-        </button>
-        <button onClick={handleClear}>
-          Clear
-        </button>
+        <button onClick={loadSample}>Load Sample</button>
+        <button onClick={handleClear}>Clear</button>
       </div>
 
       <div className="input-panels">
         <div className="input-panel">
-          <label htmlFor="left-tree">Left Tree (original)</label>
+          <label htmlFor="left-csv">Left (original)</label>
           <textarea
-            id="left-tree"
+            id="left-csv"
             value={leftInput}
             onChange={(e) => setLeftInput(e.target.value)}
-            placeholder="Paste tree output here..."
+            placeholder="Paste CSV data here..."
             spellCheck={false}
           />
         </div>
         <div className="input-panel">
-          <label htmlFor="right-tree">Right Tree (modified)</label>
+          <label htmlFor="right-csv">Right (modified)</label>
           <textarea
-            id="right-tree"
+            id="right-csv"
             value={rightInput}
             onChange={(e) => setRightInput(e.target.value)}
-            placeholder="Paste tree output here..."
+            placeholder="Paste CSV data here..."
             spellCheck={false}
           />
         </div>
@@ -90,6 +73,9 @@ export default function TreeComparePage() {
             <span className="legend-item legend-item--same">● Same</span>
             <span className="legend-item legend-item--added">● Added</span>
             <span className="legend-item legend-item--removed">● Removed</span>
+            <span className="legend-item legend-item--modified">
+              ● Modified
+            </span>
           </div>
           <TreeDiffView
             left={diff.left}

@@ -10,7 +10,7 @@ function App() {
         <div className="nav-brand">Git Diff Online</div>
         <div className="nav-links">
           <Link to="/" className="nav-link">
-            🌳 Tree Compare
+            📂 Directory Compare
           </Link>
           <Link to="/files" className="nav-link">
             📄 File Compare
