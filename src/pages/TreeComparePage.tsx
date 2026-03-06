@@ -45,7 +45,7 @@ export default function TreeComparePage() {
 
       <div className="input-panels">
         <div className="input-panel">
-          <label htmlFor="left-csv">Left (original)</label>
+          <label htmlFor="left-csv">Left</label>
           <textarea
             id="left-csv"
             value={leftInput}
@@ -55,7 +55,7 @@ export default function TreeComparePage() {
           />
         </div>
         <div className="input-panel">
-          <label htmlFor="right-csv">Right (modified)</label>
+          <label htmlFor="right-csv">Right</label>
           <textarea
             id="right-csv"
             value={rightInput}
@@ -80,8 +80,8 @@ export default function TreeComparePage() {
           <TreeDiffView
             left={diff.left}
             right={diff.right}
-            leftLabel="Original"
-            rightLabel="Modified"
+            leftLabel="Left"
+            rightLabel="Right"
           />
         </div>
       )}
