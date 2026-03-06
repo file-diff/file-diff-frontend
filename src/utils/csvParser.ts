@@ -167,6 +167,7 @@ export function diffCsv(
     if (inLeft && inRight) {
       const le = leftMap.get(p)!;
       const re = rightMap.get(p)!;
+      // Directories don't have meaningful hashes, only files can be "modified"
       const status: DiffStatus =
         le.hash !== re.hash && le.fileType !== "d" ? "modified" : "same";
       left.push({ ...le, status });
