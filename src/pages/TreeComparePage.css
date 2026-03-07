@@ -98,6 +98,69 @@
   border-color: #58a6ff;
 }
 
+.indexing-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px auto;
+  gap: 8px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.indexing-controls input {
+  margin-bottom: 0;
+}
+
+.indexing-controls button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: #2d2d2d;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+
+.indexing-controls button:hover {
+  background: #3d3d3d;
+}
+
+.indexing-controls button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.indexing-job-status {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #3b4a5a;
+  border-radius: 6px;
+  background: rgba(88, 166, 255, 0.08);
+}
+
+.indexing-job-status__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: #d4d4d4;
+}
+
+.indexing-job-status__row + .indexing-job-status__row {
+  margin-top: 6px;
+}
+
+.indexing-job-status__label {
+  color: #8b949e;
+  font-weight: 600;
+}
+
+.indexing-job-status code {
+  color: #7ee787;
+  word-break: break-all;
+}
+
 .input-panel textarea {
   flex: 1;
   min-height: 220px;
@@ -154,4 +217,14 @@
 
 .legend-item--modified {
   color: #e3b341;
+}
+
+@media (max-width: 900px) {
+  .input-panels {
+    flex-direction: column;
+  }
+
+  .indexing-controls {
+    grid-template-columns: 1fr;
+  }
 }
