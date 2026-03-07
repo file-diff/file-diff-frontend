@@ -66,7 +66,7 @@ export default function TreeComparePage() {
   const [rightIsStarting, setRightIsStarting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [useNaturalSort, setUseNaturalSort] = useState(true);
+  const [useNaturalSort, setUseNaturalSort] = useState(false);
 
   const diff = useMemo(() => {
     try {
