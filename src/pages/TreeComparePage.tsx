@@ -9,6 +9,7 @@ const INDEXING_TRIGGER_URL =
   "http://localhost:12986/api/jobs/a11fe882-1f0c-4dd0-b2b9-3c031bfc4322";
 const JOBS_BASE_URL = "http://localhost:12986/api/jobs";
 const POLL_INTERVAL_MS = 2000;
+const DEFAULT_JOB_STATUS = "waiting";
 const TERMINAL_JOB_STATUSES = new Set([
   "cancelled",
   "completed",
@@ -244,7 +245,7 @@ export default function TreeComparePage() {
         id: data.id,
         repo,
         ref,
-        status: data.status ?? "waiting",
+        status: data.status ?? DEFAULT_JOB_STATUS,
         progress: 0,
         total_files: 0,
         processed_files: 0,
@@ -334,7 +335,7 @@ export default function TreeComparePage() {
         </div>
         <div className="indexing-job-status__row">
           <span className="indexing-job-status__label">Status</span>
-          <span>{job.status ?? "waiting"}</span>
+          <span>{job.status ?? DEFAULT_JOB_STATUS}</span>
         </div>
         <div className="indexing-job-status__row">
           <span className="indexing-job-status__label">Progress</span>
