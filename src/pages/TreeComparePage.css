@@ -55,6 +55,20 @@
   cursor: wait;
 }
 
+.sort-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: #bbb;
+  font-size: 0.9rem;
+}
+
+.sort-option input {
+  margin: 0;
+}
+
 .api-error {
   margin-bottom: 16px;
   padding: 10px 12px;
