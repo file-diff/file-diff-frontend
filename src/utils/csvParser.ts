@@ -1,4 +1,15 @@
-export type FileType = "d" | "t" | "b";
+export type FileType = "d" | "t" | "b" | "x" | "s";
+
+export interface JobFilesResponse {
+  job_id?: string;
+  files?: Array<{
+    t: FileType;
+    path: string;
+    s: number;
+    update: string;
+    hash: string;
+  }>;
+}
 
 export interface CsvEntry {
   fileType: FileType;
@@ -27,18 +38,22 @@ export interface DiffEntry {
  * Parse a single CSV line.
  * Format: type;path;size;timestamp;hash  (separator after type may be ; or :)
  */
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, "/");
+}
+
 function parseCsvLine(line: string): CsvEntry | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
 
-  const match = trimmed.match(/^([dtb])[;:](.*)/);
+  const match = trimmed.match(/^([dtbxs])[;:](.*)/);
   if (!match) return null;
 
   const fileType = match[1] as FileType;
   const rest = match[2].split(";");
   if (rest.length < 4) return null;
 
-  const path = rest[0];
+  const path = normalizePath(rest[0]);
   const segments = path.split("/");
   const name = segments[segments.length - 1];
   const depth = segments.length - 1;
@@ -122,6 +137,28 @@ export function parseCsv(input: string): CsvEntry[] {
   });
 
   return all;
+}
+
+function parseApiTimestamp(timestamp: string): number {
+  const parsed = Date.parse(timestamp);
+  return Number.isNaN(parsed) ? 0 : Math.floor(parsed / 1000);
+}
+
+export function jobFilesResponseToCsv(response: JobFilesResponse): string {
+  if (!Array.isArray(response.files)) {
+    throw new Error("Invalid files response");
+  }
+
+  return response.files
+    .map((entry) => {
+      const path = normalizePath(entry.path);
+      const size = Number.isFinite(entry.s) ? entry.s : 0;
+      const lastModified = parseApiTimestamp(entry.update);
+      const hash = entry.hash ?? "";
+
+      return `${entry.t};${path};${size};${lastModified};${hash}`;
+    })
+    .join("\n");
 }
 
 /**
