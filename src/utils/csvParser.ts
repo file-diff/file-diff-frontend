@@ -1,3 +1,5 @@
+import natsort from "natsort";
+
 export type FileType = "d" | "t" | "b" | "x" | "s";
 
 export interface JobFilesResponse {
@@ -34,10 +36,13 @@ export interface DiffEntry {
   status: DiffStatus;
 }
 
+const naturalSort = natsort();
+
 function comparePathsInTreeOrder(
   aPath: string,
   bPath: string,
-  dirPaths: Set<string>
+  dirPaths: Set<string>,
+  useNaturalSort = false
 ): number {
   const aParts = aPath.split("/");
   const bParts = bPath.split("/");
@@ -51,7 +56,9 @@ function comparePathsInTreeOrder(
       const bIsDir = dirPaths.has(bPrefix) || i < bParts.length - 1;
 
       if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
-      return aParts[i].localeCompare(bParts[i]);
+      return useNaturalSort
+        ? naturalSort(aParts[i], bParts[i])
+        : aParts[i].localeCompare(bParts[i]);
     }
   }
 
@@ -96,7 +103,7 @@ function parseCsvLine(line: string): CsvEntry | null {
 /**
  * Parse CSV input into a sorted list of entries with inferred parent directories.
  */
-export function parseCsv(input: string): CsvEntry[] {
+export function parseCsv(input: string, useNaturalSort = false): CsvEntry[] {
   const lines = input.split("\n");
   const entries: CsvEntry[] = [];
 
@@ -138,7 +145,9 @@ export function parseCsv(input: string): CsvEntry[] {
     all.filter((e) => e.fileType === "d").map((e) => e.path)
   );
 
-  all.sort((a, b) => comparePathsInTreeOrder(a.path, b.path, dirPaths));
+  all.sort((a, b) =>
+    comparePathsInTreeOrder(a.path, b.path, dirPaths, useNaturalSort)
+  );
 
   return all;
 }
@@ -171,7 +180,8 @@ export function jobFilesResponseToCsv(response: JobFilesResponse): string {
  */
 export function diffCsv(
   leftEntries: CsvEntry[],
-  rightEntries: CsvEntry[]
+  rightEntries: CsvEntry[],
+  useNaturalSort = false
 ): { left: (DiffEntry | null)[]; right: (DiffEntry | null)[] } {
   const leftMap = new Map(leftEntries.map((e) => [e.path, e]));
   const rightMap = new Map(rightEntries.map((e) => [e.path, e]));
@@ -208,7 +218,9 @@ export function diffCsv(
       continue;
     }
 
-    if (comparePathsInTreeOrder(leftPath, rightPath, dirPaths) < 0) {
+    if (
+      comparePathsInTreeOrder(leftPath, rightPath, dirPaths, useNaturalSort) < 0
+    ) {
       addPath(leftPath);
       li++;
       continue;
