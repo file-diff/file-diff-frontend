@@ -12,6 +12,8 @@ const fileTypeIcon: Record<string, string> = {
   d: "📁",
   t: "📄",
   b: "💾",
+  x: "⚙️",
+  s: "🔗",
 };
 
 function formatSize(size: number): string {

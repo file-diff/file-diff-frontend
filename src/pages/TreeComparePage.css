@@ -50,6 +50,20 @@
   background: #3d3d3d;
 }
 
+.sample-buttons button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.api-error {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(218, 54, 51, 0.4);
+  border-radius: 6px;
+  background: rgba(218, 54, 51, 0.12);
+  color: #ffa198;
+}
+
 .input-panels {
   display: flex;
   gap: 16px;
@@ -67,6 +81,21 @@
   margin-bottom: 6px;
   color: #bbb;
   font-size: 0.9rem;
+}
+
+.input-panel input {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font-size: 13px;
+}
+
+.input-panel input:focus {
+  outline: none;
+  border-color: #58a6ff;
 }
 
 .input-panel textarea {
