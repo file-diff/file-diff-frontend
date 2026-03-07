@@ -34,6 +34,30 @@ export interface DiffEntry {
   status: DiffStatus;
 }
 
+function comparePathsInTreeOrder(
+  aPath: string,
+  bPath: string,
+  dirPaths: Set<string>
+): number {
+  const aParts = aPath.split("/");
+  const bParts = bPath.split("/");
+  const minLen = Math.min(aParts.length, bParts.length);
+
+  for (let i = 0; i < minLen; i++) {
+    if (aParts[i] !== bParts[i]) {
+      const aPrefix = aParts.slice(0, i + 1).join("/");
+      const bPrefix = bParts.slice(0, i + 1).join("/");
+      const aIsDir = dirPaths.has(aPrefix) || i < aParts.length - 1;
+      const bIsDir = dirPaths.has(bPrefix) || i < bParts.length - 1;
+
+      if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
+      return aParts[i].localeCompare(bParts[i]);
+    }
+  }
+
+  return aParts.length - bParts.length;
+}
+
 /**
  * Parse a single CSV line.
  * Format: type;path;size;timestamp;hash  (separator after type may be ; or :)
@@ -114,27 +138,7 @@ export function parseCsv(input: string): CsvEntry[] {
     all.filter((e) => e.fileType === "d").map((e) => e.path)
   );
 
-  all.sort((a, b) => {
-    const aParts = a.path.split("/");
-    const bParts = b.path.split("/");
-    const minLen = Math.min(aParts.length, bParts.length);
-
-    for (let i = 0; i < minLen; i++) {
-      if (aParts[i] !== bParts[i]) {
-        // At this level, check if either is a directory prefix
-        const aPrefix = aParts.slice(0, i + 1).join("/");
-        const bPrefix = bParts.slice(0, i + 1).join("/");
-        const aIsDir = dirPaths.has(aPrefix) || i < aParts.length - 1;
-        const bIsDir = dirPaths.has(bPrefix) || i < bParts.length - 1;
-
-        if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
-        return aParts[i].localeCompare(bParts[i]);
-      }
-    }
-
-    // Shorter path (directory) comes before longer path (its children)
-    return aParts.length - bParts.length;
-  });
+  all.sort((a, b) => comparePathsInTreeOrder(a.path, b.path, dirPaths));
 
   return all;
 }
@@ -178,19 +182,49 @@ export function diffCsv(
   // Collect all unique paths maintaining stable order
   const allPaths: string[] = [];
   const seen = new Set<string>();
+  const dirPaths = new Set(
+    [...leftEntries, ...rightEntries]
+      .filter((entry) => entry.fileType === "d")
+      .map((entry) => entry.path)
+  );
+
+  const addPath = (path: string) => {
+    if (!seen.has(path)) {
+      allPaths.push(path);
+      seen.add(path);
+    }
+  };
 
   let li = 0,
     ri = 0;
-  while (li < leftEntries.length || ri < rightEntries.length) {
-    if (li < leftEntries.length && !seen.has(leftEntries[li].path)) {
-      allPaths.push(leftEntries[li].path);
-      seen.add(leftEntries[li].path);
+  while (li < leftEntries.length && ri < rightEntries.length) {
+    const leftPath = leftEntries[li].path;
+    const rightPath = rightEntries[ri].path;
+
+    if (leftPath === rightPath) {
+      addPath(leftPath);
+      li++;
+      ri++;
+      continue;
     }
-    if (ri < rightEntries.length && !seen.has(rightEntries[ri].path)) {
-      allPaths.push(rightEntries[ri].path);
-      seen.add(rightEntries[ri].path);
+
+    if (comparePathsInTreeOrder(leftPath, rightPath, dirPaths) < 0) {
+      addPath(leftPath);
+      li++;
+      continue;
     }
+
+    addPath(rightPath);
+    ri++;
+  }
+
+  while (li < leftEntries.length) {
+    addPath(leftEntries[li].path);
     li++;
+  }
+
+  while (ri < rightEntries.length) {
+    addPath(rightEntries[ri].path);
     ri++;
   }
 
