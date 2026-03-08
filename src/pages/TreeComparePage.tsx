@@ -68,16 +68,23 @@ export default function TreeComparePage() {
   const [rightIsStarting, setRightIsStarting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [useNaturalSort, setUseNaturalSort] = useState(false);
 
   const diff = useMemo(() => {
     try {
-      const leftEntries = parseCsv(leftInput);
-      const rightEntries = parseCsv(rightInput);
-      return diffCsv(leftEntries, rightEntries, leftRoot, rightRoot);
+      const leftEntries = parseCsv(leftInput, useNaturalSort);
+      const rightEntries = parseCsv(rightInput, useNaturalSort);
+      return diffCsv(
+        leftEntries,
+        rightEntries,
+        leftRoot,
+        rightRoot,
+        useNaturalSort
+      );
     } catch {
       return null;
     }
-  }, [leftInput, rightInput, leftRoot, rightRoot]);
+  }, [leftInput, rightInput, leftRoot, rightRoot, useNaturalSort]);
 
   const loadSample = () => {
     setLeftInput(sampleCsvLeft);
@@ -380,6 +387,16 @@ export default function TreeComparePage() {
         <button onClick={loadSample}>Load Sample</button>
         <button onClick={handleClear}>Clear</button>
       </div>
+
+      <label className="sort-option" htmlFor="use-natural-sort">
+        <input
+          id="use-natural-sort"
+          type="checkbox"
+          checked={useNaturalSort}
+          onChange={(e) => setUseNaturalSort(e.target.checked)}
+        />
+        Use natural sorting for both trees
+      </label>
 
       {apiError && <div className="api-error">{apiError}</div>}
 
