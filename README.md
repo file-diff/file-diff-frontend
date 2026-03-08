@@ -42,3 +42,8 @@ Required repository secrets:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
+
+Required repository variables:
+
+- `CLOUDFLARE_PAGES_PROJECT` — the existing Cloudflare Pages project name to
+  deploy to. If this is unset, the workflow falls back to the repository name.
