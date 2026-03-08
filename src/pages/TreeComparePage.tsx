@@ -58,6 +58,8 @@ export default function TreeComparePage() {
   const [rightRepo, setRightRepo] = useState("");
   const [leftRef, setLeftRef] = useState("main");
   const [rightRef, setRightRef] = useState("main");
+  const [leftRoot, setLeftRoot] = useState("/");
+  const [rightRoot, setRightRoot] = useState("/");
   const [leftLabel, setLeftLabel] = useState("Left");
   const [rightLabel, setRightLabel] = useState("Right");
   const [leftJob, setLeftJob] = useState<IndexingJobState | null>(null);
@@ -71,11 +73,11 @@ export default function TreeComparePage() {
     try {
       const leftEntries = parseCsv(leftInput);
       const rightEntries = parseCsv(rightInput);
-      return diffCsv(leftEntries, rightEntries);
+      return diffCsv(leftEntries, rightEntries, leftRoot, rightRoot);
     } catch {
       return null;
     }
-  }, [leftInput, rightInput]);
+  }, [leftInput, rightInput, leftRoot, rightRoot]);
 
   const loadSample = () => {
     setLeftInput(sampleCsvLeft);
@@ -84,6 +86,8 @@ export default function TreeComparePage() {
     setRightEndpoint("");
     setLeftJob(null);
     setRightJob(null);
+    setLeftRoot("/");
+    setRightRoot("/");
     setLeftLabel("Left");
     setRightLabel("Right");
     setApiError("");
@@ -98,6 +102,8 @@ export default function TreeComparePage() {
     setRightRepo("");
     setLeftRef("main");
     setRightRef("main");
+    setLeftRoot("/");
+    setRightRoot("/");
     setLeftJob(null);
     setRightJob(null);
     setApiError("");
@@ -475,6 +481,30 @@ export default function TreeComparePage() {
       {diff && (
         <div className="diff-result">
           <h2>Comparison Result</h2>
+          <div className="compare-roots">
+            <div className="compare-roots__field">
+              <label htmlFor="left-root">Left root</label>
+              <input
+                id="left-root"
+                type="text"
+                value={leftRoot}
+                onChange={(e) => setLeftRoot(e.target.value)}
+                placeholder="/"
+                spellCheck={false}
+              />
+            </div>
+            <div className="compare-roots__field">
+              <label htmlFor="right-root">Right root</label>
+              <input
+                id="right-root"
+                type="text"
+                value={rightRoot}
+                onChange={(e) => setRightRoot(e.target.value)}
+                placeholder="/"
+                spellCheck={false}
+              />
+            </div>
+          </div>
           <div className="diff-legend">
             <span className="legend-item legend-item--same">● Same</span>
             <span className="legend-item legend-item--added">● Added</span>
