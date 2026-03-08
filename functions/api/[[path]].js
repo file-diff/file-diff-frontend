@@ -1,20 +1,47 @@
-const API_PROXY_BASE_URL = "http://65.109.154.126:12986";
-
 export async function onRequest(context) {
-  const url = new URL(context.request.url);
+  const { request } = context;
+  const url = new URL(request.url);
   const targetUrl = `http://65.109.154.126:12986${url.pathname}${url.search}`;
 
-  // Create a new request based on the original one
-  // This ensures Method (POST), Headers, and Body are preserved
-  const newRequest = new Request(targetUrl, context.request);
+  // 1. Prepare the proxy request
+  const proxyRequest = new Request(targetUrl, {
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
+    redirect: 'manual'
+  });
 
-  // CRITICAL: Some backends reject requests if the Host header
-  // doesn't match the destination IP/Port.
-  newRequest.headers.set("Host", "65.109.154.126:12986");
+  // 2. Force the Host header (Backend servers often 405 if this is wrong)
+  proxyRequest.headers.set("Host", "65.109.154.126:12986");
 
   try {
-    return await fetch(newRequest);
+    const response = await fetch(proxyRequest);
+
+    // If the response is an error (405, 404, 500), let's intercept it for debugging
+    if (!response.ok && response.status === 405) {
+      const errorData = {
+        debug_message: "Your backend server returned a 405 Method Not Allowed.",
+        attempted_url: targetUrl,
+        sent_method: request.method,
+        sent_headers: Object.fromEntries(proxyRequest.headers),
+        received_status: response.status,
+        received_headers: Object.fromEntries(response.headers)
+      };
+
+      return new Response(JSON.stringify(errorData, null, 2), {
+        status: 405,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    return response;
+
   } catch (err) {
-    return new Response(`Proxy Error: ${err.message}`, { status: 502 });
+    // This catches connection timeouts or refused connections
+    return new Response(JSON.stringify({
+      error: "Cloudflare could not reach your IP/Port",
+      details: err.message,
+      target: targetUrl
+    }), { status: 502, headers: { "Content-Type": "application/json" } });
   }
 }
