@@ -589,8 +589,7 @@ export default function TreeComparePage() {
             </span>
           </div>
           <TreeDiffView
-            left={diff.left}
-            right={diff.right}
+            slots={diff}
             leftLabel={leftLabel}
             rightLabel={rightLabel}
           />
