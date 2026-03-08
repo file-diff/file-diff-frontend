@@ -70,13 +70,16 @@ function setQueryParam(
 
 export default function TreeComparePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const defaultProvider = searchParams.get("provider")?.trim() ?? "";
-  const [leftProvider] = useState(
-    () => searchParams.get("leftProvider")?.trim() || defaultProvider
-  );
-  const [rightProvider] = useState(
-    () => searchParams.get("rightProvider")?.trim() || defaultProvider
-  );
+  const currentSearch = searchParams.toString();
+  const { leftProvider, rightProvider } = useMemo(() => {
+    const params = new URLSearchParams(currentSearch);
+    const defaultProvider = params.get("provider")?.trim() ?? "";
+
+    return {
+      leftProvider: params.get("leftProvider")?.trim() || defaultProvider,
+      rightProvider: params.get("rightProvider")?.trim() || defaultProvider,
+    };
+  }, [currentSearch]);
   const [leftInput, setLeftInput] = useState(sampleCsvLeft);
   const [rightInput, setRightInput] = useState(sampleCsvRight);
   const [leftEndpoint, setLeftEndpoint] = useState("");
@@ -122,23 +125,16 @@ export default function TreeComparePage() {
   }, [leftInput, rightInput, leftRoot, rightRoot, useNaturalSort]);
 
   useEffect(() => {
-    const nextParams = new URLSearchParams(searchParams);
+    const nextParams = new URLSearchParams(currentSearch);
     setQueryParam(nextParams, "leftRepo", leftRepo);
     setQueryParam(nextParams, "rightRepo", rightRepo);
     setQueryParam(nextParams, "leftRoot", leftRoot, DEFAULT_ROOT);
     setQueryParam(nextParams, "rightRoot", rightRoot, DEFAULT_ROOT);
 
-    if (nextParams.toString() !== searchParams.toString()) {
+    if (nextParams.toString() !== currentSearch) {
       setSearchParams(nextParams, { replace: true });
     }
-  }, [
-    leftRepo,
-    rightRepo,
-    leftRoot,
-    rightRoot,
-    searchParams,
-    setSearchParams,
-  ]);
+  }, [currentSearch, leftRepo, rightRepo, leftRoot, rightRoot, setSearchParams]);
 
 
   const loadSample = () => {
@@ -277,9 +273,7 @@ export default function TreeComparePage() {
   const handleStartIndexing = async (side: CompareSide) => {
     const repo = (side === "left" ? leftRepo : rightRepo).trim();
     const ref = (side === "left" ? leftRef : rightRef).trim() || DEFAULT_REF;
-    const provider = (
-      side === "left" ? leftProvider : rightProvider
-    ).trim();
+    const provider = (side === "left" ? leftProvider : rightProvider).trim() || "";
 
     if (!repo) {
       setApiError(`Enter the ${side} repository before starting indexing.`);
@@ -297,11 +291,8 @@ export default function TreeComparePage() {
       const payload: { provider?: string; ref: string; repo: string } = {
         repo,
         ref,
+        ...(provider ? { provider } : {}),
       };
-
-      if (provider) {
-        payload.provider = provider;
-      }
 
       const response = await fetch(INDEXING_TRIGGER_URL, {
         method: "POST",
