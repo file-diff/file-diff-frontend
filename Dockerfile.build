@@ -2,7 +2,7 @@
 # Usage:
 # docker build -t file-diff-frontend:build -f Dockerfile.build .
 
-FROM node:18-alpine AS build
+FROM node:24-alpine AS build
 
 # Set working dir
 WORKDIR /app
@@ -17,7 +17,7 @@ RUN npm ci || npm install
 RUN npm run build
 
 # Final image with only the dist folder to keep it small
-FROM alpine:3.18 AS dist
+FROM alpine AS dist
 WORKDIR /app
 COPY --from=build /app/dist ./dist
 
