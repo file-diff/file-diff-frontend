@@ -27,6 +27,11 @@
 
 .tree-diff__body {
   display: flex;
+  flex-direction: column;
+}
+
+.tree-diff__slot {
+  display: flex;
 }
 
 .tree-diff__column {
@@ -34,7 +39,7 @@
   min-width: 0;
 }
 
-.tree-diff__column:first-child {
+.tree-diff__slot .tree-diff__column:first-child {
   border-right: 1px solid #333;
 }
 
