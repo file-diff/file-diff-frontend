@@ -73,6 +73,57 @@ function normalizePath(path: string): string {
   return path.replace(/\\/g, "/");
 }
 
+function normalizeCompareRoot(rootPath: string): string {
+  return normalizePath(rootPath.trim()).replace(/^\/+|\/+$/g, "");
+}
+
+function rebaseEntries(entries: CsvEntry[], rootPath: string): CsvEntry[] {
+  const normalizedRoot = normalizeCompareRoot(rootPath);
+
+  if (!normalizedRoot) {
+    return entries;
+  }
+
+  const prefix = `${normalizedRoot}/`;
+
+  return entries.flatMap((entry) => {
+    const normalizedPath = normalizeCompareRoot(entry.path);
+
+    if (normalizedPath === normalizedRoot) {
+      if (entry.fileType === "d") {
+        return [];
+      }
+
+      const rebasedPath = entry.name;
+
+      return [
+        {
+          ...entry,
+          path: rebasedPath,
+          name: rebasedPath,
+          depth: 0,
+        },
+      ];
+    }
+
+    if (!normalizedPath.startsWith(prefix)) {
+      return [];
+    }
+
+    const rebasedPath = normalizedPath.slice(prefix.length);
+    const segments = rebasedPath.split("/");
+
+    return [
+      {
+        ...entry,
+        path: rebasedPath,
+        name: segments[segments.length - 1],
+        depth: segments.length - 1,
+      },
+    ];
+  });
+}
+
 function parseCsvLine(line: string): CsvEntry | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
@@ -181,19 +232,24 @@ export function jobFilesResponseToCsv(response: JobFilesResponse): string {
 export function diffCsv(
   leftEntries: CsvEntry[],
   rightEntries: CsvEntry[],
+  leftRootPath = "/",
+  rightRootPath = "/",
   useNaturalSort = false
 ): { left: (DiffEntry | null)[]; right: (DiffEntry | null)[] } {
-  const leftMap = new Map(leftEntries.map((e) => [e.path, e]));
-  const rightMap = new Map(rightEntries.map((e) => [e.path, e]));
+  const rebasedLeftEntries = rebaseEntries(leftEntries, leftRootPath);
+  const rebasedRightEntries = rebaseEntries(rightEntries, rightRootPath);
 
-  const leftPaths = new Set(leftEntries.map((e) => e.path));
-  const rightPaths = new Set(rightEntries.map((e) => e.path));
+  const leftMap = new Map(rebasedLeftEntries.map((e) => [e.path, e]));
+  const rightMap = new Map(rebasedRightEntries.map((e) => [e.path, e]));
+
+  const leftPaths = new Set(rebasedLeftEntries.map((e) => e.path));
+  const rightPaths = new Set(rebasedRightEntries.map((e) => e.path));
 
   // Collect all unique paths maintaining stable order
   const allPaths: string[] = [];
   const seen = new Set<string>();
   const dirPaths = new Set(
-    [...leftEntries, ...rightEntries]
+    [...rebasedLeftEntries, ...rebasedRightEntries]
       .filter((entry) => entry.fileType === "d")
       .map((entry) => entry.path)
   );
@@ -207,9 +263,9 @@ export function diffCsv(
 
   let li = 0,
     ri = 0;
-  while (li < leftEntries.length && ri < rightEntries.length) {
-    const leftPath = leftEntries[li].path;
-    const rightPath = rightEntries[ri].path;
+  while (li < rebasedLeftEntries.length && ri < rebasedRightEntries.length) {
+    const leftPath = rebasedLeftEntries[li].path;
+    const rightPath = rebasedRightEntries[ri].path;
 
     if (leftPath === rightPath) {
       addPath(leftPath);
@@ -230,13 +286,13 @@ export function diffCsv(
     ri++;
   }
 
-  while (li < leftEntries.length) {
-    addPath(leftEntries[li].path);
+  while (li < rebasedLeftEntries.length) {
+    addPath(rebasedLeftEntries[li].path);
     li++;
   }
 
-  while (ri < rightEntries.length) {
-    addPath(rightEntries[ri].path);
+  while (ri < rebasedRightEntries.length) {
+    addPath(rebasedRightEntries[ri].path);
     ri++;
   }
 
