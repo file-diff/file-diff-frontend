@@ -6,9 +6,11 @@ import TreeDiffView from "../components/TreeDiffView";
 import { sampleCsvLeft, sampleCsvRight } from "../data/sampleData";
 import "./TreeComparePage.css";
 
-const INDEXING_TRIGGER_URL =
-  "http://localhost:12986/api/jobs";
-const JOBS_BASE_URL = "http://localhost:12986/api/jobs";
+const DEV_JOBS_API_URL =
+  import.meta.env.VITE_JOBS_API_URL?.trim() ||
+  "http://65.109.154.126:12986/api/jobs";
+const INDEXING_TRIGGER_URL = DEV_JOBS_API_URL;
+const JOBS_BASE_URL = DEV_JOBS_API_URL;
 const POLL_INTERVAL_MS = 2000;
 const DEFAULT_JOB_STATUS = "waiting";
 const DEFAULT_LEFT_REF = "main";
@@ -499,7 +501,7 @@ export default function TreeComparePage() {
             type="url"
             value={leftEndpoint}
             onChange={(e) => setLeftEndpoint(e.target.value)}
-            placeholder="http://localhost:12986/api/jobs/<left-job-id>/files"
+            placeholder="http://65.109.154.126:12986/api/jobs/<left-job-id>/files"
             spellCheck={false}
           />
           <label htmlFor="left-csv">Left</label>
@@ -545,7 +547,7 @@ export default function TreeComparePage() {
             type="url"
             value={rightEndpoint}
             onChange={(e) => setRightEndpoint(e.target.value)}
-            placeholder="http://localhost:12986/api/jobs/<right-job-id>/files"
+            placeholder="http://65.109.154.126:12986/api/jobs/<right-job-id>/files"
             spellCheck={false}
           />
           <label htmlFor="right-csv">Right</label>
