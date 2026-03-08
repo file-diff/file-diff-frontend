@@ -6,9 +6,9 @@ import TreeDiffView from "../components/TreeDiffView";
 import { sampleCsvLeft, sampleCsvRight } from "../data/sampleData";
 import "./TreeComparePage.css";
 
-const DEV_BACKEND_BASE_URL = "http://65.109.154.126:12986/api/jobs";
-const INDEXING_TRIGGER_URL = DEV_BACKEND_BASE_URL;
-const JOBS_BASE_URL = DEV_BACKEND_BASE_URL;
+const DEV_JOBS_API_URL = "http://65.109.154.126:12986/api/jobs";
+const INDEXING_TRIGGER_URL = DEV_JOBS_API_URL;
+const JOBS_BASE_URL = DEV_JOBS_API_URL;
 const POLL_INTERVAL_MS = 2000;
 const DEFAULT_JOB_STATUS = "waiting";
 const DEFAULT_LEFT_REF = "main";
