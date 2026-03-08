@@ -18,7 +18,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 To override the default indexing backend, set `VITE_JOBS_API_URL` before
 starting the app. Otherwise the frontend uses
-`http://65.109.154.126:12986/api/jobs`.
+`https://filediff.org/api/jobs`.
 
 ## Usage
 
