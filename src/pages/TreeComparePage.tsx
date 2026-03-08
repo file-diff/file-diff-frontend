@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { parseCsv, diffCsv, jobFilesResponseToCsv } from "../utils/csvParser";
 import type { JobFilesResponse } from "../utils/csvParser";
 import TreeDiffView from "../components/TreeDiffView";
@@ -10,6 +11,8 @@ const INDEXING_TRIGGER_URL =
 const JOBS_BASE_URL = "http://localhost:12986/api/jobs";
 const POLL_INTERVAL_MS = 2000;
 const DEFAULT_JOB_STATUS = "waiting";
+const DEFAULT_REF = "main";
+const DEFAULT_ROOT = "/";
 const TERMINAL_JOB_STATUSES = new Set([
   "cancelled",
   "completed",
@@ -49,17 +52,52 @@ function isTerminalJobStatus(status?: string): boolean {
   return TERMINAL_JOB_STATUSES.has(status?.toLowerCase() ?? "");
 }
 
+function setQueryParam(
+  params: URLSearchParams,
+  key: string,
+  value: string,
+  defaultValue = ""
+): void {
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue || normalizedValue === defaultValue) {
+    params.delete(key);
+    return;
+  }
+
+  params.set(key, normalizedValue);
+}
+
 export default function TreeComparePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentSearch = searchParams.toString();
+  const { leftProvider, rightProvider } = useMemo(() => {
+    const params = new URLSearchParams(currentSearch);
+    const defaultProvider = params.get("provider")?.trim() ?? "";
+
+    return {
+      leftProvider: params.get("leftProvider")?.trim() || defaultProvider,
+      rightProvider: params.get("rightProvider")?.trim() || defaultProvider,
+    };
+  }, [currentSearch]);
   const [leftInput, setLeftInput] = useState(sampleCsvLeft);
   const [rightInput, setRightInput] = useState(sampleCsvRight);
   const [leftEndpoint, setLeftEndpoint] = useState("");
   const [rightEndpoint, setRightEndpoint] = useState("");
-  const [leftRepo, setLeftRepo] = useState("");
-  const [rightRepo, setRightRepo] = useState("");
-  const [leftRef, setLeftRef] = useState("main");
-  const [rightRef, setRightRef] = useState("main");
-  const [leftRoot, setLeftRoot] = useState("/");
-  const [rightRoot, setRightRoot] = useState("/");
+  const [leftRepo, setLeftRepo] = useState(
+    () => searchParams.get("leftRepo")?.trim() ?? ""
+  );
+  const [rightRepo, setRightRepo] = useState(
+    () => searchParams.get("rightRepo")?.trim() ?? ""
+  );
+  const [leftRef, setLeftRef] = useState(DEFAULT_REF);
+  const [rightRef, setRightRef] = useState(DEFAULT_REF);
+  const [leftRoot, setLeftRoot] = useState(
+    () => searchParams.get("leftRoot")?.trim() || DEFAULT_ROOT
+  );
+  const [rightRoot, setRightRoot] = useState(
+    () => searchParams.get("rightRoot")?.trim() || DEFAULT_ROOT
+  );
   const [leftLabel, setLeftLabel] = useState("Left");
   const [rightLabel, setRightLabel] = useState("Right");
   const [leftJob, setLeftJob] = useState<IndexingJobState | null>(null);
@@ -86,6 +124,18 @@ export default function TreeComparePage() {
     }
   }, [leftInput, rightInput, leftRoot, rightRoot, useNaturalSort]);
 
+  useEffect(() => {
+    const nextParams = new URLSearchParams(currentSearch);
+    setQueryParam(nextParams, "leftRepo", leftRepo);
+    setQueryParam(nextParams, "rightRepo", rightRepo);
+    setQueryParam(nextParams, "leftRoot", leftRoot, DEFAULT_ROOT);
+    setQueryParam(nextParams, "rightRoot", rightRoot, DEFAULT_ROOT);
+
+    if (nextParams.toString() !== currentSearch) {
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [currentSearch, leftRepo, rightRepo, leftRoot, rightRoot, setSearchParams]);
+
 
   const loadSample = () => {
     setLeftInput(sampleCsvLeft);
@@ -94,8 +144,8 @@ export default function TreeComparePage() {
     setRightEndpoint("");
     setLeftJob(null);
     setRightJob(null);
-    setLeftRoot("/");
-    setRightRoot("/");
+    setLeftRoot(DEFAULT_ROOT);
+    setRightRoot(DEFAULT_ROOT);
     setLeftLabel("Left");
     setRightLabel("Right");
     setApiError("");
@@ -108,10 +158,10 @@ export default function TreeComparePage() {
     setRightEndpoint("");
     setLeftRepo("");
     setRightRepo("");
-    setLeftRef("main");
-    setRightRef("main");
-    setLeftRoot("/");
-    setRightRoot("/");
+    setLeftRef(DEFAULT_REF);
+    setRightRef(DEFAULT_REF);
+    setLeftRoot(DEFAULT_ROOT);
+    setRightRoot(DEFAULT_ROOT);
     setLeftJob(null);
     setRightJob(null);
     setApiError("");
@@ -222,7 +272,8 @@ export default function TreeComparePage() {
 
   const handleStartIndexing = async (side: CompareSide) => {
     const repo = (side === "left" ? leftRepo : rightRepo).trim();
-    const ref = (side === "left" ? leftRef : rightRef).trim() || "main";
+    const ref = (side === "left" ? leftRef : rightRef).trim() || DEFAULT_REF;
+    const provider = (side === "left" ? leftProvider : rightProvider).trim() || "";
 
     if (!repo) {
       setApiError(`Enter the ${side} repository before starting indexing.`);
@@ -237,12 +288,18 @@ export default function TreeComparePage() {
     }
 
     try {
+      const payload: { provider?: string; ref: string; repo: string } = {
+        repo,
+        ref,
+        ...(provider ? { provider } : {}),
+      };
+
       const response = await fetch(INDEXING_TRIGGER_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ repo, ref }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
