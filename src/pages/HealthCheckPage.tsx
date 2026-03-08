@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { API_BASE_URL, JOBS_API_URL } from "../config/api";
+import { DEFAULT_API_BASE_URL, JOBS_API_URL } from "../config/api";
 import "./HealthCheckPage.css";
 
 type BackendCheckState = "idle" | "loading" | "healthy" | "reachable" | "error";
@@ -78,8 +78,8 @@ export default function HealthCheckPage() {
       <div className="health-check-card">
         <div className="health-check-config">
           <div>
-            <span className="health-check-label">API base</span>
-            <code>{API_BASE_URL}</code>
+            <span className="health-check-label">Default API base</span>
+            <code>{DEFAULT_API_BASE_URL}</code>
           </div>
           <div>
             <span className="health-check-label">Jobs API</span>
