@@ -1,0 +1,25 @@
+# Multi-stage Dockerfile to produce a static build in /app/dist
+# Usage:
+# docker build -t file-diff-frontend:build -f Dockerfile.build .
+
+FROM node:18-alpine AS build
+
+# Set working dir
+WORKDIR /app
+
+# Copy all files (keeps it simple – the image is only used for build artifacts)
+COPY . .
+
+# Install dependencies. Use npm ci when package-lock.json exists, fallback to npm install.
+RUN npm ci || npm install
+
+# Build the project (tsc + vite build as defined in package.json)
+RUN npm run build
+
+# Final image with only the dist folder to keep it small
+FROM alpine:3.18 AS dist
+WORKDIR /app
+COPY --from=build /app/dist ./dist
+
+# No runtime commands needed; this image just holds the build output.
+
