@@ -36,6 +36,11 @@ export interface DiffEntry {
   status: DiffStatus;
 }
 
+export interface ComparisonSlot {
+  left: DiffEntry | null;
+  right: DiffEntry | null;
+}
+
 const naturalSort = natsort();
 
 function comparePathsInTreeOrder(
@@ -226,7 +231,7 @@ export function jobFilesResponseToCsv(response: JobFilesResponse): string {
 }
 
 /**
- * Compare two CSV entry lists and produce aligned diff entries for left and right.
+ * Compare two CSV entry lists and produce aligned diff entry slots.
  * Detects modifications by comparing hashes for entries at the same path.
  */
 export function diffCsv(
@@ -235,7 +240,7 @@ export function diffCsv(
   leftRootPath = "/",
   rightRootPath = "/",
   useNaturalSort = false
-): { left: (DiffEntry | null)[]; right: (DiffEntry | null)[] } {
+): ComparisonSlot[] {
   const rebasedLeftEntries = rebaseEntries(leftEntries, leftRootPath);
   const rebasedRightEntries = rebaseEntries(rightEntries, rightRootPath);
 
@@ -296,8 +301,7 @@ export function diffCsv(
     ri++;
   }
 
-  const left: (DiffEntry | null)[] = [];
-  const right: (DiffEntry | null)[] = [];
+  const slots: ComparisonSlot[] = [];
 
   for (const p of allPaths) {
     const inLeft = leftPaths.has(p);
@@ -309,18 +313,24 @@ export function diffCsv(
       // Directories don't have meaningful hashes, only files can be "modified"
       const status: DiffStatus =
         le.hash !== re.hash && le.fileType !== "d" ? "modified" : "same";
-      left.push({ ...le, status });
-      right.push({ ...re, status });
+      slots.push({
+        left: { ...le, status },
+        right: { ...re, status },
+      });
     } else if (inLeft && !inRight) {
       const le = leftMap.get(p)!;
-      left.push({ ...le, status: "removed" });
-      right.push(null);
+      slots.push({
+        left: { ...le, status: "removed" },
+        right: null,
+      });
     } else {
       const re = rightMap.get(p)!;
-      left.push(null);
-      right.push({ ...re, status: "added" });
+      slots.push({
+        left: null,
+        right: { ...re, status: "added" },
+      });
     }
   }
 
-  return { left, right };
+  return slots;
 }

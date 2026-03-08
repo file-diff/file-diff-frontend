@@ -1,9 +1,8 @@
-import type { DiffEntry } from "../utils/csvParser";
+import type { ComparisonSlot, DiffEntry } from "../utils/csvParser";
 import "./TreeDiffView.css";
 
 interface TreeDiffViewProps {
-  left: (DiffEntry | null)[];
-  right: (DiffEntry | null)[];
+  slots: ComparisonSlot[];
   leftLabel: string;
   rightLabel: string;
 }
@@ -50,8 +49,7 @@ function EntryRow({ entry }: { entry: DiffEntry | null }) {
 }
 
 export default function TreeDiffView({
-  left,
-  right,
+  slots,
   leftLabel,
   rightLabel,
 }: TreeDiffViewProps) {
@@ -66,16 +64,19 @@ export default function TreeDiffView({
         </div>
       </div>
       <div className="tree-diff__body">
-        <div className="tree-diff__column">
-          {left.map((entry, i) => (
-            <EntryRow key={entry?.path ?? `empty-left-${i}`} entry={entry} />
-          ))}
-        </div>
-        <div className="tree-diff__column">
-          {right.map((entry, i) => (
-            <EntryRow key={entry?.path ?? `empty-right-${i}`} entry={entry} />
-          ))}
-        </div>
+        {slots.map((slot, i) => (
+          <div
+            className="tree-diff__slot"
+            key={slot.left?.path ?? slot.right?.path ?? `slot-${i}`}
+          >
+            <div className="tree-diff__column">
+              <EntryRow entry={slot.left} />
+            </div>
+            <div className="tree-diff__column">
+              <EntryRow entry={slot.right} />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
