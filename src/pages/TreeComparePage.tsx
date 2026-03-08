@@ -86,6 +86,7 @@ export default function TreeComparePage() {
     }
   }, [leftInput, rightInput, leftRoot, rightRoot, useNaturalSort]);
 
+
   const loadSample = () => {
     setLeftInput(sampleCsvLeft);
     setRightInput(sampleCsvRight);
