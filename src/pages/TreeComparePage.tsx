@@ -31,8 +31,21 @@ type CompareSide = "left" | "right";
 
 interface IndexingJobStartResponse {
   id?: string;
+  repo?: string;
+  ref?: string;
   status?: string;
+  progress?: number;
+  total_files?: number;
+  totalFiles?: number;
+  processed_files?: number;
+  processedFiles?: number;
+  error?: string;
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
   commit?: string;
+  commitShort?: string;
   commit_sha?: string;
   commitSha?: string;
   resolved_commit?: string;
@@ -47,10 +60,16 @@ interface IndexingJobStatusResponse {
   status?: string;
   progress?: number;
   total_files?: number;
+  totalFiles?: number;
   processed_files?: number;
+  processedFiles?: number;
   created_at?: string;
+  createdAt?: string;
   updated_at?: string;
+  updatedAt?: string;
+  error?: string;
   commit?: string;
+  commitShort?: string;
   commit_sha?: string;
   commitSha?: string;
   resolved_commit?: string;
@@ -151,6 +170,30 @@ function extractResolvedCommit(
       (value): value is string => typeof value === "string" && value.trim() !== ""
     )?.trim() ?? ""
   );
+}
+
+function getTotalFiles(
+  data: IndexingJobStartResponse | IndexingJobStatusResponse
+): number | undefined {
+  return data.totalFiles ?? data.total_files;
+}
+
+function getProcessedFiles(
+  data: IndexingJobStartResponse | IndexingJobStatusResponse
+): number | undefined {
+  return data.processedFiles ?? data.processed_files;
+}
+
+function getCreatedAt(
+  data: IndexingJobStartResponse | IndexingJobStatusResponse
+): string | undefined {
+  return data.createdAt ?? data.created_at;
+}
+
+function getUpdatedAt(
+  data: IndexingJobStartResponse | IndexingJobStatusResponse
+): string | undefined {
+  return data.updatedAt ?? data.updated_at;
 }
 
 function readIndexingHistory(): IndexingHistoryEntry[] {
@@ -360,7 +403,7 @@ export default function TreeComparePage() {
       fallbackJobId?: string
     ): number => {
       const csv = jobFilesResponseToCsv(data);
-      const label = data.job_id ?? fallbackJobId;
+      const label = data.jobId ?? data.job_id ?? fallbackJobId;
 
       if (side === "left") {
         setLeftInput(csv);
@@ -410,11 +453,12 @@ export default function TreeComparePage() {
           ref: statusData.ref ?? currentJob.ref,
           status: statusData.status ?? currentJob.status,
           progress: statusData.progress ?? currentJob.progress,
-          total_files: statusData.total_files ?? currentJob.total_files,
+          total_files: getTotalFiles(statusData) ?? currentJob.total_files,
           processed_files:
-            statusData.processed_files ?? currentJob.processed_files,
-          created_at: statusData.created_at ?? currentJob.created_at,
-          updated_at: statusData.updated_at ?? currentJob.updated_at,
+            getProcessedFiles(statusData) ?? currentJob.processed_files,
+          created_at: getCreatedAt(statusData) ?? currentJob.created_at,
+          updated_at: getUpdatedAt(statusData) ?? currentJob.updated_at,
+          error: statusData.error ?? currentJob.error,
           historyEntryId: currentJob.historyEntryId,
           inputRefName: currentJob.inputRefName,
           resolvedCommit:
@@ -528,14 +572,15 @@ export default function TreeComparePage() {
 
       const nextJob: IndexingJobState = {
         id: data.id,
-        repo,
-        ref,
+        repo: data.repo ?? repo,
+        ref: data.ref ?? ref,
         status: data.status ?? DEFAULT_JOB_STATUS,
-        progress: 0,
-        total_files: 0,
-        processed_files: 0,
-        created_at: "",
-        updated_at: "",
+        progress: data.progress ?? 0,
+        total_files: getTotalFiles(data) ?? 0,
+        processed_files: getProcessedFiles(data) ?? 0,
+        created_at: getCreatedAt(data) ?? "",
+        updated_at: getUpdatedAt(data) ?? "",
+        error: data.error,
         filesLoaded: 0,
         filesUrl: buildJobFilesUrl(data.id),
         historyEntryId,
@@ -642,6 +687,12 @@ export default function TreeComparePage() {
           <span className="indexing-job-status__label">Files returned</span>
           <span>{job.filesLoaded}</span>
         </div>
+        {job.error ? (
+          <div className="indexing-job-status__row">
+            <span className="indexing-job-status__label">Error</span>
+            <span>{job.error}</span>
+          </div>
+        ) : null}
       </div>
     );
   };
