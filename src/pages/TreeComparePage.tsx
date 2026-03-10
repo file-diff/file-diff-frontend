@@ -5,7 +5,13 @@ import type { JobFilesResponse } from "../utils/csvParser";
 import TreeDiffView from "../components/TreeDiffView";
 import { sampleCsvLeft, sampleCsvRight } from "../data/sampleData";
 import { JOBS_API_URL } from "../config/api";
-import { readLastSelectedParams, writeLastSelectedParams, readIndexingHistory, writeIndexingHistory } from "../utils/storage";
+import {
+  buildComparePermalink,
+  readLastSelectedParams,
+  writeLastSelectedParams,
+  readIndexingHistory,
+  writeIndexingHistory,
+} from "../utils/storage";
 import type { CompareSide, StoredIndexingSideParams, IndexingHistoryEntry } from "../utils/storage";
 import "./TreeComparePage.css";
 
@@ -187,6 +193,7 @@ function buildStoredIndexingSideParams(params: {
   job: IndexingJobState | null;
   provider: string;
   repo: string;
+  resolvedCommit?: string;
   root: string;
 }): StoredIndexingSideParams {
   const endpoint = params.endpoint.trim();
@@ -194,7 +201,7 @@ function buildStoredIndexingSideParams(params: {
   return {
     repo: params.repo.trim(),
     inputRefName: params.inputRefName.trim(),
-    resolvedCommit: params.job?.resolvedCommit?.trim() ?? "",
+    resolvedCommit: params.job?.resolvedCommit?.trim() ?? params.resolvedCommit?.trim() ?? "",
     provider: params.provider.trim(),
     root: params.root.trim(),
     endpoint: endpoint || params.job?.filesUrl || "",
@@ -220,8 +227,7 @@ function updateIndexingHistoryEntry(
       continue;
     }
     const sideEntry = entry[side];
-
-    history[index] = {
+    const updatedEntry = {
       ...entry,
       [side]: {
         ...sideEntry,
@@ -231,6 +237,11 @@ function updateIndexingHistoryEntry(
         resolvedCommit: job.resolvedCommit || sideEntry.resolvedCommit,
         status: job.status ?? sideEntry.status,
       },
+    };
+
+    history[index] = {
+      ...updatedEntry,
+      permalink: buildComparePermalink(updatedEntry.left, updatedEntry.right),
     };
     writeIndexingHistory(history);
     return;
@@ -519,6 +530,12 @@ export default function TreeComparePage() {
   );
   const [leftLabel, setLeftLabel] = useState("Left");
   const [rightLabel, setRightLabel] = useState("Right");
+  const [leftPinnedCommit, setLeftPinnedCommit] = useState(
+    () => searchParams.get("leftCommit")?.trim() || ""
+  );
+  const [rightPinnedCommit, setRightPinnedCommit] = useState(
+    () => searchParams.get("rightCommit")?.trim() || ""
+  );
   const [leftJob, setLeftJob] = useState<IndexingJobState | null>(null);
   const [rightJob, setRightJob] = useState<IndexingJobState | null>(null);
   const [leftIsStarting, setLeftIsStarting] = useState(false);
@@ -532,6 +549,10 @@ export default function TreeComparePage() {
   const rightRefsState = useRepositoryRefs(rightRepo);
   const leftResolvedCommitState = useResolvedCommit(leftRepo, leftRef);
   const rightResolvedCommitState = useResolvedCommit(rightRepo, rightRef);
+  const leftCurrentCommit =
+    leftJob?.resolvedCommit || leftPinnedCommit || leftResolvedCommitState.commit;
+  const rightCurrentCommit =
+    rightJob?.resolvedCommit || rightPinnedCommit || rightResolvedCommitState.commit;
 
   const diff = useMemo(() => {
     try {
@@ -551,17 +572,30 @@ export default function TreeComparePage() {
 
   useEffect(() => {
     const nextParams = new URLSearchParams(currentSearch);
-    setQueryParam(nextParams, "leftRepo", leftRepo, DEFAULT_LEFT_REPO);
-    setQueryParam(nextParams, "rightRepo", rightRepo, DEFAULT_RIGHT_REPO);
-    setQueryParam(nextParams, "leftRef", leftRef, DEFAULT_LEFT_REF);
-    setQueryParam(nextParams, "rightRef", rightRef, DEFAULT_RIGHT_REF);
-    setQueryParam(nextParams, "leftRoot", leftRoot, DEFAULT_LEFT_ROOT);
-    setQueryParam(nextParams, "rightRoot", rightRoot, DEFAULT_RIGHT_ROOT);
+    setQueryParam(nextParams, "leftRepo", leftRepo);
+    setQueryParam(nextParams, "rightRepo", rightRepo);
+    setQueryParam(nextParams, "leftRef", leftRef);
+    setQueryParam(nextParams, "rightRef", rightRef);
+    setQueryParam(nextParams, "leftCommit", leftCurrentCommit);
+    setQueryParam(nextParams, "rightCommit", rightCurrentCommit);
+    setQueryParam(nextParams, "leftRoot", leftRoot);
+    setQueryParam(nextParams, "rightRoot", rightRoot);
 
     if (nextParams.toString() !== currentSearch) {
       setSearchParams(nextParams, { replace: true });
     }
-  }, [currentSearch, leftRepo, rightRepo, leftRef, rightRef, leftRoot, rightRoot, setSearchParams]);
+  }, [
+    currentSearch,
+    leftCurrentCommit,
+    leftRepo,
+    leftRef,
+    leftRoot,
+    rightCurrentCommit,
+    rightRepo,
+    rightRef,
+    rightRoot,
+    setSearchParams,
+  ]);
 
   useEffect(() => {
     writeLastSelectedParams({
@@ -584,6 +618,8 @@ export default function TreeComparePage() {
     setRightJob(null);
     setLeftRoot(DEFAULT_LEFT_ROOT);
     setRightRoot(DEFAULT_RIGHT_ROOT);
+    setLeftPinnedCommit("");
+    setRightPinnedCommit("");
     setLeftLabel("Left");
     setRightLabel("Right");
     setApiError("");
@@ -600,6 +636,8 @@ export default function TreeComparePage() {
     setRightRef(DEFAULT_RIGHT_REF);
     setLeftRoot(DEFAULT_LEFT_ROOT);
     setRightRoot(DEFAULT_RIGHT_ROOT);
+    setLeftPinnedCommit("");
+    setRightPinnedCommit("");
     setLeftJob(null);
     setRightJob(null);
     setApiError("");
@@ -718,6 +756,7 @@ export default function TreeComparePage() {
   const handleStartIndexing = async (side: CompareSide) => {
     const repo = (side === "left" ? leftRepo : rightRepo).trim();
     const ref = (side === "left" ? leftRef : rightRef).trim();
+    const currentCommit = side === "left" ? leftCurrentCommit : rightCurrentCommit;
 
     if (!repo) {
       setApiError(`Enter the ${side} repository before starting indexing.`);
@@ -732,31 +771,43 @@ export default function TreeComparePage() {
     }
 
     const historyEntryId = crypto.randomUUID();
+    const leftHistorySide = buildStoredIndexingSideParams({
+      repo: leftRepo,
+      inputRefName: leftRef,
+      provider: leftProvider,
+      root: leftRoot,
+      resolvedCommit: leftCurrentCommit,
+      endpoint: side === "left" ? "" : leftEndpoint,
+      job: side === "left" ? null : leftJob,
+    });
+    const rightHistorySide = buildStoredIndexingSideParams({
+      repo: rightRepo,
+      inputRefName: rightRef,
+      provider: rightProvider,
+      root: rightRoot,
+      resolvedCommit: rightCurrentCommit,
+      endpoint: side === "right" ? "" : rightEndpoint,
+      job: side === "right" ? null : rightJob,
+    });
     appendIndexingHistoryEntry({
       id: historyEntryId,
+      permalink: buildComparePermalink(leftHistorySide, rightHistorySide),
       storedAt: new Date().toISOString(),
       startedSide: side,
       useNaturalSort,
-      left: buildStoredIndexingSideParams({
-        repo: leftRepo,
-        inputRefName: leftRef,
-        provider: leftProvider,
-        root: leftRoot,
-        endpoint: side === "left" ? "" : leftEndpoint,
-        job: side === "left" ? null : leftJob,
-      }),
-      right: buildStoredIndexingSideParams({
-        repo: rightRepo,
-        inputRefName: rightRef,
-        provider: rightProvider,
-        root: rightRoot,
-        endpoint: side === "right" ? "" : rightEndpoint,
-        job: side === "right" ? null : rightJob,
-      }),
+      left: leftHistorySide,
+      right: rightHistorySide,
     });
 
     try {
-      const resolvedCommit = await requestResolvedCommit(repo, ref);
+      const resolvedCommit = currentCommit
+        ? {
+            repo,
+            ref,
+            commit: currentCommit,
+            commitShort: currentCommit.slice(0, 7),
+          }
+        : await requestResolvedCommit(repo, ref);
       const payload: JobRequest = {
         repo,
         commit: resolvedCommit.commit,
@@ -797,6 +848,12 @@ export default function TreeComparePage() {
         inputRefName: ref,
         resolvedCommit: extractResolvedCommit(data) || resolvedCommit.commit,
       };
+
+      if (side === "left") {
+        setLeftPinnedCommit(nextJob.resolvedCommit);
+      } else {
+        setRightPinnedCommit(nextJob.resolvedCommit);
+      }
 
       updateIndexingHistoryEntry(historyEntryId, side, nextJob);
 
@@ -951,7 +1008,12 @@ export default function TreeComparePage() {
               id="left-repo"
               type="text"
               value={leftRepo}
-              onChange={(e) => setLeftRepo(e.target.value)}
+              onChange={(e) => {
+                setLeftRepo(e.target.value);
+                setLeftPinnedCommit("");
+                setLeftEndpoint("");
+                setLeftJob(null);
+              }}
               placeholder="Arkiv-Network/arkiv-op-geth"
               spellCheck={false}
             />
@@ -960,14 +1022,19 @@ export default function TreeComparePage() {
               type="text"
               value={leftRef}
               list="left-ref-options"
-              onChange={(e) => setLeftRef(e.target.value)}
+              onChange={(e) => {
+                setLeftRef(e.target.value);
+                setLeftPinnedCommit("");
+                setLeftEndpoint("");
+                setLeftJob(null);
+              }}
               placeholder="main"
               spellCheck={false}
             />
             <input
               id="left-commit"
               type="text"
-              value={leftResolvedCommitState.commit}
+              value={leftCurrentCommit}
               placeholder="Resolved commit SHA"
               readOnly
               spellCheck={false}
@@ -994,8 +1061,8 @@ export default function TreeComparePage() {
               ? "Resolving full commit SHA…"
               : leftResolvedCommitState.error
                 ? leftResolvedCommitState.error
-                : leftResolvedCommitState.commit
-                  ? `Resolved commit ${leftResolvedCommitState.commitShort || leftResolvedCommitState.commit}.`
+                : leftCurrentCommit
+                  ? `Commit ${(leftCurrentCommit || "").slice(0, 7) || leftCurrentCommit}.`
                   : leftRefsState.isLoading
                     ? "Loading available refs…"
                     : leftRefsState.error
@@ -1030,7 +1097,12 @@ export default function TreeComparePage() {
               id="right-repo"
               type="text"
               value={rightRepo}
-              onChange={(e) => setRightRepo(e.target.value)}
+              onChange={(e) => {
+                setRightRepo(e.target.value);
+                setRightPinnedCommit("");
+                setRightEndpoint("");
+                setRightJob(null);
+              }}
               placeholder="Arkiv-Network/arkiv-op-geth"
               spellCheck={false}
             />
@@ -1039,14 +1111,19 @@ export default function TreeComparePage() {
               type="text"
               value={rightRef}
               list="right-ref-options"
-              onChange={(e) => setRightRef(e.target.value)}
+              onChange={(e) => {
+                setRightRef(e.target.value);
+                setRightPinnedCommit("");
+                setRightEndpoint("");
+                setRightJob(null);
+              }}
               placeholder="main"
               spellCheck={false}
             />
             <input
               id="right-commit"
               type="text"
-              value={rightResolvedCommitState.commit}
+              value={rightCurrentCommit}
               placeholder="Resolved commit SHA"
               readOnly
               spellCheck={false}
@@ -1073,8 +1150,8 @@ export default function TreeComparePage() {
               ? "Resolving full commit SHA…"
               : rightResolvedCommitState.error
                 ? rightResolvedCommitState.error
-                : rightResolvedCommitState.commit
-                  ? `Resolved commit ${rightResolvedCommitState.commitShort || rightResolvedCommitState.commit}.`
+                : rightCurrentCommit
+                  ? `Commit ${(rightCurrentCommit || "").slice(0, 7) || rightCurrentCommit}.`
                   : rightRefsState.isLoading
                     ? "Loading available refs…"
                     : rightRefsState.error
