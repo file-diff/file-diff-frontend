@@ -162,6 +162,10 @@ function extractResolvedCommit(
   );
 }
 
+function formatCommitSummary(commit: string): string {
+  return `Commit ${commit.slice(0, 7)}.`;
+}
+
 function getTotalFiles(
   data: IndexingJobStartResponse | IndexingJobStatusResponse
 ): number | undefined {
@@ -1058,11 +1062,11 @@ export default function TreeComparePage() {
           </div>
           <div className="indexing-controls__hint" aria-live="polite">
             {leftResolvedCommitState.isLoading
-              ? "Resolving full commit SHA…"
+                ? "Resolving full commit SHA…"
               : leftResolvedCommitState.error
                 ? leftResolvedCommitState.error
                 : leftCurrentCommit
-                  ? `Commit ${(leftCurrentCommit || "").slice(0, 7) || leftCurrentCommit}.`
+                  ? formatCommitSummary(leftCurrentCommit)
                   : leftRefsState.isLoading
                     ? "Loading available refs…"
                     : leftRefsState.error
@@ -1147,11 +1151,11 @@ export default function TreeComparePage() {
           </div>
           <div className="indexing-controls__hint" aria-live="polite">
             {rightResolvedCommitState.isLoading
-              ? "Resolving full commit SHA…"
+                ? "Resolving full commit SHA…"
               : rightResolvedCommitState.error
                 ? rightResolvedCommitState.error
                 : rightCurrentCommit
-                  ? `Commit ${(rightCurrentCommit || "").slice(0, 7) || rightCurrentCommit}.`
+                  ? formatCommitSummary(rightCurrentCommit)
                   : rightRefsState.isLoading
                     ? "Loading available refs…"
                     : rightRefsState.error
