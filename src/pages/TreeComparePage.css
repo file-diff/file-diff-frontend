@@ -145,6 +145,14 @@
   cursor: wait;
 }
 
+.indexing-controls__hint {
+  margin-top: -4px;
+  margin-bottom: 12px;
+  color: #8b949e;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .indexing-job-status {
   margin-bottom: 12px;
   padding: 12px;
