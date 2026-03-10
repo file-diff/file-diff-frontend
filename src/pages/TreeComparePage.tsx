@@ -11,6 +11,7 @@ const INDEXING_TRIGGER_URL = JOBS_API_URL;
 const JOBS_BASE_URL = JOBS_API_URL;
 const POLL_INTERVAL_MS = 2000;
 const DEFAULT_JOB_STATUS = "waiting";
+const INDEXING_HISTORY_STORAGE_KEY = "indexing-parameter-history";
 const DEFAULT_LEFT_REF = "main";
 const DEFAULT_RIGHT_REF = "main";
 const DEFAULT_LEFT_REPO = "file-diff/file-diff-test-data";
@@ -31,6 +32,12 @@ type CompareSide = "left" | "right";
 interface IndexingJobStartResponse {
   id?: string;
   status?: string;
+  commit?: string;
+  commit_sha?: string;
+  commitSha?: string;
+  resolved_commit?: string;
+  resolvedCommit?: string;
+  sha?: string;
 }
 
 interface IndexingJobStatusResponse {
@@ -43,11 +50,80 @@ interface IndexingJobStatusResponse {
   processed_files?: number;
   created_at?: string;
   updated_at?: string;
+  commit?: string;
+  commit_sha?: string;
+  commitSha?: string;
+  resolved_commit?: string;
+  resolvedCommit?: string;
+  sha?: string;
 }
 
 interface IndexingJobState extends IndexingJobStatusResponse {
   filesLoaded: number;
   filesUrl: string;
+  historyEntryId: string;
+  inputRefName: string;
+  resolvedCommit: string;
+}
+
+interface StoredIndexingSideParams {
+  endpoint: string;
+  inputRefName: string;
+  jobId: string;
+  provider: string;
+  repo: string;
+  resolvedCommit: string;
+  root: string;
+  status: string;
+}
+
+interface IndexingHistoryEntry {
+  id: string;
+  left: StoredIndexingSideParams;
+  right: StoredIndexingSideParams;
+  startedSide: CompareSide;
+  storedAt: string;
+  useNaturalSort: boolean;
+}
+
+function isCompareSide(value: unknown): value is CompareSide {
+  return value === "left" || value === "right";
+}
+
+function isStoredIndexingSideParams(
+  value: unknown
+): value is StoredIndexingSideParams {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.endpoint === "string" &&
+    typeof candidate.inputRefName === "string" &&
+    typeof candidate.jobId === "string" &&
+    typeof candidate.provider === "string" &&
+    typeof candidate.repo === "string" &&
+    typeof candidate.resolvedCommit === "string" &&
+    typeof candidate.root === "string" &&
+    typeof candidate.status === "string"
+  );
+}
+
+function isIndexingHistoryEntry(value: unknown): value is IndexingHistoryEntry {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    isStoredIndexingSideParams(candidate.left) &&
+    isStoredIndexingSideParams(candidate.right) &&
+    isCompareSide(candidate.startedSide) &&
+    typeof candidate.storedAt === "string" &&
+    typeof candidate.useNaturalSort === "boolean"
+  );
 }
 
 function buildJobFilesUrl(jobId: string): string {
@@ -56,6 +132,108 @@ function buildJobFilesUrl(jobId: string): string {
 
 function isTerminalJobStatus(status?: string): boolean {
   return TERMINAL_JOB_STATUSES.has(status?.toLowerCase() ?? "");
+}
+
+function extractResolvedCommit(
+  data: IndexingJobStartResponse | IndexingJobStatusResponse
+): string {
+  const candidates = [
+    data.resolvedCommit,
+    data.resolved_commit,
+    data.commitSha,
+    data.commit_sha,
+    data.commit,
+    data.sha,
+  ];
+
+  return (
+    candidates.find(
+      (value): value is string => typeof value === "string" && value.trim() !== ""
+    )?.trim() ?? ""
+  );
+}
+
+function readIndexingHistory(): IndexingHistoryEntry[] {
+  try {
+    const raw = window.localStorage.getItem(INDEXING_HISTORY_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter(isIndexingHistoryEntry)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeIndexingHistory(history: IndexingHistoryEntry[]): void {
+  try {
+    window.localStorage.setItem(
+      INDEXING_HISTORY_STORAGE_KEY,
+      JSON.stringify(history)
+    );
+  } catch {
+    return;
+  }
+}
+
+function buildStoredIndexingSideParams(params: {
+  endpoint: string;
+  inputRefName: string;
+  job: IndexingJobState | null;
+  provider: string;
+  repo: string;
+  root: string;
+}): StoredIndexingSideParams {
+  const endpoint = params.endpoint.trim();
+
+  return {
+    repo: params.repo.trim(),
+    inputRefName: params.inputRefName.trim(),
+    resolvedCommit: params.job?.resolvedCommit?.trim() ?? "",
+    provider: params.provider.trim(),
+    root: params.root.trim(),
+    endpoint: endpoint || params.job?.filesUrl || "",
+    jobId: params.job?.id ?? "",
+    status: params.job?.status ?? "",
+  };
+}
+
+function appendIndexingHistoryEntry(entry: IndexingHistoryEntry): void {
+  writeIndexingHistory([...readIndexingHistory(), entry]);
+}
+
+function updateIndexingHistoryEntry(
+  entryId: string,
+  side: CompareSide,
+  job: IndexingJobState
+): void {
+  const history = readIndexingHistory();
+
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const entry = history[index];
+    if (entry.id !== entryId) {
+      continue;
+    }
+    const sideEntry = entry[side];
+
+    history[index] = {
+      ...entry,
+      [side]: {
+        ...sideEntry,
+        endpoint: job.filesUrl || sideEntry.endpoint,
+        inputRefName: job.inputRefName || sideEntry.inputRefName,
+        jobId: job.id || sideEntry.jobId,
+        resolvedCommit: job.resolvedCommit || sideEntry.resolvedCommit,
+        status: job.status ?? sideEntry.status,
+      },
+    };
+    writeIndexingHistory(history);
+    return;
+  }
 }
 
 function setQueryParam(
@@ -237,8 +415,14 @@ export default function TreeComparePage() {
             statusData.processed_files ?? currentJob.processed_files,
           created_at: statusData.created_at ?? currentJob.created_at,
           updated_at: statusData.updated_at ?? currentJob.updated_at,
+          historyEntryId: currentJob.historyEntryId,
+          inputRefName: currentJob.inputRefName,
+          resolvedCommit:
+            extractResolvedCommit(statusData) || currentJob.resolvedCommit,
           filesLoaded,
         };
+
+        updateIndexingHistoryEntry(currentJob.historyEntryId, side, nextJob);
 
         if (side === "left") {
           setLeftJob(nextJob);
@@ -293,6 +477,30 @@ export default function TreeComparePage() {
       setRightIsStarting(true);
     }
 
+    const historyEntryId = crypto.randomUUID();
+    appendIndexingHistoryEntry({
+      id: historyEntryId,
+      storedAt: new Date().toISOString(),
+      startedSide: side,
+      useNaturalSort,
+      left: buildStoredIndexingSideParams({
+        repo: leftRepo,
+        inputRefName: leftRef,
+        provider: leftProvider,
+        root: leftRoot,
+        endpoint: side === "left" ? "" : leftEndpoint,
+        job: side === "left" ? null : leftJob,
+      }),
+      right: buildStoredIndexingSideParams({
+        repo: rightRepo,
+        inputRefName: rightRef,
+        provider: rightProvider,
+        root: rightRoot,
+        endpoint: side === "right" ? "" : rightEndpoint,
+        job: side === "right" ? null : rightJob,
+      }),
+    });
+
     try {
       const payload: { provider?: string; ref: string; repo: string } = {
         repo,
@@ -330,7 +538,12 @@ export default function TreeComparePage() {
         updated_at: "",
         filesLoaded: 0,
         filesUrl: buildJobFilesUrl(data.id),
+        historyEntryId,
+        inputRefName: ref,
+        resolvedCommit: extractResolvedCommit(data),
       };
+
+      updateIndexingHistoryEntry(historyEntryId, side, nextJob);
 
       if (side === "left") {
         setLeftEndpoint(nextJob.filesUrl);
