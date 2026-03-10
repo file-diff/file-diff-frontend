@@ -2,21 +2,30 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { execSync } from 'node:child_process'
 
+function shortenGitCommit(commit?: string) {
+  return commit?.trim().slice(0, 7) ?? ''
+}
+
 function readGitCommit() {
-  const configuredCommit = process.env.VITE_GIT_COMMIT?.trim()
+  const configuredCommit = shortenGitCommit(process.env.VITE_GIT_COMMIT)
   if (configuredCommit) {
     return configuredCommit
   }
 
-  const githubCommit = process.env.GITHUB_SHA?.trim()
+  const githubCommit = shortenGitCommit(process.env.GITHUB_SHA)
   if (githubCommit) {
-    return githubCommit.slice(0, 7)
+    return githubCommit
+  }
+
+  const cloudflareCommit = shortenGitCommit(process.env.CF_PAGES_COMMIT_SHA)
+  if (cloudflareCommit) {
+    return cloudflareCommit
   }
 
   try {
-    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
-      .toString()
-      .trim()
+    return shortenGitCommit(
+      execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString(),
+    )
   } catch {
     return ''
   }
