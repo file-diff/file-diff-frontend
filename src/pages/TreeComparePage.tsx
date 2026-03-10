@@ -142,6 +142,7 @@ interface StoredIndexingSideParams {
 interface IndexingHistoryEntry {
   id: string;
   left: StoredIndexingSideParams;
+  permalink?: string;
   right: StoredIndexingSideParams;
   startedSide: CompareSide;
   storedAt: string;
@@ -182,6 +183,7 @@ function isIndexingHistoryEntry(value: unknown): value is IndexingHistoryEntry {
     typeof candidate.id === "string" &&
     isStoredIndexingSideParams(candidate.left) &&
     isStoredIndexingSideParams(candidate.right) &&
+    (candidate.permalink === undefined || typeof candidate.permalink === "string") &&
     isCompareSide(candidate.startedSide) &&
     typeof candidate.storedAt === "string" &&
     typeof candidate.useNaturalSort === "boolean"
@@ -190,6 +192,49 @@ function isIndexingHistoryEntry(value: unknown): value is IndexingHistoryEntry {
 
 function buildJobFilesUrl(jobId: string): string {
   return `${JOBS_BASE_URL}/${jobId}/files`;
+}
+
+function buildComparisonPermalink(params: {
+  leftCommit: string;
+  leftProvider: string;
+  leftRef: string;
+  leftRepo: string;
+  leftRoot: string;
+  rightCommit: string;
+  rightProvider: string;
+  rightRef: string;
+  rightRepo: string;
+  rightRoot: string;
+}): string {
+  const searchParams = new URLSearchParams();
+  const normalizedLeftProvider = params.leftProvider.trim();
+  const normalizedRightProvider = params.rightProvider.trim();
+
+  setQueryParam(searchParams, "leftRepo", params.leftRepo, DEFAULT_LEFT_REPO);
+  setQueryParam(searchParams, "rightRepo", params.rightRepo, DEFAULT_RIGHT_REPO);
+  setQueryParam(searchParams, "leftRef", params.leftRef, DEFAULT_LEFT_REF);
+  setQueryParam(searchParams, "rightRef", params.rightRef, DEFAULT_RIGHT_REF);
+  setQueryParam(searchParams, "leftCommit", params.leftCommit);
+  setQueryParam(searchParams, "rightCommit", params.rightCommit);
+  setQueryParam(searchParams, "leftRoot", params.leftRoot, DEFAULT_LEFT_ROOT);
+  setQueryParam(searchParams, "rightRoot", params.rightRoot, DEFAULT_RIGHT_ROOT);
+
+  if (
+    normalizedLeftProvider &&
+    normalizedLeftProvider === normalizedRightProvider
+  ) {
+    searchParams.set("provider", normalizedLeftProvider);
+    searchParams.delete("leftProvider");
+    searchParams.delete("rightProvider");
+  } else {
+    setQueryParam(searchParams, "provider", "");
+    setQueryParam(searchParams, "leftProvider", normalizedLeftProvider);
+    setQueryParam(searchParams, "rightProvider", normalizedRightProvider);
+  }
+
+  const nextUrl = new URL(window.location.pathname, window.location.origin);
+  nextUrl.search = searchParams.toString();
+  return nextUrl.toString();
 }
 
 function isTerminalJobStatus(status?: string): boolean {
@@ -295,8 +340,9 @@ function appendIndexingHistoryEntry(entry: IndexingHistoryEntry): void {
 function updateIndexingHistoryEntry(
   entryId: string,
   side: CompareSide,
-  job: IndexingJobState
-): void {
+  job: IndexingJobState,
+  permalink?: string
+): IndexingHistoryEntry[] {
   const history = readIndexingHistory();
 
   for (let index = history.length - 1; index >= 0; index -= 1) {
@@ -308,6 +354,7 @@ function updateIndexingHistoryEntry(
 
     history[index] = {
       ...entry,
+      permalink: permalink ?? entry.permalink,
       [side]: {
         ...sideEntry,
         endpoint: job.filesUrl || sideEntry.endpoint,
@@ -318,8 +365,19 @@ function updateIndexingHistoryEntry(
       },
     };
     writeIndexingHistory(history);
-    return;
+    return history;
   }
+
+  return history;
+}
+
+function formatCommitShort(commit: string): string {
+  const normalizedCommit = commit.trim();
+  if (!normalizedCommit) {
+    return "—";
+  }
+
+  return normalizedCommit.slice(0, 12);
 }
 
 function setQueryParam(
@@ -571,8 +629,18 @@ export default function TreeComparePage() {
   const [rightRepo, setRightRepo] = useState(
     () => searchParams.get("rightRepo")?.trim() || DEFAULT_RIGHT_REPO
   );
-  const [leftRef, setLeftRef] = useState(DEFAULT_LEFT_REF);
-  const [rightRef, setRightRef] = useState(DEFAULT_RIGHT_REF);
+  const [leftRef, setLeftRef] = useState(
+    () => searchParams.get("leftRef")?.trim() || DEFAULT_LEFT_REF
+  );
+  const [rightRef, setRightRef] = useState(
+    () => searchParams.get("rightRef")?.trim() || DEFAULT_RIGHT_REF
+  );
+  const [leftPermalinkCommit, setLeftPermalinkCommit] = useState(
+    () => searchParams.get("leftCommit")?.trim() || ""
+  );
+  const [rightPermalinkCommit, setRightPermalinkCommit] = useState(
+    () => searchParams.get("rightCommit")?.trim() || ""
+  );
   const [leftRoot, setLeftRoot] = useState(
     () => searchParams.get("leftRoot")?.trim() || DEFAULT_LEFT_ROOT
   );
@@ -587,11 +655,45 @@ export default function TreeComparePage() {
   const [rightIsStarting, setRightIsStarting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [indexingHistory, setIndexingHistory] = useState<IndexingHistoryEntry[]>(
+    () => readIndexingHistory()
+  );
   const [useNaturalSort, setUseNaturalSort] = useState(false);
   const leftRefsState = useRepositoryRefs(leftRepo);
   const rightRefsState = useRepositoryRefs(rightRepo);
   const leftResolvedCommitState = useResolvedCommit(leftRepo, leftRef);
   const rightResolvedCommitState = useResolvedCommit(rightRepo, rightRef);
+  const currentPermalink = useMemo(
+    () =>
+      buildComparisonPermalink({
+        leftRepo,
+        rightRepo,
+        leftRef,
+        rightRef,
+        leftCommit: leftPermalinkCommit,
+        rightCommit: rightPermalinkCommit,
+        leftRoot,
+        rightRoot,
+        leftProvider,
+        rightProvider,
+      }),
+    [
+      leftPermalinkCommit,
+      leftProvider,
+      leftRef,
+      leftRepo,
+      leftRoot,
+      rightPermalinkCommit,
+      rightProvider,
+      rightRef,
+      rightRepo,
+      rightRoot,
+    ]
+  );
+  const recentIndexingHistory = useMemo(
+    () => indexingHistory.slice(-5).reverse(),
+    [indexingHistory]
+  );
 
   const diff = useMemo(() => {
     try {
@@ -613,13 +715,46 @@ export default function TreeComparePage() {
     const nextParams = new URLSearchParams(currentSearch);
     setQueryParam(nextParams, "leftRepo", leftRepo, DEFAULT_LEFT_REPO);
     setQueryParam(nextParams, "rightRepo", rightRepo, DEFAULT_RIGHT_REPO);
+    setQueryParam(nextParams, "leftRef", leftRef, DEFAULT_LEFT_REF);
+    setQueryParam(nextParams, "rightRef", rightRef, DEFAULT_RIGHT_REF);
+    setQueryParam(nextParams, "leftCommit", leftPermalinkCommit);
+    setQueryParam(nextParams, "rightCommit", rightPermalinkCommit);
     setQueryParam(nextParams, "leftRoot", leftRoot, DEFAULT_LEFT_ROOT);
     setQueryParam(nextParams, "rightRoot", rightRoot, DEFAULT_RIGHT_ROOT);
 
     if (nextParams.toString() !== currentSearch) {
       setSearchParams(nextParams, { replace: true });
     }
-  }, [currentSearch, leftRepo, rightRepo, leftRoot, rightRoot, setSearchParams]);
+  }, [
+    currentSearch,
+    leftPermalinkCommit,
+    leftRef,
+    leftRepo,
+    leftRoot,
+    rightPermalinkCommit,
+    rightRef,
+    rightRepo,
+    rightRoot,
+    setSearchParams,
+  ]);
+
+  useEffect(() => {
+    const resolvedCommit = leftResolvedCommitState.commit.trim();
+    if (resolvedCommit) {
+      setLeftPermalinkCommit((currentCommit) =>
+        currentCommit === resolvedCommit ? currentCommit : resolvedCommit
+      );
+    }
+  }, [leftResolvedCommitState.commit]);
+
+  useEffect(() => {
+    const resolvedCommit = rightResolvedCommitState.commit.trim();
+    if (resolvedCommit) {
+      setRightPermalinkCommit((currentCommit) =>
+        currentCommit === resolvedCommit ? currentCommit : resolvedCommit
+      );
+    }
+  }, [rightResolvedCommitState.commit]);
 
 
   const loadSample = () => {
@@ -629,6 +764,8 @@ export default function TreeComparePage() {
     setRightEndpoint("");
     setLeftJob(null);
     setRightJob(null);
+    setLeftPermalinkCommit("");
+    setRightPermalinkCommit("");
     setLeftRoot(DEFAULT_LEFT_ROOT);
     setRightRoot(DEFAULT_RIGHT_ROOT);
     setLeftLabel("Left");
@@ -645,6 +782,8 @@ export default function TreeComparePage() {
     setRightRepo("");
     setLeftRef(DEFAULT_LEFT_REF);
     setRightRef(DEFAULT_RIGHT_REF);
+    setLeftPermalinkCommit("");
+    setRightPermalinkCommit("");
     setLeftRoot(DEFAULT_LEFT_ROOT);
     setRightRoot(DEFAULT_RIGHT_ROOT);
     setLeftJob(null);
@@ -674,6 +813,47 @@ export default function TreeComparePage() {
       return Array.isArray(data.files) ? data.files.length : 0;
     },
     []
+  );
+
+  const buildHistoryPermalink = useCallback(
+    (
+      side: CompareSide,
+      overrides?: Partial<{
+        commit: string;
+        ref: string;
+        repo: string;
+      }>
+    ) =>
+      buildComparisonPermalink({
+        leftRepo: side === "left" ? overrides?.repo ?? leftRepo : leftRepo,
+        rightRepo: side === "right" ? overrides?.repo ?? rightRepo : rightRepo,
+        leftRef: side === "left" ? overrides?.ref ?? leftRef : leftRef,
+        rightRef: side === "right" ? overrides?.ref ?? rightRef : rightRef,
+        leftCommit:
+          side === "left"
+            ? overrides?.commit ?? leftPermalinkCommit
+            : leftPermalinkCommit,
+        rightCommit:
+          side === "right"
+            ? overrides?.commit ?? rightPermalinkCommit
+            : rightPermalinkCommit,
+        leftRoot,
+        rightRoot,
+        leftProvider,
+        rightProvider,
+      }),
+    [
+      leftPermalinkCommit,
+      leftProvider,
+      leftRef,
+      leftRepo,
+      leftRoot,
+      rightPermalinkCommit,
+      rightProvider,
+      rightRef,
+      rightRepo,
+      rightRoot,
+    ]
   );
 
   const pollIndexingJob = useCallback(
@@ -724,7 +904,26 @@ export default function TreeComparePage() {
           filesLoaded,
         };
 
-        updateIndexingHistoryEntry(currentJob.historyEntryId, side, nextJob);
+        const nextPermalink = buildHistoryPermalink(side, {
+          commit: nextJob.resolvedCommit,
+          ref: nextJob.inputRefName || nextJob.ref || "",
+          repo: nextJob.repo ?? "",
+        });
+        const nextHistory = updateIndexingHistoryEntry(
+          currentJob.historyEntryId,
+          side,
+          nextJob,
+          nextPermalink
+        );
+        setIndexingHistory(nextHistory);
+
+        if (side === "left" && nextJob.resolvedCommit) {
+          setLeftPermalinkCommit(nextJob.resolvedCommit);
+        }
+
+        if (side === "right" && nextJob.resolvedCommit) {
+          setRightPermalinkCommit(nextJob.resolvedCommit);
+        }
 
         if (side === "left") {
           setLeftJob(nextJob);
@@ -735,7 +934,7 @@ export default function TreeComparePage() {
         setApiError(`Unable to refresh ${side} indexing job progress.`);
       }
     },
-    [applyFilesResponse]
+    [applyFilesResponse, buildHistoryPermalink]
   );
 
   useEffect(() => {
@@ -779,8 +978,9 @@ export default function TreeComparePage() {
     }
 
     const historyEntryId = crypto.randomUUID();
-    appendIndexingHistoryEntry({
+    const historyEntry = {
       id: historyEntryId,
+      permalink: currentPermalink,
       storedAt: new Date().toISOString(),
       startedSide: side,
       useNaturalSort,
@@ -800,10 +1000,17 @@ export default function TreeComparePage() {
         endpoint: side === "right" ? "" : rightEndpoint,
         job: side === "right" ? null : rightJob,
       }),
-    });
+    } satisfies IndexingHistoryEntry;
+    appendIndexingHistoryEntry(historyEntry);
+    setIndexingHistory((currentHistory) => [...currentHistory, historyEntry]);
 
     try {
       const resolvedCommit = await requestResolvedCommit(repo, ref);
+      if (side === "left") {
+        setLeftPermalinkCommit(resolvedCommit.commit);
+      } else {
+        setRightPermalinkCommit(resolvedCommit.commit);
+      }
       const payload: JobRequest = {
         repo,
         commit: resolvedCommit.commit,
@@ -845,14 +1052,27 @@ export default function TreeComparePage() {
         resolvedCommit: extractResolvedCommit(data) || resolvedCommit.commit,
       };
 
-      updateIndexingHistoryEntry(historyEntryId, side, nextJob);
+      const nextPermalink = buildHistoryPermalink(side, {
+        commit: nextJob.resolvedCommit,
+        ref: nextJob.inputRefName || nextJob.ref || "",
+        repo: nextJob.repo ?? repo,
+      });
+      const nextHistory = updateIndexingHistoryEntry(
+        historyEntryId,
+        side,
+        nextJob,
+        nextPermalink
+      );
+      setIndexingHistory(nextHistory);
 
       if (side === "left") {
+        setLeftPermalinkCommit(nextJob.resolvedCommit);
         setLeftEndpoint(nextJob.filesUrl);
         setLeftInput("");
         setLeftLabel(`Left (${data.id})`);
         setLeftJob(nextJob);
       } else {
+        setRightPermalinkCommit(nextJob.resolvedCommit);
         setRightEndpoint(nextJob.filesUrl);
         setRightInput("");
         setRightLabel(`Right (${data.id})`);
@@ -998,7 +1218,10 @@ export default function TreeComparePage() {
               id="left-repo"
               type="text"
               value={leftRepo}
-              onChange={(e) => setLeftRepo(e.target.value)}
+              onChange={(e) => {
+                setLeftRepo(e.target.value);
+                setLeftPermalinkCommit("");
+              }}
               placeholder="Arkiv-Network/arkiv-op-geth"
               spellCheck={false}
             />
@@ -1007,7 +1230,10 @@ export default function TreeComparePage() {
               type="text"
               value={leftRef}
               list="left-ref-options"
-              onChange={(e) => setLeftRef(e.target.value)}
+              onChange={(e) => {
+                setLeftRef(e.target.value);
+                setLeftPermalinkCommit("");
+              }}
               placeholder="main"
               spellCheck={false}
             />
@@ -1077,7 +1303,10 @@ export default function TreeComparePage() {
               id="right-repo"
               type="text"
               value={rightRepo}
-              onChange={(e) => setRightRepo(e.target.value)}
+              onChange={(e) => {
+                setRightRepo(e.target.value);
+                setRightPermalinkCommit("");
+              }}
               placeholder="Arkiv-Network/arkiv-op-geth"
               spellCheck={false}
             />
@@ -1086,7 +1315,10 @@ export default function TreeComparePage() {
               type="text"
               value={rightRef}
               list="right-ref-options"
-              onChange={(e) => setRightRef(e.target.value)}
+              onChange={(e) => {
+                setRightRef(e.target.value);
+                setRightPermalinkCommit("");
+              }}
               placeholder="main"
               spellCheck={false}
             />
@@ -1150,6 +1382,44 @@ export default function TreeComparePage() {
           />
         </div>
       </div>
+
+      {recentIndexingHistory.length > 0 && (
+        <section className="indexing-history" aria-labelledby="indexing-history-title">
+          <div className="indexing-history__header">
+            <h2 id="indexing-history-title">Recent indexing jobs</h2>
+            <a href={currentPermalink}>Current permalink</a>
+          </div>
+          <ul className="indexing-history__list">
+            {recentIndexingHistory.map((entry) => (
+              <li key={entry.id} className="indexing-history__item">
+                <div className="indexing-history__item-header">
+                  <span>
+                    {new Date(entry.storedAt).toLocaleString()} · Started{" "}
+                    {entry.startedSide}
+                  </span>
+                  {entry.permalink ? (
+                    <a href={entry.permalink}>Open permalink</a>
+                  ) : null}
+                </div>
+                <div className="indexing-history__item-grid">
+                  <div>
+                    <strong>Left</strong>
+                    <div>{entry.left.repo || "—"}</div>
+                    <div>Ref: {entry.left.inputRefName || "—"}</div>
+                    <div>Commit: {formatCommitShort(entry.left.resolvedCommit)}</div>
+                  </div>
+                  <div>
+                    <strong>Right</strong>
+                    <div>{entry.right.repo || "—"}</div>
+                    <div>Ref: {entry.right.inputRefName || "—"}</div>
+                    <div>Commit: {formatCommitShort(entry.right.resolvedCommit)}</div>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {diff && (
         <div className="diff-result">
