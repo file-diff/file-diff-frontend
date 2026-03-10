@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { parseCsv, diffCsv, jobFilesResponseToCsv } from "../utils/csvParser";
 import type { JobFilesResponse } from "../utils/csvParser";
 import TreeDiffView from "../components/TreeDiffView";
 import { sampleCsvLeft, sampleCsvRight } from "../data/sampleData";
 import { JOBS_API_URL } from "../config/api";
+import { readLastSelectedParams, writeLastSelectedParams, readIndexingHistory, writeIndexingHistory } from "../utils/storage";
+import type { CompareSide, StoredIndexingSideParams, IndexingHistoryEntry } from "../utils/storage";
 import "./TreeComparePage.css";
 
 const INDEXING_TRIGGER_URL = JOBS_API_URL;
@@ -14,7 +16,6 @@ const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
 const POLL_INTERVAL_MS = 2000;
 const REFS_LOAD_DEBOUNCE_MS = 300;
 const DEFAULT_JOB_STATUS = "waiting";
-const INDEXING_HISTORY_STORAGE_KEY = "indexing-parameter-history";
 const DEFAULT_LEFT_REF = "main";
 const DEFAULT_RIGHT_REF = "main";
 const DEFAULT_LEFT_REPO = "file-diff/file-diff-test-data";
@@ -30,7 +31,6 @@ const TERMINAL_JOB_STATUSES = new Set([
   "failed",
 ]);
 
-type CompareSide = "left" | "right";
 
 interface ListRefsRequest {
   repo: string;
@@ -128,65 +128,6 @@ interface IndexingJobState extends IndexingJobStatusResponse {
   resolvedCommit: string;
 }
 
-interface StoredIndexingSideParams {
-  endpoint: string;
-  inputRefName: string;
-  jobId: string;
-  provider: string;
-  repo: string;
-  resolvedCommit: string;
-  root: string;
-  status: string;
-}
-
-interface IndexingHistoryEntry {
-  id: string;
-  left: StoredIndexingSideParams;
-  right: StoredIndexingSideParams;
-  startedSide: CompareSide;
-  storedAt: string;
-  useNaturalSort: boolean;
-}
-
-function isCompareSide(value: unknown): value is CompareSide {
-  return value === "left" || value === "right";
-}
-
-function isStoredIndexingSideParams(
-  value: unknown
-): value is StoredIndexingSideParams {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.endpoint === "string" &&
-    typeof candidate.inputRefName === "string" &&
-    typeof candidate.jobId === "string" &&
-    typeof candidate.provider === "string" &&
-    typeof candidate.repo === "string" &&
-    typeof candidate.resolvedCommit === "string" &&
-    typeof candidate.root === "string" &&
-    typeof candidate.status === "string"
-  );
-}
-
-function isIndexingHistoryEntry(value: unknown): value is IndexingHistoryEntry {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.id === "string" &&
-    isStoredIndexingSideParams(candidate.left) &&
-    isStoredIndexingSideParams(candidate.right) &&
-    isCompareSide(candidate.startedSide) &&
-    typeof candidate.storedAt === "string" &&
-    typeof candidate.useNaturalSort === "boolean"
-  );
-}
 
 function buildJobFilesUrl(jobId: string): string {
   return `${JOBS_BASE_URL}/${jobId}/files`;
@@ -239,32 +180,6 @@ function getUpdatedAt(
   return data.updatedAt ?? data.updated_at;
 }
 
-function readIndexingHistory(): IndexingHistoryEntry[] {
-  try {
-    const raw = window.localStorage.getItem(INDEXING_HISTORY_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.filter(isIndexingHistoryEntry)
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeIndexingHistory(history: IndexingHistoryEntry[]): void {
-  try {
-    window.localStorage.setItem(
-      INDEXING_HISTORY_STORAGE_KEY,
-      JSON.stringify(history)
-    );
-  } catch {
-    return;
-  }
-}
 
 function buildStoredIndexingSideParams(params: {
   endpoint: string;
@@ -561,23 +476,46 @@ export default function TreeComparePage() {
       rightProvider: params.get("rightProvider")?.trim() || defaultProvider,
     };
   }, [currentSearch]);
+  const savedParams = useRef(readLastSelectedParams());
   const [leftInput, setLeftInput] = useState(sampleCsvLeft);
   const [rightInput, setRightInput] = useState(sampleCsvRight);
   const [leftEndpoint, setLeftEndpoint] = useState("");
   const [rightEndpoint, setRightEndpoint] = useState("");
   const [leftRepo, setLeftRepo] = useState(
-    () => searchParams.get("leftRepo")?.trim() || DEFAULT_LEFT_REPO
+    () =>
+      searchParams.get("leftRepo")?.trim() ||
+      savedParams.current?.leftRepo ||
+      DEFAULT_LEFT_REPO
   );
   const [rightRepo, setRightRepo] = useState(
-    () => searchParams.get("rightRepo")?.trim() || DEFAULT_RIGHT_REPO
+    () =>
+      searchParams.get("rightRepo")?.trim() ||
+      savedParams.current?.rightRepo ||
+      DEFAULT_RIGHT_REPO
   );
-  const [leftRef, setLeftRef] = useState(DEFAULT_LEFT_REF);
-  const [rightRef, setRightRef] = useState(DEFAULT_RIGHT_REF);
+  const [leftRef, setLeftRef] = useState(
+    () =>
+      searchParams.get("leftRef")?.trim() ||
+      savedParams.current?.leftRef ||
+      DEFAULT_LEFT_REF
+  );
+  const [rightRef, setRightRef] = useState(
+    () =>
+      searchParams.get("rightRef")?.trim() ||
+      savedParams.current?.rightRef ||
+      DEFAULT_RIGHT_REF
+  );
   const [leftRoot, setLeftRoot] = useState(
-    () => searchParams.get("leftRoot")?.trim() || DEFAULT_LEFT_ROOT
+    () =>
+      searchParams.get("leftRoot")?.trim() ||
+      savedParams.current?.leftRoot ||
+      DEFAULT_LEFT_ROOT
   );
   const [rightRoot, setRightRoot] = useState(
-    () => searchParams.get("rightRoot")?.trim() || DEFAULT_RIGHT_ROOT
+    () =>
+      searchParams.get("rightRoot")?.trim() ||
+      savedParams.current?.rightRoot ||
+      DEFAULT_RIGHT_ROOT
   );
   const [leftLabel, setLeftLabel] = useState("Left");
   const [rightLabel, setRightLabel] = useState("Right");
@@ -587,7 +525,9 @@ export default function TreeComparePage() {
   const [rightIsStarting, setRightIsStarting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [useNaturalSort, setUseNaturalSort] = useState(false);
+  const [useNaturalSort, setUseNaturalSort] = useState(
+    () => savedParams.current?.useNaturalSort ?? false
+  );
   const leftRefsState = useRepositoryRefs(leftRepo);
   const rightRefsState = useRepositoryRefs(rightRepo);
   const leftResolvedCommitState = useResolvedCommit(leftRepo, leftRef);
@@ -613,14 +553,27 @@ export default function TreeComparePage() {
     const nextParams = new URLSearchParams(currentSearch);
     setQueryParam(nextParams, "leftRepo", leftRepo, DEFAULT_LEFT_REPO);
     setQueryParam(nextParams, "rightRepo", rightRepo, DEFAULT_RIGHT_REPO);
+    setQueryParam(nextParams, "leftRef", leftRef, DEFAULT_LEFT_REF);
+    setQueryParam(nextParams, "rightRef", rightRef, DEFAULT_RIGHT_REF);
     setQueryParam(nextParams, "leftRoot", leftRoot, DEFAULT_LEFT_ROOT);
     setQueryParam(nextParams, "rightRoot", rightRoot, DEFAULT_RIGHT_ROOT);
 
     if (nextParams.toString() !== currentSearch) {
       setSearchParams(nextParams, { replace: true });
     }
-  }, [currentSearch, leftRepo, rightRepo, leftRoot, rightRoot, setSearchParams]);
+  }, [currentSearch, leftRepo, rightRepo, leftRef, rightRef, leftRoot, rightRoot, setSearchParams]);
 
+  useEffect(() => {
+    writeLastSelectedParams({
+      leftRepo,
+      rightRepo,
+      leftRef,
+      rightRef,
+      leftRoot,
+      rightRoot,
+      useNaturalSort,
+    });
+  }, [leftRepo, rightRepo, leftRef, rightRef, leftRoot, rightRoot, useNaturalSort]);
 
   const loadSample = () => {
     setLeftInput(sampleCsvLeft);
