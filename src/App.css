@@ -13,6 +13,17 @@
   color: #e0e0e0;
 }
 
+.nav-brand-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-build-version {
+  font-size: 0.75rem;
+  color: #8fb9ff;
+}
+
 .nav-links {
   display: flex;
   gap: 16px;
