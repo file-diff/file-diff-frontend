@@ -27,6 +27,14 @@ function buildCompareUrl(entry: IndexingHistoryEntry): string {
     params.set("rightRepo", entry.right.repo);
   }
 
+  if (entry.left.inputRefName) {
+    params.set("leftRef", entry.left.inputRefName);
+  }
+
+  if (entry.right.inputRefName) {
+    params.set("rightRef", entry.right.inputRefName);
+  }
+
   if (entry.left.root) {
     params.set("leftRoot", entry.left.root);
   }
@@ -59,9 +67,7 @@ function summarizeSide(side: StoredIndexingSideParams): string {
 
 export default function HistoryPage() {
   const navigate = useNavigate();
-  const [entries, setEntries] = useState(() =>
-    readIndexingHistory().slice().reverse()
-  );
+  const [entries, setEntries] = useState(readIndexingHistory);
 
   const handleSelect = (entry: IndexingHistoryEntry) => {
     navigate(buildCompareUrl(entry));
@@ -75,8 +81,10 @@ export default function HistoryPage() {
   const handleRemoveEntry = (id: string) => {
     const updated = entries.filter((entry) => entry.id !== id);
     setEntries(updated);
-    writeIndexingHistory(updated.slice().reverse());
+    writeIndexingHistory(updated);
   };
+
+  const displayEntries = [...entries].reverse();
 
   return (
     <div className="history-page">
@@ -112,7 +120,7 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="history-list">
-          {entries.map((entry) => (
+          {displayEntries.map((entry) => (
             <div key={entry.id} className="history-entry">
               <div className="history-entry__header">
                 <span className="history-entry__date">

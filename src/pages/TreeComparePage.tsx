@@ -495,11 +495,13 @@ export default function TreeComparePage() {
   );
   const [leftRef, setLeftRef] = useState(
     () =>
+      searchParams.get("leftRef")?.trim() ||
       savedParams.current?.leftRef ||
       DEFAULT_LEFT_REF
   );
   const [rightRef, setRightRef] = useState(
     () =>
+      searchParams.get("rightRef")?.trim() ||
       savedParams.current?.rightRef ||
       DEFAULT_RIGHT_REF
   );
@@ -551,13 +553,15 @@ export default function TreeComparePage() {
     const nextParams = new URLSearchParams(currentSearch);
     setQueryParam(nextParams, "leftRepo", leftRepo, DEFAULT_LEFT_REPO);
     setQueryParam(nextParams, "rightRepo", rightRepo, DEFAULT_RIGHT_REPO);
+    setQueryParam(nextParams, "leftRef", leftRef, DEFAULT_LEFT_REF);
+    setQueryParam(nextParams, "rightRef", rightRef, DEFAULT_RIGHT_REF);
     setQueryParam(nextParams, "leftRoot", leftRoot, DEFAULT_LEFT_ROOT);
     setQueryParam(nextParams, "rightRoot", rightRoot, DEFAULT_RIGHT_ROOT);
 
     if (nextParams.toString() !== currentSearch) {
       setSearchParams(nextParams, { replace: true });
     }
-  }, [currentSearch, leftRepo, rightRepo, leftRoot, rightRoot, setSearchParams]);
+  }, [currentSearch, leftRepo, rightRepo, leftRef, rightRef, leftRoot, rightRoot, setSearchParams]);
 
   useEffect(() => {
     writeLastSelectedParams({
