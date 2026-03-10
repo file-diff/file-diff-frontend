@@ -15,6 +15,8 @@ const POLL_INTERVAL_MS = 2000;
 const REFS_LOAD_DEBOUNCE_MS = 300;
 const DEFAULT_JOB_STATUS = "waiting";
 const INDEXING_HISTORY_STORAGE_KEY = "indexing-parameter-history";
+const RECENT_INDEXING_HISTORY_LIMIT = 5;
+const SHORT_COMMIT_LENGTH = 12;
 const DEFAULT_LEFT_REF = "main";
 const DEFAULT_RIGHT_REF = "main";
 const DEFAULT_LEFT_REPO = "file-diff/file-diff-test-data";
@@ -371,13 +373,17 @@ function updateIndexingHistoryEntry(
   return history;
 }
 
-function formatCommitShort(commit: string): string {
-  const normalizedCommit = commit.trim();
+function formatCommitShort(commit?: string): string {
+  const normalizedCommit = commit?.trim() ?? "";
   if (!normalizedCommit) {
     return "—";
   }
 
-  return normalizedCommit.slice(0, 12);
+  if (normalizedCommit.length <= SHORT_COMMIT_LENGTH) {
+    return normalizedCommit;
+  }
+
+  return normalizedCommit.slice(0, SHORT_COMMIT_LENGTH);
 }
 
 function setQueryParam(
@@ -691,7 +697,7 @@ export default function TreeComparePage() {
     ]
   );
   const recentIndexingHistory = useMemo(
-    () => indexingHistory.slice(-5).reverse(),
+    () => indexingHistory.slice(-RECENT_INDEXING_HISTORY_LIMIT).reverse(),
     [indexingHistory]
   );
 
