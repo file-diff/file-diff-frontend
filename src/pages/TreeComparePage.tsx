@@ -453,11 +453,11 @@ export default function TreeComparePage() {
           ref: statusData.ref ?? currentJob.ref,
           status: statusData.status ?? currentJob.status,
           progress: statusData.progress ?? currentJob.progress,
-          total_files: getTotalFiles(statusData) ?? currentJob.total_files,
+          total_files: getTotalFiles(statusData) ?? getTotalFiles(currentJob),
           processed_files:
-            getProcessedFiles(statusData) ?? currentJob.processed_files,
-          created_at: getCreatedAt(statusData) ?? currentJob.created_at,
-          updated_at: getUpdatedAt(statusData) ?? currentJob.updated_at,
+            getProcessedFiles(statusData) ?? getProcessedFiles(currentJob),
+          created_at: getCreatedAt(statusData) ?? getCreatedAt(currentJob),
+          updated_at: getUpdatedAt(statusData) ?? getUpdatedAt(currentJob),
           error: statusData.error ?? currentJob.error,
           historyEntryId: currentJob.historyEntryId,
           inputRefName: currentJob.inputRefName,
@@ -688,7 +688,7 @@ export default function TreeComparePage() {
           <span>{job.filesLoaded}</span>
         </div>
         {job.error ? (
-          <div className="indexing-job-status__row">
+          <div className="indexing-job-status__row" role="alert">
             <span className="indexing-job-status__label">Error</span>
             <span>{job.error}</span>
           </div>
