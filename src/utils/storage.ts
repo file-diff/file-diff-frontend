@@ -27,11 +27,17 @@ export interface StoredIndexingSideParams {
 export interface IndexingHistoryEntry {
   id: string;
   left: StoredIndexingSideParams;
+  permalink?: string;
   right: StoredIndexingSideParams;
   startedSide: CompareSide;
   storedAt: string;
   useNaturalSort: boolean;
 }
+
+type ComparePermalinkSide = Pick<
+  StoredIndexingSideParams,
+  "inputRefName" | "repo" | "resolvedCommit" | "root"
+>;
 
 function isCompareSide(value: unknown): value is CompareSide {
   return value === "left" || value === "right";
@@ -67,10 +73,52 @@ function isIndexingHistoryEntry(value: unknown): value is IndexingHistoryEntry {
     typeof candidate.id === "string" &&
     isStoredIndexingSideParams(candidate.left) &&
     isStoredIndexingSideParams(candidate.right) &&
+    (typeof candidate.permalink === "undefined" ||
+      typeof candidate.permalink === "string") &&
     isCompareSide(candidate.startedSide) &&
     typeof candidate.storedAt === "string" &&
     typeof candidate.useNaturalSort === "boolean"
   );
+}
+
+function setCompareQueryParam(
+  params: URLSearchParams,
+  key: string,
+  value: string
+): void {
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue) {
+    params.delete(key);
+    return;
+  }
+
+  params.set(key, normalizedValue);
+}
+
+export function buildComparePermalink(
+  left: ComparePermalinkSide,
+  right: ComparePermalinkSide
+): string {
+  const params = new URLSearchParams();
+
+  setCompareQueryParam(params, "leftRepo", left.repo);
+  setCompareQueryParam(params, "rightRepo", right.repo);
+  setCompareQueryParam(params, "leftRef", left.inputRefName);
+  setCompareQueryParam(params, "rightRef", right.inputRefName);
+  setCompareQueryParam(params, "leftCommit", left.resolvedCommit);
+  setCompareQueryParam(params, "rightCommit", right.resolvedCommit);
+  setCompareQueryParam(params, "leftRoot", left.root);
+  setCompareQueryParam(params, "rightRoot", right.root);
+
+  const query = params.toString();
+  return query ? `/?${query}` : "/";
+}
+
+export function buildHistoryEntryPermalink(
+  entry: IndexingHistoryEntry
+): string {
+  return entry.permalink?.trim() || buildComparePermalink(entry.left, entry.right);
 }
 
 function isLastSelectedParams(value: unknown): value is LastSelectedParams {

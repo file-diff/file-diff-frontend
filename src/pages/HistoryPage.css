@@ -149,6 +149,31 @@
   font-size: 0.8rem;
 }
 
+.history-entry__permalink {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.history-entry__permalink-label {
+  color: #8b949e;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.history-entry__permalink-link {
+  color: #58a6ff;
+  font-size: 0.85rem;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.history-entry__permalink-link:hover {
+  text-decoration: underline;
+}
+
 .history-entry__actions {
   display: flex;
   gap: 8px;

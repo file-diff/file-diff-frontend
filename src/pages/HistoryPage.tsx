@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  buildHistoryEntryPermalink,
   readIndexingHistory,
   clearIndexingHistory,
   writeIndexingHistory,
@@ -14,37 +15,6 @@ function formatDate(isoDate: string): string {
   } catch {
     return isoDate;
   }
-}
-
-function buildCompareUrl(entry: IndexingHistoryEntry): string {
-  const params = new URLSearchParams();
-
-  if (entry.left.repo) {
-    params.set("leftRepo", entry.left.repo);
-  }
-
-  if (entry.right.repo) {
-    params.set("rightRepo", entry.right.repo);
-  }
-
-  if (entry.left.inputRefName) {
-    params.set("leftRef", entry.left.inputRefName);
-  }
-
-  if (entry.right.inputRefName) {
-    params.set("rightRef", entry.right.inputRefName);
-  }
-
-  if (entry.left.root) {
-    params.set("leftRoot", entry.left.root);
-  }
-
-  if (entry.right.root) {
-    params.set("rightRoot", entry.right.root);
-  }
-
-  const query = params.toString();
-  return query ? `/?${query}` : "/";
 }
 
 function summarizeSide(side: StoredIndexingSideParams): string {
@@ -70,7 +40,7 @@ export default function HistoryPage() {
   const [entries, setEntries] = useState(readIndexingHistory);
 
   const handleSelect = (entry: IndexingHistoryEntry) => {
-    navigate(buildCompareUrl(entry));
+    navigate(buildHistoryEntryPermalink(entry));
   };
 
   const handleClearHistory = () => {
@@ -120,61 +90,71 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="history-list">
-          {displayEntries.map((entry) => (
-            <div key={entry.id} className="history-entry">
-              <div className="history-entry__header">
-                <span className="history-entry__date">
-                  {formatDate(entry.storedAt)}
-                </span>
-                <span className="history-entry__side-badge">
-                  Started: {entry.startedSide}
-                </span>
-                {entry.useNaturalSort && (
-                  <span className="history-entry__sort-badge">Natural sort</span>
-                )}
-              </div>
-              <div className="history-entry__sides">
-                <div className="history-entry__side">
-                  <span className="history-entry__side-label">Left</span>
-                  <span className="history-entry__side-summary">
-                    {summarizeSide(entry.left)}
+          {displayEntries.map((entry) => {
+            const permalink = buildHistoryEntryPermalink(entry);
+
+            return (
+              <div key={entry.id} className="history-entry">
+                <div className="history-entry__header">
+                  <span className="history-entry__date">
+                    {formatDate(entry.storedAt)}
                   </span>
-                  {entry.left.status && (
-                    <span className="history-entry__status">
-                      {entry.left.status}
-                    </span>
+                  <span className="history-entry__side-badge">
+                    Started: {entry.startedSide}
+                  </span>
+                  {entry.useNaturalSort && (
+                    <span className="history-entry__sort-badge">Natural sort</span>
                   )}
                 </div>
-                <div className="history-entry__side">
-                  <span className="history-entry__side-label">Right</span>
-                  <span className="history-entry__side-summary">
-                    {summarizeSide(entry.right)}
-                  </span>
-                  {entry.right.status && (
-                    <span className="history-entry__status">
-                      {entry.right.status}
+                <div className="history-entry__sides">
+                  <div className="history-entry__side">
+                    <span className="history-entry__side-label">Left</span>
+                    <span className="history-entry__side-summary">
+                      {summarizeSide(entry.left)}
                     </span>
-                  )}
+                    {entry.left.status && (
+                      <span className="history-entry__status">
+                        {entry.left.status}
+                      </span>
+                    )}
+                  </div>
+                  <div className="history-entry__side">
+                    <span className="history-entry__side-label">Right</span>
+                    <span className="history-entry__side-summary">
+                      {summarizeSide(entry.right)}
+                    </span>
+                    {entry.right.status && (
+                      <span className="history-entry__status">
+                        {entry.right.status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="history-entry__permalink">
+                  <span className="history-entry__permalink-label">Permalink</span>
+                  <a className="history-entry__permalink-link" href={permalink}>
+                    {permalink}
+                  </a>
+                </div>
+                <div className="history-entry__actions">
+                  <button
+                    type="button"
+                    className="history-entry__select-btn"
+                    onClick={() => handleSelect(entry)}
+                  >
+                    Open comparison
+                  </button>
+                  <button
+                    type="button"
+                    className="history-entry__remove-btn"
+                    onClick={() => handleRemoveEntry(entry.id)}
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
-              <div className="history-entry__actions">
-                <button
-                  type="button"
-                  className="history-entry__select-btn"
-                  onClick={() => handleSelect(entry)}
-                >
-                  Open comparison
-                </button>
-                <button
-                  type="button"
-                  className="history-entry__remove-btn"
-                  onClick={() => handleRemoveEntry(entry.id)}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
