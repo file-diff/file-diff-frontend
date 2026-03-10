@@ -5,10 +5,21 @@ import HealthCheckPage from "./pages/HealthCheckPage";
 import "./App.css";
 
 function App() {
+  const buildVersion = import.meta.env.VITE_BUILD_VERSION?.trim();
+  const gitCommit = import.meta.env.VITE_GIT_COMMIT?.trim();
+  const buildLabel = [buildVersion, gitCommit && `(${gitCommit})`]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <BrowserRouter>
       <nav className="app-nav">
-        <div className="nav-brand">Git Diff Online</div>
+        <div className="nav-brand-group">
+          <div className="nav-brand">Git Diff Online</div>
+          {buildLabel && (
+            <div className="nav-build-version">Build version: {buildLabel}</div>
+          )}
+        </div>
         <div className="nav-links">
           <Link to="/" className="nav-link">
             📂 Directory Compare
