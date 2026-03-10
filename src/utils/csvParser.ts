@@ -4,11 +4,17 @@ export type FileType = "d" | "t" | "b" | "x" | "s";
 
 export interface JobFilesResponse {
   job_id?: string;
+  jobId?: string;
+  commit?: string;
+  commitShort?: string;
+  status?: string;
+  progress?: number;
   files?: Array<{
     t: FileType;
     path: string;
     s: number;
     update: string;
+    commit?: string;
     hash: string;
   }>;
 }
