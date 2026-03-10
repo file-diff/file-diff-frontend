@@ -1,16 +1,60 @@
 import { useCallback, useEffect, useState } from "react";
-import { DEFAULT_API_BASE_URL, JOBS_API_URL } from "../config/api";
+import {
+  DEFAULT_API_BASE_URL,
+  HEALTH_API_URL,
+  VERSION_API_URL,
+} from "../config/api";
 import "./HealthCheckPage.css";
 
 type BackendCheckState = "idle" | "loading" | "healthy" | "reachable" | "error";
 
 interface BackendCheckResult {
+  backendVersion?: string;
   checkedAt: string;
   durationMs: number;
+  healthStatus?: number;
   message: string;
   state: BackendCheckState;
-  status?: number;
-  targetUrl: string;
+  versionStatus?: number;
+}
+
+function formatVersionPayload(payload: unknown): string | undefined {
+  if (typeof payload === "string") {
+    const trimmed = payload.trim();
+    return trimmed || undefined;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const versionParts = [
+    record.version,
+    record.buildVersion,
+    record.tag,
+    record.commit && `(${record.commit})`,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+
+  if (versionParts.length > 0) {
+    return versionParts.join(" ");
+  }
+
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return undefined;
+  }
+}
+
+async function parseVersionResponse(response: Response): Promise<string | undefined> {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    return formatVersionPayload((await response.json()) as unknown);
+  }
+
+  return formatVersionPayload(await response.text());
 }
 
 export default function HealthCheckPage() {
@@ -21,36 +65,47 @@ export default function HealthCheckPage() {
     const startedAt = performance.now();
 
     try {
-      const response = await fetch(JOBS_API_URL, {
-        headers: {
-          Accept: "application/json, text/plain, */*",
-        },
-      });
+      const [healthResponse, versionResponse] = await Promise.all([
+        fetch(HEALTH_API_URL, {
+          headers: {
+            Accept: "application/json, text/plain, */*",
+          },
+        }),
+        fetch(VERSION_API_URL, {
+          headers: {
+            Accept: "application/json, text/plain, */*",
+          },
+        }),
+      ]);
+      const backendVersion = versionResponse.ok
+        ? await parseVersionResponse(versionResponse)
+        : undefined;
+      const isHealthy = healthResponse.ok && versionResponse.ok;
       const durationMs = Math.round(performance.now() - startedAt);
 
       setResult({
+        backendVersion,
         checkedAt: new Date().toLocaleString(),
         durationMs,
-        message: response.ok
-          ? "The default jobs API responded successfully."
-          : "The default jobs API is reachable, but it did not return a success response for this GET check.",
-        state: response.ok ? "healthy" : "reachable",
-        status: response.status,
-        targetUrl: JOBS_API_URL,
+        healthStatus: healthResponse.status,
+        message: isHealthy
+          ? "The public health and version endpoints both responded successfully."
+          : "The backend is reachable, but at least one healthcheck endpoint did not return a success response.",
+        state: isHealthy ? "healthy" : "reachable",
+        versionStatus: versionResponse.status,
       });
     } catch (error) {
       const durationMs = Math.round(performance.now() - startedAt);
       const message =
         error instanceof Error
           ? error.message
-          : "Unknown error while contacting the default backend.";
+          : "Unknown error while contacting the public backend health endpoints.";
 
       setResult({
         checkedAt: new Date().toLocaleString(),
         durationMs,
         message,
         state: "error",
-        targetUrl: JOBS_API_URL,
       });
     } finally {
       setIsChecking(false);
@@ -70,8 +125,8 @@ export default function HealthCheckPage() {
       <div className="page-header">
         <h1>🩺 Backend Check</h1>
         <p className="page-subtitle">
-          The frontend now defaults to <code>{JOBS_API_URL}</code>. Use this
-          page to confirm whether that backend is reachable from your browser.
+          Use this page to confirm whether the public backend health endpoints
+          are reachable from your browser.
         </p>
       </div>
 
@@ -82,8 +137,12 @@ export default function HealthCheckPage() {
             <code>{DEFAULT_API_BASE_URL}</code>
           </div>
           <div>
-            <span className="health-check-label">Jobs API</span>
-            <code>{JOBS_API_URL}</code>
+            <span className="health-check-label">Health endpoint</span>
+            <code>{HEALTH_API_URL}</code>
+          </div>
+          <div>
+            <span className="health-check-label">Version endpoint</span>
+            <code>{VERSION_API_URL}</code>
           </div>
         </div>
 
@@ -102,7 +161,7 @@ export default function HealthCheckPage() {
 
         {isChecking && !result && (
           <div className="health-check-status health-check-status--loading">
-            Checking the default backend…
+            Checking the public health endpoints…
           </div>
         )}
 
@@ -118,13 +177,29 @@ export default function HealthCheckPage() {
             <p>{result.message}</p>
             <dl className="health-check-details">
               <div>
-                <dt>Checked URL</dt>
-                <dd>{result.targetUrl}</dd>
+                <dt>Health endpoint</dt>
+                <dd>{HEALTH_API_URL}</dd>
               </div>
-              {typeof result.status === "number" && (
+              {typeof result.healthStatus === "number" && (
                 <div>
-                  <dt>HTTP status</dt>
-                  <dd>{result.status}</dd>
+                  <dt>Health status</dt>
+                  <dd>{result.healthStatus}</dd>
+                </div>
+              )}
+              <div>
+                <dt>Version endpoint</dt>
+                <dd>{VERSION_API_URL}</dd>
+              </div>
+              {typeof result.versionStatus === "number" && (
+                <div>
+                  <dt>Version status</dt>
+                  <dd>{result.versionStatus}</dd>
+                </div>
+              )}
+              {result.backendVersion && (
+                <div>
+                  <dt>Backend version</dt>
+                  <dd>{result.backendVersion}</dd>
                 </div>
               )}
               <div>
@@ -137,9 +212,9 @@ export default function HealthCheckPage() {
               </div>
             </dl>
             <p className="health-check-note">
-              A non-2xx response still proves the service answered the request.
-              This screen is intended as a quick connectivity check for the
-              default backend.
+              A non-2xx response still proves the service answered the request,
+              but a healthy result requires both the health and version
+              endpoints to succeed.
             </p>
           </div>
         )}
