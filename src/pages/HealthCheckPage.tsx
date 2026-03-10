@@ -18,10 +18,20 @@ interface BackendCheckResult {
   versionStatus?: number;
 }
 
+function asTrimmedString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
 function formatVersionPayload(payload: unknown): string | undefined {
-  if (typeof payload === "string") {
-    const trimmed = payload.trim();
-    return trimmed || undefined;
+  const stringPayload = asTrimmedString(payload);
+
+  if (stringPayload) {
+    return stringPayload;
   }
 
   if (!payload || typeof payload !== "object") {
@@ -30,11 +40,15 @@ function formatVersionPayload(payload: unknown): string | undefined {
 
   const record = payload as Record<string, unknown>;
   const versionParts = [
-    record.version,
-    record.buildVersion,
-    record.tag,
-    record.commit && `(${record.commit})`,
-  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+    asTrimmedString(record.version),
+    asTrimmedString(record.buildVersion),
+    asTrimmedString(record.tag),
+  ].filter((value): value is string => Boolean(value));
+  const commit = asTrimmedString(record.commit);
+
+  if (commit) {
+    versionParts.push(`(${commit})`);
+  }
 
   if (versionParts.length > 0) {
     return versionParts.join(" ");
@@ -50,11 +64,17 @@ function formatVersionPayload(payload: unknown): string | undefined {
 async function parseVersionResponse(response: Response): Promise<string | undefined> {
   const contentType = response.headers.get("content-type") ?? "";
 
-  if (contentType.includes("application/json")) {
-    return formatVersionPayload((await response.json()) as unknown);
-  }
+  try {
+    const responseText = await response.text();
 
-  return formatVersionPayload(await response.text());
+    if (contentType.includes("application/json")) {
+      return formatVersionPayload(JSON.parse(responseText) as unknown);
+    }
+
+    return formatVersionPayload(responseText);
+  } catch {
+    return undefined;
+  }
 }
 
 export default function HealthCheckPage() {
@@ -65,7 +85,7 @@ export default function HealthCheckPage() {
     const startedAt = performance.now();
 
     try {
-      const [healthResponse, versionResponse] = await Promise.all([
+      const [healthResult, versionResult] = await Promise.allSettled([
         fetch(HEALTH_API_URL, {
           headers: {
             Accept: "application/json, text/plain, */*",
@@ -77,22 +97,39 @@ export default function HealthCheckPage() {
           },
         }),
       ]);
-      const backendVersion = versionResponse.ok
+      const healthResponse =
+        healthResult.status === "fulfilled" ? healthResult.value : undefined;
+      const versionResponse =
+        versionResult.status === "fulfilled" ? versionResult.value : undefined;
+      const backendVersion = versionResponse?.ok
         ? await parseVersionResponse(versionResponse)
         : undefined;
-      const isHealthy = healthResponse.ok && versionResponse.ok;
+      const isHealthy = Boolean(healthResponse?.ok);
+      const isReachable = Boolean(healthResponse || versionResponse);
       const durationMs = Math.round(performance.now() - startedAt);
+      const rejectedResults = [healthResult, versionResult].filter(
+        (result): result is PromiseRejectedResult => result.status === "rejected"
+      );
+      const networkMessage = rejectedResults
+        .map((result) =>
+          result.reason instanceof Error ? result.reason.message : "Failed to fetch"
+        )
+        .join(" | ");
 
       setResult({
         backendVersion,
         checkedAt: new Date().toLocaleString(),
         durationMs,
-        healthStatus: healthResponse.status,
+        healthStatus: healthResponse?.status,
         message: isHealthy
-          ? "The public health and version endpoints both responded successfully."
-          : "The backend is reachable, but at least one healthcheck endpoint did not return a success response.",
-        state: isHealthy ? "healthy" : "reachable",
-        versionStatus: versionResponse.status,
+          ? versionResponse?.ok
+            ? "The public health and version endpoints both responded successfully."
+            : "The public health endpoint responded successfully."
+          : isReachable
+            ? "The backend is reachable, but at least one healthcheck endpoint did not return a success response."
+            : networkMessage || "Failed to fetch",
+        state: isHealthy ? "healthy" : isReachable ? "reachable" : "error",
+        versionStatus: versionResponse?.status,
       });
     } catch (error) {
       const durationMs = Math.round(performance.now() - startedAt);
@@ -213,8 +250,8 @@ export default function HealthCheckPage() {
             </dl>
             <p className="health-check-note">
               A non-2xx response still proves the service answered the request,
-              but a healthy result requires both the health and version
-              endpoints to succeed.
+              and the version endpoint is included as additional backend build
+              information when available.
             </p>
           </div>
         )}
