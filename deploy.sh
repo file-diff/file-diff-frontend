@@ -6,6 +6,7 @@ set -ex  # Added -e to stop the script if any command fails
 IMAGE_NAME="file-diff-frontend:build"
 CONTAINER_NAME="file-diff-frontend-build-tmp-$$"
 GIT_COMMIT="${VITE_GIT_COMMIT:-${GITHUB_SHA:-$(git rev-parse --short HEAD)}}"
+test -n "$GIT_COMMIT" || { echo "Error: Unable to determine git commit SHA" >&2; exit 1; }
 GIT_COMMIT="${GIT_COMMIT:0:7}"
 
 # Build the docker image using the dedicated build Dockerfile
