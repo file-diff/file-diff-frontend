@@ -9,7 +9,9 @@ import "./TreeComparePage.css";
 
 const INDEXING_TRIGGER_URL = JOBS_API_URL;
 const JOBS_BASE_URL = JOBS_API_URL;
+const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const POLL_INTERVAL_MS = 2000;
+const REFS_LOAD_DEBOUNCE_MS = 300;
 const DEFAULT_JOB_STATUS = "waiting";
 const INDEXING_HISTORY_STORAGE_KEY = "indexing-parameter-history";
 const DEFAULT_LEFT_REF = "main";
@@ -28,6 +30,25 @@ const TERMINAL_JOB_STATUSES = new Set([
 ]);
 
 type CompareSide = "left" | "right";
+
+interface ListRefsRequest {
+  repo: string;
+}
+
+type GitRefType = "branch" | "tag";
+
+interface GitRefSummary {
+  name: string;
+  ref: string;
+  type: GitRefType;
+  commit: string;
+  commitShort: string;
+}
+
+interface ListRefsResponse {
+  repo: string;
+  refs: GitRefSummary[];
+}
 
 interface IndexingJobStartResponse {
   id?: string;
@@ -295,6 +316,120 @@ function setQueryParam(
   params.set(key, normalizedValue);
 }
 
+function sortGitRefs(a: GitRefSummary, b: GitRefSummary): number {
+  if (a.type !== b.type) {
+    return a.type.localeCompare(b.type);
+  }
+
+  return a.name.localeCompare(b.name);
+}
+
+function isGitRefType(value: unknown): value is GitRefType {
+  return value === "branch" || value === "tag";
+}
+
+function normalizeGitRefSummary(value: unknown): GitRefSummary | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const name =
+    typeof candidate.name === "string" ? candidate.name.trim() : "";
+  const ref = typeof candidate.ref === "string" ? candidate.ref.trim() : "";
+
+  if (!name || !ref || !isGitRefType(candidate.type)) {
+    return null;
+  }
+
+  return {
+    name,
+    ref,
+    type: candidate.type,
+    commit:
+      typeof candidate.commit === "string" ? candidate.commit.trim() : "",
+    commitShort:
+      typeof candidate.commitShort === "string"
+        ? candidate.commitShort.trim()
+        : "",
+  };
+}
+
+function useRepositoryRefs(repo: string) {
+  const [refs, setRefs] = useState<GitRefSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const normalizedRepo = repo.trim();
+
+    if (!normalizedRepo) {
+      setRefs([]);
+      setIsLoading(false);
+      setError("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      const loadRefs = async () => {
+        setRefs([]);
+        setIsLoading(true);
+        setError("");
+
+        try {
+          const response = await fetch(LIST_REFS_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ repo: normalizedRepo } satisfies ListRefsRequest),
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error("Unable to load refs");
+          }
+
+          const data = (await response.json()) as ListRefsResponse;
+          const nextRefs = Array.isArray(data.refs)
+            ? data.refs
+                .map(normalizeGitRefSummary)
+                .filter((value): value is GitRefSummary => value !== null)
+                .sort(sortGitRefs)
+            : [];
+
+          setRefs(nextRefs);
+        } catch (error) {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          setRefs([]);
+          setError(
+            error instanceof Error && error.message
+              ? error.message
+              : "Unable to load refs"
+          );
+        } finally {
+          if (!controller.signal.aborted) {
+            setIsLoading(false);
+          }
+        }
+      };
+
+      void loadRefs();
+    }, REFS_LOAD_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [repo]);
+
+  return { refs, isLoading, error };
+}
+
 export default function TreeComparePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentSearch = searchParams.toString();
@@ -334,6 +469,8 @@ export default function TreeComparePage() {
   const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [useNaturalSort, setUseNaturalSort] = useState(false);
+  const leftRefsState = useRepositoryRefs(leftRepo);
+  const rightRefsState = useRepositoryRefs(rightRepo);
 
   const diff = useMemo(() => {
     try {
@@ -744,10 +881,20 @@ export default function TreeComparePage() {
               id="left-ref"
               type="text"
               value={leftRef}
+              list="left-ref-options"
               onChange={(e) => setLeftRef(e.target.value)}
               placeholder="main"
               spellCheck={false}
             />
+            <datalist id="left-ref-options">
+              {leftRefsState.refs.map((refOption) => (
+                <option
+                  key={refOption.ref}
+                  value={refOption.name}
+                  label={`${refOption.name} (${refOption.type}${refOption.commitShort ? ` · ${refOption.commitShort}` : ""})`}
+                />
+              ))}
+            </datalist>
             <button
               type="button"
               onClick={() => void handleStartIndexing("left")}
@@ -755,6 +902,15 @@ export default function TreeComparePage() {
             >
               {leftIsStarting ? "Starting..." : "Start indexing"}
             </button>
+          </div>
+          <div className="indexing-controls__hint" aria-live="polite">
+            {leftRefsState.isLoading
+              ? "Loading available refs…"
+              : leftRefsState.error
+                ? "Unable to load available refs for this repository."
+                : leftRefsState.refs.length > 0
+                  ? `Select from ${leftRefsState.refs.length} branches and tags or enter any ref manually.`
+                  : "Enter any branch, tag, or commit. Matching refs will appear here when available."}
           </div>
           {renderJobStatus(leftJob)}
           <label htmlFor="left-endpoint">Left API endpoint</label>
@@ -790,10 +946,20 @@ export default function TreeComparePage() {
               id="right-ref"
               type="text"
               value={rightRef}
+              list="right-ref-options"
               onChange={(e) => setRightRef(e.target.value)}
               placeholder="main"
               spellCheck={false}
             />
+            <datalist id="right-ref-options">
+              {rightRefsState.refs.map((refOption) => (
+                <option
+                  key={refOption.ref}
+                  value={refOption.name}
+                  label={`${refOption.name} (${refOption.type}${refOption.commitShort ? ` · ${refOption.commitShort}` : ""})`}
+                />
+              ))}
+            </datalist>
             <button
               type="button"
               onClick={() => void handleStartIndexing("right")}
@@ -801,6 +967,15 @@ export default function TreeComparePage() {
             >
               {rightIsStarting ? "Starting..." : "Start indexing"}
             </button>
+          </div>
+          <div className="indexing-controls__hint" aria-live="polite">
+            {rightRefsState.isLoading
+              ? "Loading available refs…"
+              : rightRefsState.error
+                ? "Unable to load available refs for this repository."
+                : rightRefsState.refs.length > 0
+                  ? `Select from ${rightRefsState.refs.length} branches and tags or enter any ref manually.`
+                  : "Enter any branch, tag, or commit. Matching refs will appear here when available."}
           </div>
           {renderJobStatus(rightJob)}
           <label htmlFor="right-endpoint">Right API endpoint</label>
