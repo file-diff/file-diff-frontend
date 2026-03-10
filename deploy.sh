@@ -5,9 +5,11 @@ set -ex  # Added -e to stop the script if any command fails
 # Build inside Docker to ensure consistent environment and produce static /app/dist
 IMAGE_NAME="file-diff-frontend:build"
 CONTAINER_NAME="file-diff-frontend-build-tmp-$$"
+GIT_COMMIT="${VITE_GIT_COMMIT:-${GITHUB_SHA:-$(git rev-parse --short HEAD)}}"
+GIT_COMMIT="${GIT_COMMIT:0:7}"
 
 # Build the docker image using the dedicated build Dockerfile
-docker build -t "$IMAGE_NAME" -f Dockerfile.build .
+docker build --build-arg VITE_GIT_COMMIT="$GIT_COMMIT" -t "$IMAGE_NAME" -f Dockerfile.build .
 
 # Create a temporary container from the image
 docker create --name "$CONTAINER_NAME" "$IMAGE_NAME"
