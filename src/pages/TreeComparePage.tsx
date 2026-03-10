@@ -10,6 +10,7 @@ import "./TreeComparePage.css";
 const INDEXING_TRIGGER_URL = JOBS_API_URL;
 const JOBS_BASE_URL = JOBS_API_URL;
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
+const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
 const POLL_INTERVAL_MS = 2000;
 const REFS_LOAD_DEBOUNCE_MS = 300;
 const DEFAULT_JOB_STATUS = "waiting";
@@ -35,6 +36,20 @@ interface ListRefsRequest {
   repo: string;
 }
 
+interface JobRequest {
+  repo: string;
+  commit: string;
+}
+
+interface ResolveCommitRequest {
+  repo: string;
+  ref: string;
+}
+
+interface ErrorResponse {
+  error: string;
+}
+
 type GitRefType = "branch" | "tag";
 
 interface GitRefSummary {
@@ -48,6 +63,13 @@ interface GitRefSummary {
 interface ListRefsResponse {
   repo: string;
   refs: GitRefSummary[];
+}
+
+interface ResolveCommitResponse {
+  repo: string;
+  ref: string;
+  commit: string;
+  commitShort: string;
 }
 
 interface IndexingJobStartResponse {
@@ -355,6 +377,38 @@ function normalizeGitRefSummary(value: unknown): GitRefSummary | null {
   };
 }
 
+async function requestResolvedCommit(
+  repo: string,
+  ref: string,
+  signal?: AbortSignal
+): Promise<ResolveCommitResponse> {
+  const response = await fetch(RESOLVE_COMMIT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ repo, ref } satisfies ResolveCommitRequest),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = "Unable to resolve commit";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as ResolveCommitResponse;
+}
+
 function useRepositoryRefs(repo: string) {
   const [refs, setRefs] = useState<GitRefSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -430,6 +484,71 @@ function useRepositoryRefs(repo: string) {
   return { refs, isLoading, error };
 }
 
+function useResolvedCommit(repo: string, ref: string) {
+  const [commit, setCommit] = useState("");
+  const [commitShort, setCommitShort] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const normalizedRepo = repo.trim();
+    const normalizedRef = ref.trim();
+
+    if (!normalizedRepo || !normalizedRef) {
+      setCommit("");
+      setCommitShort("");
+      setIsLoading(false);
+      setError("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      const loadCommit = async () => {
+        setCommit("");
+        setCommitShort("");
+        setIsLoading(true);
+        setError("");
+
+        try {
+          const data = await requestResolvedCommit(
+            normalizedRepo,
+            normalizedRef,
+            controller.signal
+          );
+          setCommit(data.commit.trim());
+          setCommitShort(data.commitShort.trim());
+        } catch (error) {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          setCommit("");
+          setCommitShort("");
+          setError(
+            error instanceof Error && error.message
+              ? error.message
+              : "Unable to resolve commit"
+          );
+        } finally {
+          if (!controller.signal.aborted) {
+            setIsLoading(false);
+          }
+        }
+      };
+
+      void loadCommit();
+    }, REFS_LOAD_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [repo, ref]);
+
+  return { commit, commitShort, isLoading, error };
+}
+
 export default function TreeComparePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentSearch = searchParams.toString();
@@ -471,6 +590,8 @@ export default function TreeComparePage() {
   const [useNaturalSort, setUseNaturalSort] = useState(false);
   const leftRefsState = useRepositoryRefs(leftRepo);
   const rightRefsState = useRepositoryRefs(rightRepo);
+  const leftResolvedCommitState = useResolvedCommit(leftRepo, leftRef);
+  const rightResolvedCommitState = useResolvedCommit(rightRepo, rightRef);
 
   const diff = useMemo(() => {
     try {
@@ -644,7 +765,6 @@ export default function TreeComparePage() {
   const handleStartIndexing = async (side: CompareSide) => {
     const repo = (side === "left" ? leftRepo : rightRepo).trim();
     const ref = (side === "left" ? leftRef : rightRef).trim();
-    const provider = (side === "left" ? leftProvider : rightProvider).trim() || "";
 
     if (!repo) {
       setApiError(`Enter the ${side} repository before starting indexing.`);
@@ -683,10 +803,10 @@ export default function TreeComparePage() {
     });
 
     try {
-      const payload: { provider?: string; ref: string; repo: string } = {
+      const resolvedCommit = await requestResolvedCommit(repo, ref);
+      const payload: JobRequest = {
         repo,
-        ref,
-        ...(provider ? { provider } : {}),
+        commit: resolvedCommit.commit,
       };
 
       const response = await fetch(INDEXING_TRIGGER_URL, {
@@ -710,7 +830,7 @@ export default function TreeComparePage() {
       const nextJob: IndexingJobState = {
         id: data.id,
         repo: data.repo ?? repo,
-        ref: data.ref ?? ref,
+        ref,
         status: data.status ?? DEFAULT_JOB_STATUS,
         progress: data.progress ?? 0,
         total_files: getTotalFiles(data) ?? 0,
@@ -722,7 +842,7 @@ export default function TreeComparePage() {
         filesUrl: buildJobFilesUrl(data.id),
         historyEntryId,
         inputRefName: ref,
-        resolvedCommit: extractResolvedCommit(data),
+        resolvedCommit: extractResolvedCommit(data) || resolvedCommit.commit,
       };
 
       updateIndexingHistoryEntry(historyEntryId, side, nextJob);
@@ -800,10 +920,15 @@ export default function TreeComparePage() {
         </div>
         <div className="indexing-job-status__row">
           <span className="indexing-job-status__label">Repository</span>
-          <span>
-            {job.repo}
-            {job.ref ? ` @ ${job.ref}` : ""}
-          </span>
+          <span>{job.repo}</span>
+        </div>
+        <div className="indexing-job-status__row">
+          <span className="indexing-job-status__label">Ref</span>
+          <span>{job.inputRefName || job.ref || "—"}</span>
+        </div>
+        <div className="indexing-job-status__row">
+          <span className="indexing-job-status__label">Commit</span>
+          {job.resolvedCommit ? <code>{job.resolvedCommit}</code> : <span>—</span>}
         </div>
         <div className="indexing-job-status__row">
           <span className="indexing-job-status__label">Status</span>
@@ -886,6 +1011,14 @@ export default function TreeComparePage() {
               placeholder="main"
               spellCheck={false}
             />
+            <input
+              id="left-commit"
+              type="text"
+              value={leftResolvedCommitState.commit}
+              placeholder="Resolved commit SHA"
+              readOnly
+              spellCheck={false}
+            />
             <datalist id="left-ref-options">
               {leftRefsState.refs.map((refOption) => (
                 <option
@@ -904,13 +1037,19 @@ export default function TreeComparePage() {
             </button>
           </div>
           <div className="indexing-controls__hint" aria-live="polite">
-            {leftRefsState.isLoading
-              ? "Loading available refs…"
-              : leftRefsState.error
-                ? "Unable to load available refs for this repository."
-                : leftRefsState.refs.length > 0
-                  ? `Select from ${leftRefsState.refs.length} branches and tags or enter any ref manually.`
-                  : "Enter any branch, tag, or commit. Matching refs will appear here when available."}
+            {leftResolvedCommitState.isLoading
+              ? "Resolving full commit SHA…"
+              : leftResolvedCommitState.error
+                ? leftResolvedCommitState.error
+                : leftResolvedCommitState.commit
+                  ? `Resolved commit ${leftResolvedCommitState.commitShort || leftResolvedCommitState.commit}.`
+                  : leftRefsState.isLoading
+                    ? "Loading available refs…"
+                    : leftRefsState.error
+                      ? "Unable to load available refs for this repository."
+                      : leftRefsState.refs.length > 0
+                        ? `Select from ${leftRefsState.refs.length} branches and tags or enter any ref manually.`
+                        : "Enter any branch, tag, or commit. Matching refs will appear here when available."}
           </div>
           {renderJobStatus(leftJob)}
           <label htmlFor="left-endpoint">Left API endpoint</label>
@@ -951,6 +1090,14 @@ export default function TreeComparePage() {
               placeholder="main"
               spellCheck={false}
             />
+            <input
+              id="right-commit"
+              type="text"
+              value={rightResolvedCommitState.commit}
+              placeholder="Resolved commit SHA"
+              readOnly
+              spellCheck={false}
+            />
             <datalist id="right-ref-options">
               {rightRefsState.refs.map((refOption) => (
                 <option
@@ -969,13 +1116,19 @@ export default function TreeComparePage() {
             </button>
           </div>
           <div className="indexing-controls__hint" aria-live="polite">
-            {rightRefsState.isLoading
-              ? "Loading available refs…"
-              : rightRefsState.error
-                ? "Unable to load available refs for this repository."
-                : rightRefsState.refs.length > 0
-                  ? `Select from ${rightRefsState.refs.length} branches and tags or enter any ref manually.`
-                  : "Enter any branch, tag, or commit. Matching refs will appear here when available."}
+            {rightResolvedCommitState.isLoading
+              ? "Resolving full commit SHA…"
+              : rightResolvedCommitState.error
+                ? rightResolvedCommitState.error
+                : rightResolvedCommitState.commit
+                  ? `Resolved commit ${rightResolvedCommitState.commitShort || rightResolvedCommitState.commit}.`
+                  : rightRefsState.isLoading
+                    ? "Loading available refs…"
+                    : rightRefsState.error
+                      ? "Unable to load available refs for this repository."
+                      : rightRefsState.refs.length > 0
+                        ? `Select from ${rightRefsState.refs.length} branches and tags or enter any ref manually.`
+                        : "Enter any branch, tag, or commit. Matching refs will appear here when available."}
           </div>
           {renderJobStatus(rightJob)}
           <label htmlFor="right-endpoint">Right API endpoint</label>

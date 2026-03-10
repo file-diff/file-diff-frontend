@@ -114,7 +114,7 @@
 
 .indexing-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px auto;
+  grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr) auto;
   gap: 8px;
   align-items: start;
   margin-bottom: 12px;
