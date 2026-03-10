@@ -86,6 +86,46 @@ interface IndexingHistoryEntry {
   useNaturalSort: boolean;
 }
 
+function isCompareSide(value: unknown): value is CompareSide {
+  return value === "left" || value === "right";
+}
+
+function isStoredIndexingSideParams(
+  value: unknown
+): value is StoredIndexingSideParams {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.endpoint === "string" &&
+    typeof candidate.inputRefName === "string" &&
+    typeof candidate.jobId === "string" &&
+    typeof candidate.provider === "string" &&
+    typeof candidate.repo === "string" &&
+    typeof candidate.resolvedCommit === "string" &&
+    typeof candidate.root === "string" &&
+    typeof candidate.status === "string"
+  );
+}
+
+function isIndexingHistoryEntry(value: unknown): value is IndexingHistoryEntry {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    isStoredIndexingSideParams(candidate.left) &&
+    isStoredIndexingSideParams(candidate.right) &&
+    isCompareSide(candidate.startedSide) &&
+    typeof candidate.storedAt === "string" &&
+    typeof candidate.useNaturalSort === "boolean"
+  );
+}
+
 function buildJobFilesUrl(jobId: string): string {
   return `${JOBS_BASE_URL}/${jobId}/files`;
 }
@@ -121,7 +161,9 @@ function readIndexingHistory(): IndexingHistoryEntry[] {
     }
 
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as IndexingHistoryEntry[]) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter(isIndexingHistoryEntry)
+      : [];
   } catch {
     return [];
   }
@@ -146,13 +188,15 @@ function buildStoredIndexingSideParams(params: {
   repo: string;
   root: string;
 }): StoredIndexingSideParams {
+  const endpoint = params.endpoint.trim();
+
   return {
     repo: params.repo.trim(),
     inputRefName: params.inputRefName.trim(),
     resolvedCommit: params.job?.resolvedCommit?.trim() ?? "",
     provider: params.provider.trim(),
     root: params.root.trim(),
-    endpoint: params.endpoint.trim() || params.job?.filesUrl || "",
+    endpoint: endpoint || params.job?.filesUrl || "",
     jobId: params.job?.id ?? "",
     status: params.job?.status ?? "",
   };
