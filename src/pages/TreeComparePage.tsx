@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { parseCsv, diffCsv, jobFilesResponseToCsv } from "../utils/csvParser";
-import type { JobFilesResponse } from "../utils/csvParser";
+import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
 import TreeDiffView from "../components/TreeDiffView";
 import { sampleCsvLeft, sampleCsvRight } from "../data/sampleData";
-import { JOBS_API_URL } from "../config/api";
+import { buildJobFileDownloadUrl, JOBS_API_URL } from "../config/api";
 import {
   buildComparePermalink,
   readLastSelectedParams,
@@ -137,6 +137,14 @@ interface IndexingJobState extends IndexingJobStatusResponse {
 
 function buildJobFilesUrl(jobId: string): string {
   return `${JOBS_BASE_URL}/${jobId}/files`;
+}
+
+function extractJobIdFromFilesUrl(filesUrl: string): string {
+  const match = filesUrl
+    .trim()
+    .match(/\/jobs\/([^/]+)\/files(?:[/?#]|$)/);
+
+  return match?.[1] ? decodeURIComponent(match[1]) : "";
 }
 
 function isTerminalJobStatus(status?: string): boolean {
@@ -557,6 +565,9 @@ export default function TreeComparePage() {
     leftJob?.resolvedCommit || leftPinnedCommit || leftResolvedCommitState.commit;
   const rightCurrentCommit =
     rightJob?.resolvedCommit || rightPinnedCommit || rightResolvedCommitState.commit;
+  const leftDownloadJobId = leftJob?.id || extractJobIdFromFilesUrl(leftEndpoint);
+  const rightDownloadJobId =
+    rightJob?.id || extractJobIdFromFilesUrl(rightEndpoint);
 
   const diff = useMemo(() => {
     try {
@@ -884,6 +895,17 @@ export default function TreeComparePage() {
       }
     }
   };
+
+  const buildDownloadUrl = useCallback(
+    (jobId: string, entry: DiffEntry): string => {
+      if (!jobId || entry.fileType === "d" || !entry.hash || entry.hash === "N/A") {
+        return "";
+      }
+
+      return buildJobFileDownloadUrl(jobId, entry.hash);
+    },
+    []
+  );
 
   const handleLoadFromApi = async () => {
     const leftUrl = leftEndpoint.trim();
@@ -1224,6 +1246,10 @@ export default function TreeComparePage() {
             slots={diff}
             leftLabel={leftLabel}
             rightLabel={rightLabel}
+            getLeftDownloadUrl={(entry) => buildDownloadUrl(leftDownloadJobId, entry)}
+            getRightDownloadUrl={(entry) =>
+              buildDownloadUrl(rightDownloadJobId, entry)
+            }
           />
         </div>
       )}
