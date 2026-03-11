@@ -5,6 +5,8 @@ interface TreeDiffViewProps {
   slots: ComparisonSlot[];
   leftLabel: string;
   rightLabel: string;
+  getLeftDownloadUrl?: (entry: DiffEntry) => string;
+  getRightDownloadUrl?: (entry: DiffEntry) => string;
 }
 
 const fileTypeIcon: Record<string, string> = {
@@ -22,7 +24,13 @@ function formatSize(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function EntryRow({ entry }: { entry: DiffEntry | null }) {
+function EntryRow({
+  entry,
+  getDownloadUrl,
+}: {
+  entry: DiffEntry | null;
+  getDownloadUrl?: (entry: DiffEntry) => string;
+}) {
   if (!entry) {
     return <div className="tree-row tree-row--empty" />;
   }
@@ -33,6 +41,7 @@ function EntryRow({ entry }: { entry: DiffEntry | null }) {
   const sizeStr = formatSize(entry.size);
   const hashStr =
     entry.fileType !== "d" && entry.hash !== "N/A" ? entry.hash : "";
+  const downloadUrl = hashStr ? getDownloadUrl?.(entry) ?? "" : "";
 
   return (
     <div className={`tree-row ${statusClass}`} title={entry.path}>
@@ -43,6 +52,27 @@ function EntryRow({ entry }: { entry: DiffEntry | null }) {
       <span className="tree-meta">
         {sizeStr && <span className="tree-size">{sizeStr}</span>}
         {hashStr && <span className="tree-hash">{hashStr}</span>}
+        {entry.fileType !== "d" && (
+          downloadUrl ? (
+            <a
+              className="tree-download"
+              href={downloadUrl}
+              download={entry.name}
+              aria-label={`Download ${entry.path}`}
+              title={`Download ${entry.path}`}
+            >
+              ⭳
+            </a>
+          ) : (
+            <span
+              className="tree-download tree-download--disabled"
+              aria-hidden="true"
+              title="Download unavailable"
+            >
+              ⭳
+            </span>
+          )
+        )}
       </span>
     </div>
   );
@@ -52,6 +82,8 @@ export default function TreeDiffView({
   slots,
   leftLabel,
   rightLabel,
+  getLeftDownloadUrl,
+  getRightDownloadUrl,
 }: TreeDiffViewProps) {
   return (
     <div className="tree-diff">
@@ -70,10 +102,13 @@ export default function TreeDiffView({
             key={slot.left?.path ?? slot.right?.path ?? `slot-${i}`}
           >
             <div className="tree-diff__column">
-              <EntryRow entry={slot.left} />
+              <EntryRow entry={slot.left} getDownloadUrl={getLeftDownloadUrl} />
             </div>
             <div className="tree-diff__column">
-              <EntryRow entry={slot.right} />
+              <EntryRow
+                entry={slot.right}
+                getDownloadUrl={getRightDownloadUrl}
+              />
             </div>
           </div>
         ))}
