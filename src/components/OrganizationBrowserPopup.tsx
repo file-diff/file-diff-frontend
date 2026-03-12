@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  parseRepositoryLocation,
   requestOrganizationRepositories,
+  requestRepositoryRefs,
   requestResolvedCommit,
 } from "../utils/repositorySelection";
 import type {
@@ -8,10 +10,10 @@ import type {
   OrganizationRepository,
   ResolveCommitResponse,
 } from "../utils/repositorySelection";
-import { JOBS_API_URL } from "../config/api";
 import "./OrganizationBrowserPopup.css";
 
-const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
+const REPOSITORY_OPTIONS_ID = "org-browser-repository-options";
+const REF_OPTIONS_ID = "org-browser-ref-options";
 
 export interface OrganizationBrowserResult {
   repo: string;
@@ -24,14 +26,6 @@ interface OrganizationBrowserPopupProps {
   open: boolean;
   onClose: () => void;
   onSelect: (result: OrganizationBrowserResult) => void;
-}
-
-function sortGitRefs(a: GitRefSummary, b: GitRefSummary): number {
-  if (a.type !== b.type) {
-    return a.type.localeCompare(b.type);
-  }
-
-  return a.name.localeCompare(b.name);
 }
 
 export default function OrganizationBrowserPopup({
@@ -97,6 +91,45 @@ export default function OrganizationBrowserPopup({
     }
   }, [open, resetState]);
 
+  const handleLoadRepositoriesForParsedLocation = useCallback(
+    async (organizationValue: string) => {
+      const org = organizationValue.trim();
+      if (!org) {
+        return;
+      }
+
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      setError("");
+      setRepositories([]);
+      setIsLoadingRefs(false);
+      setIsResolvingCommit(false);
+      setIsLoadingRepos(true);
+
+      try {
+        const repos = await requestOrganizationRepositories(org, controller.signal);
+        setRepositories(repos);
+        if (repos.length === 0) {
+          setError("No repositories found for this organization.");
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Unable to list repositories."
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingRepos(false);
+        }
+      }
+    },
+    []
+  );
+
   const handleLoadRepositories = async () => {
     const org = organization.trim();
     if (!org) {
@@ -104,42 +137,21 @@ export default function OrganizationBrowserPopup({
       return;
     }
 
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
     setError("");
-    setRepositories([]);
     setSelectedRepo("");
     setRefs([]);
     setSelectedRef("");
     setResolvedCommit(null);
-    setIsLoadingRepos(true);
-
-    try {
-      const repos = await requestOrganizationRepositories(
-        org,
-        controller.signal
-      );
-      setRepositories(repos);
-      if (repos.length === 0) {
-        setError("No repositories found for this organization.");
-      }
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Unable to list repositories."
-      );
-    } finally {
-      if (!controller.signal.aborted) {
-        setIsLoadingRepos(false);
-      }
-    }
+    await handleLoadRepositoriesForParsedLocation(org);
   };
 
-  const handleSelectRepository = async (repo: string) => {
+  const handleLoadRefs = async (repoValue = selectedRepo) => {
+    const repo = repoValue.trim();
+    if (!repo) {
+      setError("Enter a repository.");
+      return;
+    }
+
     setSelectedRepo(repo);
     setRefs([]);
     setSelectedRef("");
@@ -150,26 +162,12 @@ export default function OrganizationBrowserPopup({
     const controller = new AbortController();
     abortRef.current = controller;
 
+    setIsLoadingRepos(false);
+    setIsResolvingCommit(false);
     setIsLoadingRefs(true);
 
     try {
-      const response = await fetch(LIST_REFS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repo }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error("Unable to load refs");
-      }
-
-      const data = (await response.json()) as {
-        refs: GitRefSummary[];
-      };
-      const sortedRefs = Array.isArray(data.refs)
-        ? [...data.refs].sort(sortGitRefs)
-        : [];
+      const sortedRefs = await requestRepositoryRefs(repo, controller.signal);
       setRefs(sortedRefs);
 
       if (sortedRefs.length === 0) {
@@ -189,25 +187,37 @@ export default function OrganizationBrowserPopup({
     }
   };
 
-  const handleSelectRef = async (refName: string) => {
+  const handleResolveCommit = async (
+    refValue = selectedRef,
+    repoValue = selectedRepo
+  ) => {
+    const repo = repoValue.trim();
+    const refName = refValue.trim();
+
+    if (!repo) {
+      setError("Enter a repository.");
+      return;
+    }
+
+    if (!refName) {
+      setError("Enter a ref.");
+      return;
+    }
+
     setSelectedRef(refName);
     setResolvedCommit(null);
     setError("");
-
-    if (!selectedRepo) return;
 
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
+    setIsLoadingRepos(false);
+    setIsLoadingRefs(false);
     setIsResolvingCommit(true);
 
     try {
-      const result = await requestResolvedCommit(
-        selectedRepo,
-        refName,
-        controller.signal
-      );
+      const result = await requestResolvedCommit(repo, refName, controller.signal);
       setResolvedCommit(result);
     } catch (err) {
       if (controller.signal.aborted) return;
@@ -221,6 +231,46 @@ export default function OrganizationBrowserPopup({
         setIsResolvingCommit(false);
       }
     }
+  };
+
+  const handleRepositoryInputChange = (value: string) => {
+    const parsedLocation = parseRepositoryLocation(value);
+    const nextRepo = parsedLocation ? parsedLocation.repo : value;
+    const nextRef = parsedLocation?.ref ?? "";
+
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setSelectedRepo(nextRepo);
+    setRefs([]);
+    setSelectedRef(nextRef);
+    setResolvedCommit(null);
+    setIsLoadingRepos(false);
+    setIsLoadingRefs(false);
+    setIsResolvingCommit(false);
+    setError("");
+
+    if (!parsedLocation) {
+      return;
+    }
+
+    setOrganization(parsedLocation.organization);
+
+    void (async () => {
+      await handleLoadRepositoriesForParsedLocation(parsedLocation.organization);
+      await handleLoadRefs(parsedLocation.repo);
+
+      if (parsedLocation.ref) {
+        await handleResolveCommit(parsedLocation.ref, parsedLocation.repo);
+      }
+    })();
+  };
+
+  const handleSelectRepository = async (repo: string) => {
+    await handleLoadRefs(repo);
+  };
+
+  const handleSelectRef = async (refName: string) => {
+    await handleResolveCommit(refName);
   };
 
   const handleConfirm = () => {
@@ -290,9 +340,46 @@ export default function OrganizationBrowserPopup({
           </div>
         </div>
 
+        <div className="org-browser__step">
+          <label htmlFor="org-browser-repository-input">
+            Repository
+            {repositories.length > 0 ? ` (${repositories.length} suggestions)` : ""}
+          </label>
+          <div className="org-browser__input-row">
+            <input
+              id="org-browser-repository-input"
+              type="text"
+              value={selectedRepo}
+              list={REPOSITORY_OPTIONS_ID}
+              onChange={(e) => handleRepositoryInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleLoadRefs();
+              }}
+              placeholder="owner/repo or paste full GitHub URL"
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              onClick={() => void handleLoadRefs()}
+              disabled={isLoadingRefs || !selectedRepo.trim()}
+            >
+              {isLoadingRefs ? "Loading…" : "Load refs"}
+            </button>
+          </div>
+          <datalist id={REPOSITORY_OPTIONS_ID}>
+            {repositories.map((repo) => (
+              <option key={repo.repo} value={repo.repo} label={repo.name} />
+            ))}
+          </datalist>
+          <div className="org-browser__hint">
+            Enter any repository manually. Listed organization repositories are
+            available as autocomplete suggestions.
+          </div>
+        </div>
+
         {repositories.length > 0 && (
           <div className="org-browser__step">
-            <label>Repository ({repositories.length})</label>
+            <label>Repository list</label>
             <ul className="org-browser__list" role="listbox">
               {repositories.map((repo) => (
                 <li
@@ -319,36 +406,81 @@ export default function OrganizationBrowserPopup({
           <div className="org-browser__loading">Loading refs…</div>
         )}
 
-        {refs.length > 0 && (
+        {(selectedRepo.trim() || refs.length > 0) && (
           <div className="org-browser__step">
-            <label>
-              Ref ({refs.length}) —{" "}
+            <label htmlFor="org-browser-ref-input">
+              Ref
+              {refs.length > 0 ? ` (${refs.length} suggestions)` : ""} —{" "}
               <span className="org-browser__repo-context">{selectedRepo}</span>
             </label>
-            <ul className="org-browser__list" role="listbox">
+            <div className="org-browser__input-row">
+              <input
+                id="org-browser-ref-input"
+                type="text"
+                value={selectedRef}
+                list={REF_OPTIONS_ID}
+                onChange={(e) => {
+                  abortRef.current?.abort();
+                  abortRef.current = null;
+                  setSelectedRef(e.target.value);
+                  setResolvedCommit(null);
+                  setIsResolvingCommit(false);
+                  setError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleResolveCommit();
+                }}
+                placeholder="main"
+                spellCheck={false}
+              />
+              <button
+                type="button"
+                onClick={() => void handleResolveCommit()}
+                disabled={isResolvingCommit || !selectedRef.trim()}
+              >
+                {isResolvingCommit ? "Resolving…" : "Resolve commit"}
+              </button>
+            </div>
+            <datalist id={REF_OPTIONS_ID}>
               {refs.map((gitRef) => (
-                <li
+                <option
                   key={gitRef.ref}
-                  role="option"
-                  aria-selected={selectedRef === gitRef.name}
-                  className={
-                    "org-browser__list-item" +
-                    (selectedRef === gitRef.name
-                      ? " org-browser__list-item--selected"
-                      : "")
-                  }
-                  onClick={() => void handleSelectRef(gitRef.name)}
-                >
-                  <span className="org-browser__ref-name">{gitRef.name}</span>
-                  <span className="org-browser__ref-type">{gitRef.type}</span>
-                  {gitRef.commitShort && (
-                    <code className="org-browser__ref-commit">
-                      {gitRef.commitShort}
-                    </code>
-                  )}
-                </li>
+                  value={gitRef.name}
+                  label={`${gitRef.name} (${gitRef.type}${gitRef.commitShort ? ` · ${gitRef.commitShort}` : ""})`}
+                />
               ))}
-            </ul>
+            </datalist>
+            <div className="org-browser__hint">
+              Enter any ref manually. Loaded branches and tags are available as
+              autocomplete suggestions.
+            </div>
+
+            {refs.length > 0 && (
+              <ul className="org-browser__list" role="listbox">
+                {refs.map((gitRef) => (
+                  <li
+                    key={gitRef.ref}
+                    role="option"
+                    aria-selected={selectedRef === gitRef.name}
+                    className={
+                      "org-browser__list-item" +
+                      (selectedRef === gitRef.name
+                        ? " org-browser__list-item--selected"
+                        : "")
+                    }
+                    onClick={() => void handleSelectRef(gitRef.name)}
+                  >
+                    <span className="org-browser__ref-name">{gitRef.name}</span>
+                    <span className="org-browser__ref-type">{gitRef.type}</span>
+                    {gitRef.commitShort && (
+                      <code className="org-browser__ref-commit">
+                        {gitRef.commitShort}
+                      </code>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 

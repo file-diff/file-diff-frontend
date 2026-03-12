@@ -124,6 +124,43 @@ export async function requestResolvedCommit(
   return (await response.json()) as ResolveCommitResponse;
 }
 
+export async function requestRepositoryRefs(
+  repo: string,
+  signal?: AbortSignal
+): Promise<GitRefSummary[]> {
+  const response = await fetch(LIST_REFS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ repo } satisfies ListRefsRequest),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = "Unable to load refs";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as ListRefsResponse;
+  return Array.isArray(data.refs)
+    ? data.refs
+        .map(normalizeGitRefSummary)
+        .filter((value): value is GitRefSummary => value !== null)
+        .sort(sortGitRefs)
+    : [];
+}
+
 export function useRepositoryRefs(repo: string): RepositoryRefsState {
   const [refs, setRefs] = useState<GitRefSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -147,27 +184,10 @@ export function useRepositoryRefs(repo: string): RepositoryRefsState {
         setError("");
 
         try {
-          const response = await fetch(LIST_REFS_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ repo: normalizedRepo } satisfies ListRefsRequest),
-            signal: controller.signal,
-          });
-
-          if (!response.ok) {
-            throw new Error("Unable to load refs");
-          }
-
-          const data = (await response.json()) as ListRefsResponse;
-          const nextRefs = Array.isArray(data.refs)
-            ? data.refs
-                .map(normalizeGitRefSummary)
-                .filter((value): value is GitRefSummary => value !== null)
-                .sort(sortGitRefs)
-            : [];
-
+          const nextRefs = await requestRepositoryRefs(
+            normalizedRepo,
+            controller.signal
+          );
           setRefs(nextRefs);
         } catch (error) {
           if (controller.signal.aborted) {
@@ -273,9 +293,88 @@ export interface OrganizationRepository {
   repositoryUrl: string;
 }
 
+export interface ParsedRepositoryLocation {
+  organization: string;
+  repo: string;
+  ref: string;
+}
+
 interface OrganizationRepositoriesResponse {
   organization: string;
   repositories: OrganizationRepository[];
+}
+
+function normalizeParsedRepository(
+  organization: string,
+  repository: string,
+  ref = ""
+): ParsedRepositoryLocation | null {
+  const normalizedOrganization = organization.trim();
+  const normalizedRepository = repository.trim().replace(/\.git$/i, "");
+
+  if (!normalizedOrganization || !normalizedRepository) {
+    return null;
+  }
+
+  return {
+    organization: normalizedOrganization,
+    repo: `${normalizedOrganization}/${normalizedRepository}`,
+    ref: ref.trim(),
+  };
+}
+
+function parseRepositoryUrl(url: URL): ParsedRepositoryLocation | null {
+  const pathSegments = url.pathname.split("/").filter(Boolean);
+
+  if (pathSegments.length < 2) {
+    return null;
+  }
+
+  const [, , selectionType, selectionValue] = pathSegments;
+  const refFromPath =
+    selectionType === "tree" ||
+    selectionType === "blob" ||
+    selectionType === "commit"
+      ? decodeURIComponent(selectionValue ?? "")
+      : "";
+
+  return normalizeParsedRepository(
+    decodeURIComponent(pathSegments[0] ?? ""),
+    decodeURIComponent(pathSegments[1] ?? ""),
+    refFromPath || url.searchParams.get("ref") || ""
+  );
+}
+
+export function parseRepositoryLocation(
+  value: string
+): ParsedRepositoryLocation | null {
+  const input = value.trim();
+  if (!input) {
+    return null;
+  }
+
+  const sshMatch = input.match(/^git@[^:]+:([^/]+)\/(.+?)(?:\.git)?$/i);
+  if (sshMatch) {
+    return normalizeParsedRepository(sshMatch[1], sshMatch[2]);
+  }
+
+  const urlCandidate =
+    /^https?:\/\//i.test(input) || input.startsWith("git://")
+      ? input
+      : input.startsWith("www.") ||
+          /^[a-z0-9.-]+\.[a-z]{2,}\//i.test(input)
+        ? `https://${input}`
+        : "";
+
+  if (!urlCandidate) {
+    return null;
+  }
+
+  try {
+    return parseRepositoryUrl(new URL(urlCandidate));
+  } catch {
+    return null;
+  }
 }
 
 export async function requestOrganizationRepositories(
