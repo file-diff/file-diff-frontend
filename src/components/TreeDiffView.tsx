@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { ComparisonSlot, DiffEntry } from "../utils/csvParser";
 import "./TreeDiffView.css";
 
@@ -78,6 +79,25 @@ function EntryRow({
   );
 }
 
+function buildFileCompareUrl(
+  leftEntry: DiffEntry,
+  rightEntry: DiffEntry,
+  getLeftDownloadUrl?: (entry: DiffEntry) => string,
+  getRightDownloadUrl?: (entry: DiffEntry) => string,
+): string | null {
+  if (leftEntry.fileType !== "t" || rightEntry.fileType !== "t") return null;
+
+  const leftUrl = getLeftDownloadUrl?.(leftEntry) ?? "";
+  const rightUrl = getRightDownloadUrl?.(rightEntry) ?? "";
+  if (!leftUrl || !rightUrl) return null;
+
+  const params = new URLSearchParams();
+  params.set("leftUrl", leftUrl);
+  params.set("rightUrl", rightUrl);
+  params.set("path", leftEntry.path);
+  return `/files?${params.toString()}`;
+}
+
 export default function TreeDiffView({
   slots,
   leftLabel,
@@ -96,22 +116,45 @@ export default function TreeDiffView({
         </div>
       </div>
       <div className="tree-diff__body">
-        {slots.map((slot, i) => (
-          <div
-            className="tree-diff__slot"
-            key={slot.left?.path ?? slot.right?.path ?? `slot-${i}`}
-          >
-            <div className="tree-diff__column">
-              <EntryRow entry={slot.left} getDownloadUrl={getLeftDownloadUrl} />
+        {slots.map((slot, i) => {
+          const compareUrl =
+            slot.left && slot.right
+              ? buildFileCompareUrl(
+                  slot.left,
+                  slot.right,
+                  getLeftDownloadUrl,
+                  getRightDownloadUrl,
+                )
+              : null;
+
+          return (
+            <div
+              className="tree-diff__slot"
+              key={slot.left?.path ?? slot.right?.path ?? `slot-${i}`}
+            >
+              <div className="tree-diff__column">
+                <EntryRow entry={slot.left} getDownloadUrl={getLeftDownloadUrl} />
+              </div>
+              {compareUrl ? (
+                <Link
+                  className="tree-diff__compare-link"
+                  to={compareUrl}
+                  title={`Compare ${slot.left?.path ?? ""}`}
+                >
+                  ⇔
+                </Link>
+              ) : (
+                <span className="tree-diff__compare-link tree-diff__compare-link--disabled" />
+              )}
+              <div className="tree-diff__column">
+                <EntryRow
+                  entry={slot.right}
+                  getDownloadUrl={getRightDownloadUrl}
+                />
+              </div>
             </div>
-            <div className="tree-diff__column">
-              <EntryRow
-                entry={slot.right}
-                getDownloadUrl={getRightDownloadUrl}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

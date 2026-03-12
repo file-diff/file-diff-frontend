@@ -1,8 +1,33 @@
 .file-compare-page {
-  max-width: 800px;
-  margin: 0 auto;
   padding: 24px;
-  text-align: center;
+}
+
+.file-compare-page .page-header {
+  margin-bottom: 24px;
+}
+
+.file-compare-page .page-subtitle {
+  color: #999;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 14px;
+  margin: 8px 0;
+  word-break: break-all;
+}
+
+.file-compare-page .back-link {
+  display: inline-block;
+  padding: 6px 14px;
+  background: #2d2d2d;
+  border: 1px solid #555;
+  border-radius: 6px;
+  color: #58a6ff;
+  text-decoration: none;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.file-compare-page .back-link:hover {
+  background: #3d3d3d;
 }
 
 .placeholder-card {
@@ -11,6 +36,7 @@
   border: 2px dashed #444;
   border-radius: 12px;
   background: #1e1e1e;
+  text-align: center;
 }
 
 .placeholder-icon {
@@ -30,17 +56,169 @@
   line-height: 1.5;
 }
 
-.back-link {
-  display: inline-block;
-  padding: 10px 20px;
-  background: #2d2d2d;
-  border: 1px solid #555;
+.file-error {
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: rgba(218, 54, 51, 0.15);
+  border: 1px solid rgba(218, 54, 51, 0.4);
   border-radius: 6px;
-  color: #58a6ff;
-  text-decoration: none;
-  transition: background 0.15s;
+  color: #ffa198;
 }
 
-.back-link:hover {
-  background: #3d3d3d;
+.file-loading {
+  margin: 16px 0;
+  padding: 12px 16px;
+  color: #999;
+  font-style: italic;
+}
+
+.file-diff__summary {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+}
+
+.summary-item {
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: #2d2d2d;
+}
+
+.summary-item--equal {
+  color: #7ee787;
+}
+
+.summary-item--different {
+  color: #ffa198;
+}
+
+.summary-item--left-only,
+.summary-item--right-only {
+  color: #e3b341;
+}
+
+.summary-item--total {
+  color: #999;
+}
+
+.file-diff {
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 13px;
+  background: #1e1e1e;
+}
+
+.file-diff__header {
+  display: flex;
+  background: #2d2d2d;
+  border-bottom: 1px solid #444;
+}
+
+.file-diff__label {
+  padding: 10px 16px;
+  font-weight: 600;
+  color: #ccc;
+  text-align: center;
+}
+
+.file-diff__label--left,
+.file-diff__label--right {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-diff__label--left {
+  border-right: 1px solid #444;
+}
+
+.file-diff__label--center {
+  width: 32px;
+  flex-shrink: 0;
+  border-right: 1px solid #444;
+}
+
+.file-diff__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-diff__row {
+  display: flex;
+  border-bottom: 1px solid #2a2a2a;
+  min-height: 22px;
+}
+
+.file-diff__cell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  color: #d4d4d4;
+}
+
+.file-diff__cell--left {
+  border-right: 1px solid #333;
+}
+
+.file-diff__indicator {
+  width: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid #333;
+  background: #1a1a1a;
+}
+
+.diff-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.diff-icon--equal {
+  color: #7ee787;
+}
+
+.diff-icon--different {
+  color: #ffa198;
+}
+
+.diff-icon--absent {
+  color: #e3b341;
+}
+
+.file-line__number {
+  display: inline-block;
+  min-width: 40px;
+  padding: 2px 8px 2px 4px;
+  text-align: right;
+  color: #555;
+  user-select: none;
+  flex-shrink: 0;
+  border-right: 1px solid #2a2a2a;
+}
+
+.file-line__text {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 8px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.file-line--same {
+  background: transparent;
+}
+
+.file-line--different {
+  background: rgba(218, 54, 51, 0.1);
+}
+
+.file-line--absent {
+  background: #1a1a1a;
 }
