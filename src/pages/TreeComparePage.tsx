@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { parseCsv, diffCsv, jobFilesResponseToCsv } from "../utils/csvParser";
 import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
+import RepositoryCommitSelector from "../components/RepositoryCommitSelector";
+import {
+  requestResolvedCommit,
+  useRepositoryRefs,
+  useResolvedCommit,
+} from "../utils/repositorySelection";
 import TreeDiffView from "../components/TreeDiffView";
 import { sampleCsvLeft, sampleCsvRight } from "../data/sampleData";
 import { buildJobFileDownloadUrl, JOBS_API_URL } from "../config/api";
@@ -17,10 +23,7 @@ import "./TreeComparePage.css";
 
 const INDEXING_TRIGGER_URL = JOBS_API_URL;
 const JOBS_BASE_URL = JOBS_API_URL;
-const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
-const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
 const POLL_INTERVAL_MS = 2000;
-const REFS_LOAD_DEBOUNCE_MS = 300;
 const DEFAULT_JOB_STATUS = "waiting";
 const DEFAULT_LEFT_REF = "main";
 const DEFAULT_RIGHT_REF = "main";
@@ -38,44 +41,9 @@ const TERMINAL_JOB_STATUSES = new Set([
 ]);
 
 
-interface ListRefsRequest {
-  repo: string;
-}
-
 interface JobRequest {
   repo: string;
   commit: string;
-}
-
-interface ResolveCommitRequest {
-  repo: string;
-  ref: string;
-}
-
-interface ErrorResponse {
-  error: string;
-}
-
-type GitRefType = "branch" | "tag";
-
-interface GitRefSummary {
-  name: string;
-  ref: string;
-  type: GitRefType;
-  commit: string;
-  commitShort: string;
-}
-
-interface ListRefsResponse {
-  repo: string;
-  refs: GitRefSummary[];
-}
-
-interface ResolveCommitResponse {
-  repo: string;
-  ref: string;
-  commit: string;
-  commitShort: string;
 }
 
 interface IndexingJobStartResponse {
@@ -168,10 +136,6 @@ function extractResolvedCommit(
       (value): value is string => typeof value === "string" && value.trim() !== ""
     )?.trim() ?? ""
   );
-}
-
-function formatCommitSummary(commit: string): string {
-  return `Commit ${commit.slice(0, 7)}.`;
 }
 
 function getTotalFiles(
@@ -274,217 +238,6 @@ function setQueryParam(
   }
 
   params.set(key, normalizedValue);
-}
-
-function sortGitRefs(a: GitRefSummary, b: GitRefSummary): number {
-  if (a.type !== b.type) {
-    return a.type.localeCompare(b.type);
-  }
-
-  return a.name.localeCompare(b.name);
-}
-
-function isGitRefType(value: unknown): value is GitRefType {
-  return value === "branch" || value === "tag";
-}
-
-function normalizeGitRefSummary(value: unknown): GitRefSummary | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  const name =
-    typeof candidate.name === "string" ? candidate.name.trim() : "";
-  const ref = typeof candidate.ref === "string" ? candidate.ref.trim() : "";
-
-  if (!name || !ref || !isGitRefType(candidate.type)) {
-    return null;
-  }
-
-  return {
-    name,
-    ref,
-    type: candidate.type,
-    commit:
-      typeof candidate.commit === "string" ? candidate.commit.trim() : "",
-    commitShort:
-      typeof candidate.commitShort === "string"
-        ? candidate.commitShort.trim()
-        : "",
-  };
-}
-
-async function requestResolvedCommit(
-  repo: string,
-  ref: string,
-  signal?: AbortSignal
-): Promise<ResolveCommitResponse> {
-  const response = await fetch(RESOLVE_COMMIT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ repo, ref } satisfies ResolveCommitRequest),
-    signal,
-  });
-
-  if (!response.ok) {
-    let message = "Unable to resolve commit";
-
-    try {
-      const errorData = (await response.json()) as ErrorResponse;
-      if (typeof errorData.error === "string" && errorData.error.trim()) {
-        message = errorData.error.trim();
-      }
-    } catch {
-      // Ignore response parsing failures and fall back to the generic message.
-    }
-
-    throw new Error(message);
-  }
-
-  return (await response.json()) as ResolveCommitResponse;
-}
-
-function useRepositoryRefs(repo: string) {
-  const [refs, setRefs] = useState<GitRefSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const normalizedRepo = repo.trim();
-
-    if (!normalizedRepo) {
-      setRefs([]);
-      setIsLoading(false);
-      setError("");
-      return;
-    }
-
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      const loadRefs = async () => {
-        setRefs([]);
-        setIsLoading(true);
-        setError("");
-
-        try {
-          const response = await fetch(LIST_REFS_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ repo: normalizedRepo } satisfies ListRefsRequest),
-            signal: controller.signal,
-          });
-
-          if (!response.ok) {
-            throw new Error("Unable to load refs");
-          }
-
-          const data = (await response.json()) as ListRefsResponse;
-          const nextRefs = Array.isArray(data.refs)
-            ? data.refs
-                .map(normalizeGitRefSummary)
-                .filter((value): value is GitRefSummary => value !== null)
-                .sort(sortGitRefs)
-            : [];
-
-          setRefs(nextRefs);
-        } catch (error) {
-          if (controller.signal.aborted) {
-            return;
-          }
-
-          setRefs([]);
-          setError(
-            error instanceof Error && error.message
-              ? error.message
-              : "Unable to load refs"
-          );
-        } finally {
-          if (!controller.signal.aborted) {
-            setIsLoading(false);
-          }
-        }
-      };
-
-      void loadRefs();
-    }, REFS_LOAD_DEBOUNCE_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [repo]);
-
-  return { refs, isLoading, error };
-}
-
-function useResolvedCommit(repo: string, ref: string) {
-  const [commit, setCommit] = useState("");
-  const [commitShort, setCommitShort] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const normalizedRepo = repo.trim();
-    const normalizedRef = ref.trim();
-
-    if (!normalizedRepo || !normalizedRef) {
-      setCommit("");
-      setCommitShort("");
-      setIsLoading(false);
-      setError("");
-      return;
-    }
-
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      const loadCommit = async () => {
-        setCommit("");
-        setCommitShort("");
-        setIsLoading(true);
-        setError("");
-
-        try {
-          const data = await requestResolvedCommit(
-            normalizedRepo,
-            normalizedRef,
-            controller.signal
-          );
-          setCommit(data.commit.trim());
-          setCommitShort(data.commitShort.trim());
-        } catch (error) {
-          if (controller.signal.aborted) {
-            return;
-          }
-
-          setCommit("");
-          setCommitShort("");
-          setError(
-            error instanceof Error && error.message
-              ? error.message
-              : "Unable to resolve commit"
-          );
-        } finally {
-          if (!controller.signal.aborted) {
-            setIsLoading(false);
-          }
-        }
-      };
-
-      void loadCommit();
-    }, REFS_LOAD_DEBOUNCE_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [repo, ref]);
-
-  return { commit, commitShort, isLoading, error };
 }
 
 export default function TreeComparePage() {
@@ -906,59 +659,6 @@ export default function TreeComparePage() {
     []
   );
 
-
-  const renderJobStatus = (job: IndexingJobState | null) => {
-    if (!job) {
-      return null;
-    }
-
-    return (
-      <div className="indexing-job-status">
-        <div className="indexing-job-status__row">
-          <span className="indexing-job-status__label">Job</span>
-          <code>{job.id}</code>
-        </div>
-        <div className="indexing-job-status__row">
-          <span className="indexing-job-status__label">Repository</span>
-          <span>{job.repo}</span>
-        </div>
-        <div className="indexing-job-status__row">
-          <span className="indexing-job-status__label">Ref</span>
-          <span>{job.inputRefName || job.ref || "—"}</span>
-        </div>
-        <div className="indexing-job-status__row">
-          <span className="indexing-job-status__label">Commit</span>
-          {job.resolvedCommit ? <code>{job.resolvedCommit}</code> : <span>—</span>}
-        </div>
-        <div className="indexing-job-status__row">
-          <span className="indexing-job-status__label">Status</span>
-          <span>{job.status ?? DEFAULT_JOB_STATUS}</span>
-        </div>
-        <div className="indexing-job-status__row">
-          <span className="indexing-job-status__label">Progress</span>
-          <span>{job.progress ?? 0}%</span>
-        </div>
-        <div className="indexing-job-status__row">
-          <span className="indexing-job-status__label">Processed files</span>
-          <span>
-            {job.processed_files ?? 0}
-            {job.total_files ? ` / ${job.total_files}` : ""}
-          </span>
-        </div>
-        <div className="indexing-job-status__row">
-          <span className="indexing-job-status__label">Files returned</span>
-          <span>{job.filesLoaded}</span>
-        </div>
-        {job.error ? (
-          <div className="indexing-job-status__row" role="alert">
-            <span className="indexing-job-status__label">Error</span>
-            <span>{job.error}</span>
-          </div>
-        ) : null}
-      </div>
-    );
-  };
-
   return (
     <div className="tree-compare-page">
       <div className="page-header">
@@ -989,76 +689,34 @@ export default function TreeComparePage() {
 
       <div className="input-panels">
         <div className="input-panel">
-          <label htmlFor="left-repo">Left repository</label>
-          <div className="indexing-controls">
-            <input
-              id="left-repo"
-              type="text"
-              value={leftRepo}
-              onChange={(e) => {
-                setLeftRepo(e.target.value);
-                setLeftPinnedCommit("");
-                setLeftEndpoint("");
-                setLeftJob(null);
-              }}
-              placeholder="Arkiv-Network/arkiv-op-geth"
-              spellCheck={false}
-            />
-            <input
-              id="left-ref"
-              type="text"
-              value={leftRef}
-              list="left-ref-options"
-              onChange={(e) => {
-                setLeftRef(e.target.value);
-                setLeftPinnedCommit("");
-                setLeftEndpoint("");
-                setLeftJob(null);
-              }}
-              placeholder="main"
-              spellCheck={false}
-            />
-            <input
-              id="left-commit"
-              type="text"
-              value={leftCurrentCommit}
-              placeholder="Resolved commit SHA"
-              readOnly
-              spellCheck={false}
-            />
-            <datalist id="left-ref-options">
-              {leftRefsState.refs.map((refOption) => (
-                <option
-                  key={refOption.ref}
-                  value={refOption.name}
-                  label={`${refOption.name} (${refOption.type}${refOption.commitShort ? ` · ${refOption.commitShort}` : ""})`}
-                />
-              ))}
-            </datalist>
-            <button
-              type="button"
-              onClick={() => void handleStartIndexing("left")}
-              disabled={leftIsStarting}
-            >
-              {leftIsStarting ? "Starting..." : "Start indexing"}
-            </button>
-          </div>
-          <div className="indexing-controls__hint" aria-live="polite">
-            {leftResolvedCommitState.isLoading
-                ? "Resolving full commit SHA…"
-              : leftResolvedCommitState.error
-                ? leftResolvedCommitState.error
-                : leftCurrentCommit
-                  ? formatCommitSummary(leftCurrentCommit)
-                  : leftRefsState.isLoading
-                    ? "Loading available refs…"
-                    : leftRefsState.error
-                      ? "Unable to load available refs for this repository."
-                      : leftRefsState.refs.length > 0
-                        ? `Select from ${leftRefsState.refs.length} branches and tags or enter any ref manually.`
-                        : "Enter any branch, tag, or commit. Matching refs will appear here when available."}
-          </div>
-          {renderJobStatus(leftJob)}
+          <RepositoryCommitSelector
+            label="Left repository"
+            repoInputId="left-repo"
+            refInputId="left-ref"
+            commitInputId="left-commit"
+            refOptionsId="left-ref-options"
+            repoValue={leftRepo}
+            refValue={leftRef}
+            currentCommit={leftCurrentCommit}
+            refsState={leftRefsState}
+            resolvedCommitState={leftResolvedCommitState}
+            isStarting={leftIsStarting}
+            job={leftJob}
+            repoPlaceholder="Arkiv-Network/arkiv-op-geth"
+            onRepoChange={(value) => {
+              setLeftRepo(value);
+              setLeftPinnedCommit("");
+              setLeftEndpoint("");
+              setLeftJob(null);
+            }}
+            onRefChange={(value) => {
+              setLeftRef(value);
+              setLeftPinnedCommit("");
+              setLeftEndpoint("");
+              setLeftJob(null);
+            }}
+            onStartIndexing={() => void handleStartIndexing("left")}
+          />
           <label htmlFor="left-endpoint">Left API endpoint</label>
           <input
             id="left-endpoint"
@@ -1078,76 +736,34 @@ export default function TreeComparePage() {
           />
         </div>
         <div className="input-panel">
-          <label htmlFor="right-repo">Right repository</label>
-          <div className="indexing-controls">
-            <input
-              id="right-repo"
-              type="text"
-              value={rightRepo}
-              onChange={(e) => {
-                setRightRepo(e.target.value);
-                setRightPinnedCommit("");
-                setRightEndpoint("");
-                setRightJob(null);
-              }}
-              placeholder="Arkiv-Network/arkiv-op-geth"
-              spellCheck={false}
-            />
-            <input
-              id="right-ref"
-              type="text"
-              value={rightRef}
-              list="right-ref-options"
-              onChange={(e) => {
-                setRightRef(e.target.value);
-                setRightPinnedCommit("");
-                setRightEndpoint("");
-                setRightJob(null);
-              }}
-              placeholder="main"
-              spellCheck={false}
-            />
-            <input
-              id="right-commit"
-              type="text"
-              value={rightCurrentCommit}
-              placeholder="Resolved commit SHA"
-              readOnly
-              spellCheck={false}
-            />
-            <datalist id="right-ref-options">
-              {rightRefsState.refs.map((refOption) => (
-                <option
-                  key={refOption.ref}
-                  value={refOption.name}
-                  label={`${refOption.name} (${refOption.type}${refOption.commitShort ? ` · ${refOption.commitShort}` : ""})`}
-                />
-              ))}
-            </datalist>
-            <button
-              type="button"
-              onClick={() => void handleStartIndexing("right")}
-              disabled={rightIsStarting}
-            >
-              {rightIsStarting ? "Starting..." : "Start indexing"}
-            </button>
-          </div>
-          <div className="indexing-controls__hint" aria-live="polite">
-            {rightResolvedCommitState.isLoading
-                ? "Resolving full commit SHA…"
-              : rightResolvedCommitState.error
-                ? rightResolvedCommitState.error
-                : rightCurrentCommit
-                  ? formatCommitSummary(rightCurrentCommit)
-                  : rightRefsState.isLoading
-                    ? "Loading available refs…"
-                    : rightRefsState.error
-                      ? "Unable to load available refs for this repository."
-                      : rightRefsState.refs.length > 0
-                        ? `Select from ${rightRefsState.refs.length} branches and tags or enter any ref manually.`
-                        : "Enter any branch, tag, or commit. Matching refs will appear here when available."}
-          </div>
-          {renderJobStatus(rightJob)}
+          <RepositoryCommitSelector
+            label="Right repository"
+            repoInputId="right-repo"
+            refInputId="right-ref"
+            commitInputId="right-commit"
+            refOptionsId="right-ref-options"
+            repoValue={rightRepo}
+            refValue={rightRef}
+            currentCommit={rightCurrentCommit}
+            refsState={rightRefsState}
+            resolvedCommitState={rightResolvedCommitState}
+            isStarting={rightIsStarting}
+            job={rightJob}
+            repoPlaceholder="Arkiv-Network/arkiv-op-geth"
+            onRepoChange={(value) => {
+              setRightRepo(value);
+              setRightPinnedCommit("");
+              setRightEndpoint("");
+              setRightJob(null);
+            }}
+            onRefChange={(value) => {
+              setRightRef(value);
+              setRightPinnedCommit("");
+              setRightEndpoint("");
+              setRightJob(null);
+            }}
+            onStartIndexing={() => void handleStartIndexing("right")}
+          />
           <label htmlFor="right-endpoint">Right API endpoint</label>
           <input
             id="right-endpoint"
