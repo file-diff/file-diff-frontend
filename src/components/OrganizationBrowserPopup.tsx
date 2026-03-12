@@ -375,7 +375,7 @@ export default function OrganizationBrowserPopup({
             onClick={handleConfirm}
             disabled={!resolvedCommit}
           >
-            Select &amp; Start Indexing
+            Select & Start Indexing
           </button>
         </div>
       </div>
