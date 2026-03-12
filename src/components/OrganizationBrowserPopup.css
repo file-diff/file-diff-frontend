@@ -34,6 +34,12 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
+.org-browser__content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .org-browser__header {
   display: flex;
   align-items: center;
@@ -230,6 +236,10 @@
   gap: 8px;
   padding: 16px 20px;
   border-top: 1px solid #333;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  background: #1e1e1e;
 }
 
 .org-browser__cancel {

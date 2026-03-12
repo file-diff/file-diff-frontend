@@ -313,189 +313,197 @@ export default function OrganizationBrowserPopup({
           </button>
         </div>
 
-        {error && <div className="org-browser__error">{error}</div>}
+        <div className="org-browser__content">
+          {error && <div className="org-browser__error">{error}</div>}
 
-        <div className="org-browser__step">
-          <label htmlFor="org-name-input">Organization</label>
-          <div className="org-browser__input-row">
-            <input
-              id="org-name-input"
-              type="text"
-              value={organization}
-              onChange={(e) => setOrganization(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void handleLoadRepositories();
-              }}
-              placeholder="e.g. facebook"
-              spellCheck={false}
-              autoFocus
-            />
-            <button
-              type="button"
-              onClick={() => void handleLoadRepositories()}
-              disabled={isLoadingRepos || !organization.trim()}
-            >
-              {isLoadingRepos ? "Loading…" : "List repos"}
-            </button>
-          </div>
-        </div>
-
-        <div className="org-browser__step">
-          <label htmlFor="org-browser-repository-input">
-            Repository
-            {repositories.length > 0 ? ` (${repositories.length} suggestions)` : ""}
-          </label>
-          <div className="org-browser__input-row">
-            <input
-              id="org-browser-repository-input"
-              type="text"
-              value={selectedRepo}
-              list={REPOSITORY_OPTIONS_ID}
-              onChange={(e) => handleRepositoryInputChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void handleLoadRefs();
-              }}
-              placeholder="owner/repo or paste full GitHub URL"
-              spellCheck={false}
-            />
-            <button
-              type="button"
-              onClick={() => void handleLoadRefs()}
-              disabled={isLoadingRefs || !selectedRepo.trim()}
-            >
-              {isLoadingRefs ? "Loading…" : "Load refs"}
-            </button>
-          </div>
-          <datalist id={REPOSITORY_OPTIONS_ID}>
-            {repositories.map((repo) => (
-              <option key={repo.repo} value={repo.repo} label={repo.name} />
-            ))}
-          </datalist>
-          <div className="org-browser__hint">
-            Enter any repository manually. Listed organization repositories are
-            available as autocomplete suggestions.
-          </div>
-        </div>
-
-        {repositories.length > 0 && (
           <div className="org-browser__step">
-            <label>Repository list</label>
-            <ul className="org-browser__list" role="listbox">
-              {repositories.map((repo) => (
-                <li
-                  key={repo.repo}
-                  role="option"
-                  aria-selected={selectedRepo === repo.repo}
-                  className={
-                    "org-browser__list-item" +
-                    (selectedRepo === repo.repo
-                      ? " org-browser__list-item--selected"
-                      : "")
-                  }
-                  onClick={() => void handleSelectRepository(repo.repo)}
-                >
-                  <span className="org-browser__repo-name">{repo.name}</span>
-                  <span className="org-browser__repo-full">{repo.repo}</span>
-                </li>
-              ))}
-            </ul>
+            <label htmlFor="org-name-input">Organization</label>
+            <div className="org-browser__input-row">
+              <input
+                id="org-name-input"
+                type="text"
+                value={organization}
+                onChange={(e) => setOrganization(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleLoadRepositories();
+                }}
+                placeholder="e.g. facebook"
+                spellCheck={false}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => void handleLoadRepositories()}
+                disabled={isLoadingRepos || !organization.trim()}
+              >
+                {isLoadingRepos ? "Loading…" : "List repos"}
+              </button>
+            </div>
           </div>
-        )}
 
-        {isLoadingRefs && (
-          <div className="org-browser__loading">Loading refs…</div>
-        )}
-
-        {(selectedRepo.trim() || refs.length > 0) && (
           <div className="org-browser__step">
-            <label htmlFor="org-browser-ref-input">
-              Ref
-              {refs.length > 0 ? ` (${refs.length} suggestions)` : ""} —{" "}
-              <span className="org-browser__repo-context">{selectedRepo}</span>
+            <label htmlFor="org-browser-repository-input">
+              Repository
+              {repositories.length > 0
+                ? ` (${repositories.length} suggestions)`
+                : ""}
             </label>
             <div className="org-browser__input-row">
               <input
-                id="org-browser-ref-input"
+                id="org-browser-repository-input"
                 type="text"
-                value={selectedRef}
-                list={REF_OPTIONS_ID}
-                onChange={(e) => {
-                  abortRef.current?.abort();
-                  abortRef.current = null;
-                  setSelectedRef(e.target.value);
-                  setResolvedCommit(null);
-                  setIsResolvingCommit(false);
-                  setError("");
-                }}
+                value={selectedRepo}
+                list={REPOSITORY_OPTIONS_ID}
+                onChange={(e) => handleRepositoryInputChange(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") void handleResolveCommit();
+                  if (e.key === "Enter") void handleLoadRefs();
                 }}
-                placeholder="main"
+                placeholder="owner/repo or paste full GitHub URL"
                 spellCheck={false}
               />
               <button
                 type="button"
-                onClick={() => void handleResolveCommit()}
-                disabled={isResolvingCommit || !selectedRef.trim()}
+                onClick={() => void handleLoadRefs()}
+                disabled={isLoadingRefs || !selectedRepo.trim()}
               >
-                {isResolvingCommit ? "Resolving…" : "Resolve commit"}
+                {isLoadingRefs ? "Loading…" : "Load refs"}
               </button>
             </div>
-            <datalist id={REF_OPTIONS_ID}>
-              {refs.map((gitRef) => (
-                <option
-                  key={gitRef.ref}
-                  value={gitRef.name}
-                  label={`${gitRef.name} (${gitRef.type}${gitRef.commitShort ? ` · ${gitRef.commitShort}` : ""})`}
-                />
+            <datalist id={REPOSITORY_OPTIONS_ID}>
+              {repositories.map((repo) => (
+                <option key={repo.repo} value={repo.repo} label={repo.name} />
               ))}
             </datalist>
             <div className="org-browser__hint">
-              Enter any ref manually. Loaded branches and tags are available as
-              autocomplete suggestions.
+              Enter any repository manually. Listed organization repositories are
+              available as autocomplete suggestions.
             </div>
+          </div>
 
-            {refs.length > 0 && (
+          {repositories.length > 0 && (
+            <div className="org-browser__step">
+              <label>Repository list</label>
               <ul className="org-browser__list" role="listbox">
-                {refs.map((gitRef) => (
+                {repositories.map((repo) => (
                   <li
-                    key={gitRef.ref}
+                    key={repo.repo}
                     role="option"
-                    aria-selected={selectedRef === gitRef.name}
+                    aria-selected={selectedRepo === repo.repo}
                     className={
                       "org-browser__list-item" +
-                      (selectedRef === gitRef.name
+                      (selectedRepo === repo.repo
                         ? " org-browser__list-item--selected"
                         : "")
                     }
-                    onClick={() => void handleSelectRef(gitRef.name)}
+                    onClick={() => void handleSelectRepository(repo.repo)}
                   >
-                    <span className="org-browser__ref-name">{gitRef.name}</span>
-                    <span className="org-browser__ref-type">{gitRef.type}</span>
-                    {gitRef.commitShort && (
-                      <code className="org-browser__ref-commit">
-                        {gitRef.commitShort}
-                      </code>
-                    )}
+                    <span className="org-browser__repo-name">{repo.name}</span>
+                    <span className="org-browser__repo-full">{repo.repo}</span>
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
-        )}
-
-        {isResolvingCommit && (
-          <div className="org-browser__loading">Resolving commit…</div>
-        )}
-
-        {resolvedCommit && (
-          <div className="org-browser__step">
-            <label>Resolved commit</label>
-            <div className="org-browser__commit-info">
-              <code>{resolvedCommit.commit}</code>
             </div>
-          </div>
-        )}
+          )}
+
+          {isLoadingRefs && (
+            <div className="org-browser__loading">Loading refs…</div>
+          )}
+
+          {(selectedRepo.trim() || refs.length > 0) && (
+            <div className="org-browser__step">
+              <label htmlFor="org-browser-ref-input">
+                Ref
+                {refs.length > 0 ? ` (${refs.length} suggestions)` : ""} —{" "}
+                <span className="org-browser__repo-context">{selectedRepo}</span>
+              </label>
+              <div className="org-browser__input-row">
+                <input
+                  id="org-browser-ref-input"
+                  type="text"
+                  value={selectedRef}
+                  list={REF_OPTIONS_ID}
+                  onChange={(e) => {
+                    abortRef.current?.abort();
+                    abortRef.current = null;
+                    setSelectedRef(e.target.value);
+                    setResolvedCommit(null);
+                    setIsResolvingCommit(false);
+                    setError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleResolveCommit();
+                  }}
+                  placeholder="main"
+                  spellCheck={false}
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleResolveCommit()}
+                  disabled={isResolvingCommit || !selectedRef.trim()}
+                >
+                  {isResolvingCommit ? "Resolving…" : "Resolve commit"}
+                </button>
+              </div>
+              <datalist id={REF_OPTIONS_ID}>
+                {refs.map((gitRef) => (
+                  <option
+                    key={gitRef.ref}
+                    value={gitRef.name}
+                    label={`${gitRef.name} (${gitRef.type}${gitRef.commitShort ? ` · ${gitRef.commitShort}` : ""})`}
+                  />
+                ))}
+              </datalist>
+              <div className="org-browser__hint">
+                Enter any ref manually. Loaded branches and tags are available
+                as autocomplete suggestions.
+              </div>
+
+              {refs.length > 0 && (
+                <ul className="org-browser__list" role="listbox">
+                  {refs.map((gitRef) => (
+                    <li
+                      key={gitRef.ref}
+                      role="option"
+                      aria-selected={selectedRef === gitRef.name}
+                      className={
+                        "org-browser__list-item" +
+                        (selectedRef === gitRef.name
+                          ? " org-browser__list-item--selected"
+                          : "")
+                      }
+                      onClick={() => void handleSelectRef(gitRef.name)}
+                    >
+                      <span className="org-browser__ref-name">
+                        {gitRef.name}
+                      </span>
+                      <span className="org-browser__ref-type">
+                        {gitRef.type}
+                      </span>
+                      {gitRef.commitShort && (
+                        <code className="org-browser__ref-commit">
+                          {gitRef.commitShort}
+                        </code>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {isResolvingCommit && (
+            <div className="org-browser__loading">Resolving commit…</div>
+          )}
+
+          {resolvedCommit && (
+            <div className="org-browser__step">
+              <label>Resolved commit</label>
+              <div className="org-browser__commit-info">
+                <code>{resolvedCommit.commit}</code>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="org-browser__actions">
           <button type="button" className="org-browser__cancel" onClick={onClose}>
