@@ -553,7 +553,6 @@ export default function TreeComparePage() {
   const [leftIsStarting, setLeftIsStarting] = useState(false);
   const [rightIsStarting, setRightIsStarting] = useState(false);
   const [apiError, setApiError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [useNaturalSort, setUseNaturalSort] = useState(
     () => savedParams.current?.useNaturalSort ?? false
   );
@@ -907,41 +906,6 @@ export default function TreeComparePage() {
     []
   );
 
-  const handleLoadFromApi = async () => {
-    const leftUrl = leftEndpoint.trim();
-    const rightUrl = rightEndpoint.trim();
-
-    if (!leftUrl || !rightUrl) {
-      setApiError("Enter both left and right API endpoints.");
-      return;
-    }
-
-    setIsLoading(true);
-    setApiError("");
-
-    try {
-      const [leftResponse, rightResponse] = await Promise.all([
-        fetch(leftUrl),
-        fetch(rightUrl),
-      ]);
-
-      if (!leftResponse.ok || !rightResponse.ok) {
-        throw new Error("Failed to load one or both endpoints.");
-      }
-
-      const [leftData, rightData] = await Promise.all([
-        leftResponse.json(),
-        rightResponse.json(),
-      ]);
-
-      applyFilesResponse("left", leftData);
-      applyFilesResponse("right", rightData);
-    } catch {
-      setApiError("Unable to load job file lists from the provided endpoints.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const renderJobStatus = (job: IndexingJobState | null) => {
     if (!job) {
@@ -1007,9 +971,6 @@ export default function TreeComparePage() {
       </div>
 
       <div className="sample-buttons">
-        <button onClick={handleLoadFromApi} disabled={isLoading}>
-          {isLoading ? "Loading..." : "Load from API"}
-        </button>
         <button onClick={loadSample}>Load Sample</button>
         <button onClick={handleClear}>Clear</button>
       </div>
