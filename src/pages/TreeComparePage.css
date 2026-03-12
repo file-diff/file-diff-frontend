@@ -153,6 +153,23 @@
   line-height: 1.4;
 }
 
+.browse-org-button {
+  margin-bottom: 12px;
+  padding: 6px 12px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: #2d2d2d;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.15s;
+  align-self: flex-start;
+}
+
+.browse-org-button:hover {
+  background: #3d3d3d;
+}
+
 .indexing-job-status {
   margin-bottom: 12px;
   padding: 12px;

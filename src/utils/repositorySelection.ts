@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL } from "../config/api";
+import { JOBS_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -265,4 +265,43 @@ export function useResolvedCommit(
   }, [repo, ref]);
 
   return { commit, commitShort, isLoading, error };
+}
+
+export interface OrganizationRepository {
+  name: string;
+  repo: string;
+  repositoryUrl: string;
+}
+
+interface OrganizationRepositoriesResponse {
+  organization: string;
+  repositories: OrganizationRepository[];
+}
+
+export async function requestOrganizationRepositories(
+  organization: string,
+  signal?: AbortSignal
+): Promise<OrganizationRepository[]> {
+  const response = await fetch(
+    buildOrganizationRepositoriesUrl(organization),
+    { signal }
+  );
+
+  if (!response.ok) {
+    let message = "Unable to list repositories";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as OrganizationRepositoriesResponse;
+  return Array.isArray(data.repositories) ? data.repositories : [];
 }

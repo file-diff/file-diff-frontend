@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { parseCsv, diffCsv, jobFilesResponseToCsv } from "../utils/csvParser";
 import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
 import RepositoryCommitSelector from "../components/RepositoryCommitSelector";
+import OrganizationBrowserPopup from "../components/OrganizationBrowserPopup";
+import type { OrganizationBrowserResult } from "../components/OrganizationBrowserPopup";
 import {
   requestResolvedCommit,
   useRepositoryRefs,
@@ -305,6 +307,7 @@ export default function TreeComparePage() {
   const [rightJob, setRightJob] = useState<IndexingJobState | null>(null);
   const [leftIsStarting, setLeftIsStarting] = useState(false);
   const [rightIsStarting, setRightIsStarting] = useState(false);
+  const [orgBrowserSide, setOrgBrowserSide] = useState<CompareSide | null>(null);
   const [apiError, setApiError] = useState("");
   const [useNaturalSort, setUseNaturalSort] = useState(
     () => savedParams.current?.useNaturalSort ?? false
@@ -520,10 +523,13 @@ export default function TreeComparePage() {
     return () => window.clearInterval(intervalId);
   }, [leftJob, rightJob, pollIndexingJob]);
 
-  const handleStartIndexing = async (side: CompareSide) => {
-    const repo = (side === "left" ? leftRepo : rightRepo).trim();
-    const ref = (side === "left" ? leftRef : rightRef).trim();
-    const currentCommit = side === "left" ? leftCurrentCommit : rightCurrentCommit;
+  const handleStartIndexing = async (
+    side: CompareSide,
+    override?: { repo: string; ref: string; commit: string }
+  ) => {
+    const repo = override?.repo ?? (side === "left" ? leftRepo : rightRepo).trim();
+    const ref = override?.ref ?? (side === "left" ? leftRef : rightRef).trim();
+    const currentCommit = override?.commit ?? (side === "left" ? leftCurrentCommit : rightCurrentCommit);
 
     if (!repo) {
       setApiError(`Enter the ${side} repository before starting indexing.`);
@@ -659,6 +665,33 @@ export default function TreeComparePage() {
     []
   );
 
+  const handleOrgBrowserSelect = (result: OrganizationBrowserResult) => {
+    const side = orgBrowserSide;
+    if (!side) return;
+
+    setOrgBrowserSide(null);
+
+    if (side === "left") {
+      setLeftRepo(result.repo);
+      setLeftRef(result.ref);
+      setLeftPinnedCommit(result.commit);
+      setLeftEndpoint("");
+      setLeftJob(null);
+    } else {
+      setRightRepo(result.repo);
+      setRightRef(result.ref);
+      setRightPinnedCommit(result.commit);
+      setRightEndpoint("");
+      setRightJob(null);
+    }
+
+    void handleStartIndexing(side, {
+      repo: result.repo,
+      ref: result.ref,
+      commit: result.commit,
+    });
+  };
+
   return (
     <div className="tree-compare-page">
       <div className="page-header">
@@ -717,6 +750,13 @@ export default function TreeComparePage() {
             }}
             onStartIndexing={() => void handleStartIndexing("left")}
           />
+          <button
+            type="button"
+            className="browse-org-button"
+            onClick={() => setOrgBrowserSide("left")}
+          >
+            Browse organization…
+          </button>
           <label htmlFor="left-endpoint">Left API endpoint</label>
           <input
             id="left-endpoint"
@@ -764,6 +804,13 @@ export default function TreeComparePage() {
             }}
             onStartIndexing={() => void handleStartIndexing("right")}
           />
+          <button
+            type="button"
+            className="browse-org-button"
+            onClick={() => setOrgBrowserSide("right")}
+          >
+            Browse organization…
+          </button>
           <label htmlFor="right-endpoint">Right API endpoint</label>
           <input
             id="right-endpoint"
@@ -830,6 +877,12 @@ export default function TreeComparePage() {
           />
         </div>
       )}
+
+      <OrganizationBrowserPopup
+        open={orgBrowserSide !== null}
+        onClose={() => setOrgBrowserSide(null)}
+        onSelect={handleOrgBrowserSelect}
+      />
     </div>
   );
 }
