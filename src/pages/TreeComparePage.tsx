@@ -5,6 +5,8 @@ import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
 import RepositoryCommitSelector from "../components/RepositoryCommitSelector";
 import OrganizationBrowserPopup from "../components/OrganizationBrowserPopup";
 import type { OrganizationBrowserResult } from "../components/OrganizationBrowserPopup";
+import PullRequestPopup from "../components/PullRequestPopup";
+import type { PullRequestPopupResult } from "../components/PullRequestPopup";
 import {
   requestResolvedCommit,
   useRepositoryRefs,
@@ -308,6 +310,9 @@ export default function TreeComparePage() {
   const [leftIsStarting, setLeftIsStarting] = useState(false);
   const [rightIsStarting, setRightIsStarting] = useState(false);
   const [orgBrowserSide, setOrgBrowserSide] = useState<CompareSide | null>(null);
+  const [isPullRequestPopupOpen, setIsPullRequestPopupOpen] = useState(false);
+  const [pendingPullRequestSelection, setPendingPullRequestSelection] =
+    useState<PullRequestPopupResult | null>(null);
   const [apiError, setApiError] = useState("");
   const [useNaturalSort, setUseNaturalSort] = useState(
     () => savedParams.current?.useNaturalSort ?? false
@@ -523,136 +528,176 @@ export default function TreeComparePage() {
     return () => window.clearInterval(intervalId);
   }, [leftJob, rightJob, pollIndexingJob]);
 
-  const handleStartIndexing = async (
-    side: CompareSide,
-    override?: { repo: string; ref: string; commit: string }
-  ) => {
-    const repo = override?.repo ?? (side === "left" ? leftRepo : rightRepo).trim();
-    const ref = override?.ref ?? (side === "left" ? leftRef : rightRef).trim();
-    const currentCommit = override?.commit ?? (side === "left" ? leftCurrentCommit : rightCurrentCommit);
+  const handleStartIndexing = useCallback(
+    async (
+      side: CompareSide,
+      override?: { repo: string; ref: string; commit: string }
+    ) => {
+      const repo = override?.repo ?? (side === "left" ? leftRepo : rightRepo).trim();
+      const ref = override?.ref ?? (side === "left" ? leftRef : rightRef).trim();
+      const currentCommit =
+        override?.commit ?? (side === "left" ? leftCurrentCommit : rightCurrentCommit);
 
-    if (!repo) {
-      setApiError(`Enter the ${side} repository before starting indexing.`);
+      if (!repo) {
+        setApiError(`Enter the ${side} repository before starting indexing.`);
+        return;
+      }
+
+      setApiError("");
+      if (side === "left") {
+        setLeftIsStarting(true);
+      } else {
+        setRightIsStarting(true);
+      }
+
+      const historyEntryId = crypto.randomUUID();
+      const leftHistorySide = buildStoredIndexingSideParams({
+        repo: leftRepo,
+        inputRefName: leftRef,
+        provider: leftProvider,
+        root: leftRoot,
+        resolvedCommit: leftCurrentCommit,
+        endpoint: side === "left" ? "" : leftEndpoint,
+        job: side === "left" ? null : leftJob,
+      });
+      const rightHistorySide = buildStoredIndexingSideParams({
+        repo: rightRepo,
+        inputRefName: rightRef,
+        provider: rightProvider,
+        root: rightRoot,
+        resolvedCommit: rightCurrentCommit,
+        endpoint: side === "right" ? "" : rightEndpoint,
+        job: side === "right" ? null : rightJob,
+      });
+      appendIndexingHistoryEntry({
+        id: historyEntryId,
+        permalink: buildComparePermalink(leftHistorySide, rightHistorySide),
+        storedAt: new Date().toISOString(),
+        startedSide: side,
+        useNaturalSort,
+        left: leftHistorySide,
+        right: rightHistorySide,
+      });
+
+      try {
+        const resolvedCommit = currentCommit
+          ? {
+              repo,
+              ref,
+              commit: currentCommit,
+              commitShort: currentCommit.slice(0, 7),
+            }
+          : await requestResolvedCommit(repo, ref);
+        const payload: JobRequest = {
+          repo,
+          commit: resolvedCommit.commit,
+        };
+
+        const response = await fetch(INDEXING_TRIGGER_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error("Unable to start indexing job");
+        }
+
+        const data = (await response.json()) as IndexingJobStartResponse;
+
+        if (!data.id) {
+          throw new Error("Missing job id");
+        }
+
+        const nextJob: IndexingJobState = {
+          id: data.id,
+          repo: data.repo ?? repo,
+          ref,
+          status: data.status ?? DEFAULT_JOB_STATUS,
+          progress: data.progress ?? 0,
+          total_files: getTotalFiles(data) ?? 0,
+          processed_files: getProcessedFiles(data) ?? 0,
+          created_at: getCreatedAt(data) ?? "",
+          updated_at: getUpdatedAt(data) ?? "",
+          error: data.error,
+          filesLoaded: 0,
+          filesUrl: buildJobFilesUrl(data.id),
+          historyEntryId,
+          inputRefName: ref,
+          resolvedCommit: extractResolvedCommit(data) || resolvedCommit.commit,
+        };
+
+        if (side === "left") {
+          setLeftPinnedCommit(nextJob.resolvedCommit);
+        } else {
+          setRightPinnedCommit(nextJob.resolvedCommit);
+        }
+
+        updateIndexingHistoryEntry(historyEntryId, side, nextJob);
+
+        if (side === "left") {
+          setLeftEndpoint(nextJob.filesUrl);
+          setLeftInput("");
+          setLeftLabel(`Left (${data.id})`);
+          setLeftJob(nextJob);
+        } else {
+          setRightEndpoint(nextJob.filesUrl);
+          setRightInput("");
+          setRightLabel(`Right (${data.id})`);
+          setRightJob(nextJob);
+        }
+
+        void pollIndexingJob(side, nextJob);
+      } catch {
+        setApiError(`Unable to start ${side} indexing job.`);
+      } finally {
+        if (side === "left") {
+          setLeftIsStarting(false);
+        } else {
+          setRightIsStarting(false);
+        }
+      }
+    },
+    [
+      leftCurrentCommit,
+      leftEndpoint,
+      leftJob,
+      leftProvider,
+      leftRef,
+      leftRepo,
+      leftRoot,
+      pollIndexingJob,
+      rightCurrentCommit,
+      rightEndpoint,
+      rightJob,
+      rightProvider,
+      rightRef,
+      rightRepo,
+      rightRoot,
+      useNaturalSort,
+    ]
+  );
+
+  useEffect(() => {
+    if (!pendingPullRequestSelection) {
       return;
     }
 
-    setApiError("");
-    if (side === "left") {
-      setLeftIsStarting(true);
-    } else {
-      setRightIsStarting(true);
-    }
+    setPendingPullRequestSelection(null);
 
-    const historyEntryId = crypto.randomUUID();
-    const leftHistorySide = buildStoredIndexingSideParams({
-      repo: leftRepo,
-      inputRefName: leftRef,
-      provider: leftProvider,
-      root: leftRoot,
-      resolvedCommit: leftCurrentCommit,
-      endpoint: side === "left" ? "" : leftEndpoint,
-      job: side === "left" ? null : leftJob,
+    void handleStartIndexing("left", {
+      repo: pendingPullRequestSelection.repo,
+      ref: pendingPullRequestSelection.targetCommit,
+      commit: pendingPullRequestSelection.targetCommit,
     });
-    const rightHistorySide = buildStoredIndexingSideParams({
-      repo: rightRepo,
-      inputRefName: rightRef,
-      provider: rightProvider,
-      root: rightRoot,
-      resolvedCommit: rightCurrentCommit,
-      endpoint: side === "right" ? "" : rightEndpoint,
-      job: side === "right" ? null : rightJob,
+    void handleStartIndexing("right", {
+      repo: pendingPullRequestSelection.repo,
+      ref: pendingPullRequestSelection.sourceCommit,
+      commit: pendingPullRequestSelection.sourceCommit,
     });
-    appendIndexingHistoryEntry({
-      id: historyEntryId,
-      permalink: buildComparePermalink(leftHistorySide, rightHistorySide),
-      storedAt: new Date().toISOString(),
-      startedSide: side,
-      useNaturalSort,
-      left: leftHistorySide,
-      right: rightHistorySide,
-    });
-
-    try {
-      const resolvedCommit = currentCommit
-        ? {
-            repo,
-            ref,
-            commit: currentCommit,
-            commitShort: currentCommit.slice(0, 7),
-          }
-        : await requestResolvedCommit(repo, ref);
-      const payload: JobRequest = {
-        repo,
-        commit: resolvedCommit.commit,
-      };
-
-      const response = await fetch(INDEXING_TRIGGER_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error("Unable to start indexing job");
-      }
-
-      const data = (await response.json()) as IndexingJobStartResponse;
-
-      if (!data.id) {
-        throw new Error("Missing job id");
-      }
-
-      const nextJob: IndexingJobState = {
-        id: data.id,
-        repo: data.repo ?? repo,
-        ref,
-        status: data.status ?? DEFAULT_JOB_STATUS,
-        progress: data.progress ?? 0,
-        total_files: getTotalFiles(data) ?? 0,
-        processed_files: getProcessedFiles(data) ?? 0,
-        created_at: getCreatedAt(data) ?? "",
-        updated_at: getUpdatedAt(data) ?? "",
-        error: data.error,
-        filesLoaded: 0,
-        filesUrl: buildJobFilesUrl(data.id),
-        historyEntryId,
-        inputRefName: ref,
-        resolvedCommit: extractResolvedCommit(data) || resolvedCommit.commit,
-      };
-
-      if (side === "left") {
-        setLeftPinnedCommit(nextJob.resolvedCommit);
-      } else {
-        setRightPinnedCommit(nextJob.resolvedCommit);
-      }
-
-      updateIndexingHistoryEntry(historyEntryId, side, nextJob);
-
-      if (side === "left") {
-        setLeftEndpoint(nextJob.filesUrl);
-        setLeftInput("");
-        setLeftLabel(`Left (${data.id})`);
-        setLeftJob(nextJob);
-      } else {
-        setRightEndpoint(nextJob.filesUrl);
-        setRightInput("");
-        setRightLabel(`Right (${data.id})`);
-        setRightJob(nextJob);
-      }
-
-      void pollIndexingJob(side, nextJob);
-    } catch {
-      setApiError(`Unable to start ${side} indexing job.`);
-    } finally {
-      if (side === "left") {
-        setLeftIsStarting(false);
-      } else {
-        setRightIsStarting(false);
-      }
-    }
-  };
+  }, [handleStartIndexing, pendingPullRequestSelection]);
 
   const buildDownloadUrl = useCallback(
     (jobId: string, entry: DiffEntry): string => {
@@ -692,6 +737,26 @@ export default function TreeComparePage() {
     });
   };
 
+  const handlePullRequestSelect = (result: PullRequestPopupResult) => {
+    setIsPullRequestPopupOpen(false);
+    setApiError("");
+    setLeftRepo(result.repo);
+    setRightRepo(result.repo);
+    setLeftRef(result.targetCommit);
+    setRightRef(result.sourceCommit);
+    setLeftPinnedCommit(result.targetCommit);
+    setRightPinnedCommit(result.sourceCommit);
+    setLeftEndpoint("");
+    setRightEndpoint("");
+    setLeftJob(null);
+    setRightJob(null);
+    setLeftInput("");
+    setRightInput("");
+    setLeftLabel(`Left (${result.targetCommitShort})`);
+    setRightLabel(`Right (${result.sourceCommitShort})`);
+    setPendingPullRequestSelection(result);
+  };
+
   return (
     <div className="tree-compare-page">
       <div className="page-header">
@@ -706,6 +771,9 @@ export default function TreeComparePage() {
       <div className="sample-buttons">
         <button onClick={loadSample}>Load Sample</button>
         <button onClick={handleClear}>Clear</button>
+        <button type="button" onClick={() => setIsPullRequestPopupOpen(true)}>
+          Resolve pull request…
+        </button>
       </div>
 
       <label className="sort-option" htmlFor="use-natural-sort">
@@ -882,6 +950,11 @@ export default function TreeComparePage() {
         open={orgBrowserSide !== null}
         onClose={() => setOrgBrowserSide(null)}
         onSelect={handleOrgBrowserSelect}
+      />
+      <PullRequestPopup
+        open={isPullRequestPopupOpen}
+        onClose={() => setIsPullRequestPopupOpen(false)}
+        onSelect={handlePullRequestSelect}
       />
     </div>
   );

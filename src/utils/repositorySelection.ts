@@ -3,6 +3,7 @@ import { JOBS_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
+const RESOLVE_PULL_REQUEST_URL = `${JOBS_API_URL}/pull-request/resolve`;
 const API_DEBOUNCE_MS = 300;
 
 interface ListRefsRequest {
@@ -12,6 +13,10 @@ interface ListRefsRequest {
 interface ResolveCommitRequest {
   repo: string;
   ref: string;
+}
+
+interface ResolvePullRequestRequest {
+  pullRequestUrl: string;
 }
 
 interface ErrorResponse {
@@ -38,6 +43,15 @@ export interface ResolveCommitResponse {
   ref: string;
   commit: string;
   commitShort: string;
+}
+
+export interface ResolvePullRequestResponse {
+  repo: string;
+  repositoryUrl: string;
+  sourceCommit: string;
+  sourceCommitShort: string;
+  targetCommit: string;
+  targetCommitShort: string;
 }
 
 export interface RepositoryRefsState {
@@ -122,6 +136,39 @@ export async function requestResolvedCommit(
   }
 
   return (await response.json()) as ResolveCommitResponse;
+}
+
+export async function requestResolvedPullRequest(
+  pullRequestUrl: string,
+  signal?: AbortSignal
+): Promise<ResolvePullRequestResponse> {
+  const response = await fetch(RESOLVE_PULL_REQUEST_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      pullRequestUrl,
+    } satisfies ResolvePullRequestRequest),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = "Unable to resolve pull request";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as ResolvePullRequestResponse;
 }
 
 export async function requestRepositoryRefs(
