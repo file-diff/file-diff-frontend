@@ -19,3 +19,11 @@ export function buildJobFileDownloadUrl(jobId: string, hash: string): string {
     jobId
   )}/files/hash/${encodeURIComponent(hash)}/download`;
 }
+
+export function buildOrganizationRepositoriesUrl(
+  organization: string
+): string {
+  return `${JOBS_API_URL}/organizations/${encodeURIComponent(
+    organization
+  )}/repositories`;
+}
