@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import "./FileComparePage.css";
 
@@ -23,7 +23,25 @@ function buildLineSlots(leftLines: string[], rightLines: string[]): LineSlot[] {
   return slots;
 }
 
-function LineRow({ slot }: { slot: LineSlot }) {
+function downloadTextFile(content: string, filename: string) {
+  const blob = new Blob([content], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function LineRow({
+  slot,
+  onCopyToRight,
+}: {
+  slot: LineSlot;
+  onCopyToRight: (lineIndex: number) => void;
+}) {
   const leftClass =
     slot.leftText === null
       ? "file-line--absent"
@@ -37,6 +55,8 @@ function LineRow({ slot }: { slot: LineSlot }) {
         ? "file-line--same"
         : "file-line--different";
 
+  const showArrow = !slot.isEqual && slot.leftText !== null && slot.rightText !== null;
+
   return (
     <div className="file-diff__row">
       <div className={`file-diff__cell file-diff__cell--left ${leftClass}`}>
@@ -44,12 +64,18 @@ function LineRow({ slot }: { slot: LineSlot }) {
         <span className="file-line__text">{slot.leftText ?? ""}</span>
       </div>
       <div className="file-diff__indicator">
-        {slot.leftText === null || slot.rightText === null ? (
+        {showArrow ? (
+          <button
+            className="diff-arrow"
+            title="Copy left line to right"
+            onClick={() => onCopyToRight(slot.lineNumber - 1)}
+          >
+            →
+          </button>
+        ) : slot.leftText === null || slot.rightText === null ? (
           <span className="diff-icon diff-icon--absent" title="Line only on one side">◌</span>
-        ) : slot.isEqual ? (
-          <span className="diff-icon diff-icon--equal" title="Lines are equal">✓</span>
         ) : (
-          <span className="diff-icon diff-icon--different" title="Lines differ">✗</span>
+          <span className="diff-icon diff-icon--equal" title="Lines are equal">✓</span>
         )}
       </div>
       <div className={`file-diff__cell file-diff__cell--right ${rightClass}`}>
@@ -66,8 +92,8 @@ export default function FileComparePage() {
   const rightUrl = searchParams.get("rightUrl") ?? "";
   const filePath = searchParams.get("path") ?? "";
 
-  const [leftText, setLeftText] = useState<string | null>(null);
-  const [rightText, setRightText] = useState<string | null>(null);
+  const [leftLines, setLeftLines] = useState<string[] | null>(null);
+  const [rightLines, setRightLines] = useState<string[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -99,8 +125,8 @@ export default function FileComparePage() {
         ]);
 
         if (!controller.signal.aborted) {
-          setLeftText(left);
-          setRightText(right);
+          setLeftLines(left.split(/\r?\n|\r/));
+          setRightLines(right.split(/\r?\n|\r/));
         }
       } catch (err: unknown) {
         if (!controller.signal.aborted) {
@@ -120,13 +146,48 @@ export default function FileComparePage() {
     };
   }, [leftUrl, rightUrl]);
 
-  const hasUrls = leftUrl && rightUrl;
-  const hasContent = leftText !== null && rightText !== null;
+  const handleCopyToRight = useCallback(
+    (lineIndex: number) => {
+      if (!leftLines || !rightLines) return;
+      if (lineIndex < 0 || lineIndex >= leftLines.length) return;
 
-  const slots =
-    hasContent
-      ? buildLineSlots(leftText.split(/\r?\n|\r/), rightText.split(/\r?\n|\r/))
-      : [];
+      setRightLines((prev) => {
+        const updated = [...prev!];
+        // Ensure array is large enough
+        while (updated.length <= lineIndex) {
+          updated.push("");
+        }
+        updated[lineIndex] = leftLines[lineIndex];
+        return updated;
+      });
+    },
+    [leftLines, rightLines]
+  );
+
+  const handleDownloadLeft = useCallback(() => {
+    if (!leftLines) return;
+    const filename = filePath ? filePath.split("/").pop() ?? "left.txt" : "left.txt";
+    downloadTextFile(leftLines.join("\n"), filename);
+  }, [leftLines, filePath]);
+
+  const handleDownloadRight = useCallback(() => {
+    if (!rightLines) return;
+    const baseName = filePath ? filePath.split("/").pop() ?? "right.txt" : "right.txt";
+    const dotIdx = baseName.lastIndexOf(".");
+    const filename =
+      dotIdx > 0
+        ? `${baseName.slice(0, dotIdx)}-modified${baseName.slice(dotIdx)}`
+        : `${baseName}-modified`;
+    downloadTextFile(rightLines.join("\n"), filename);
+  }, [rightLines, filePath]);
+
+  const hasUrls = leftUrl && rightUrl;
+  const hasContent = leftLines !== null && rightLines !== null;
+
+  const slots = useMemo(
+    () => (hasContent ? buildLineSlots(leftLines, rightLines) : []),
+    [hasContent, leftLines, rightLines]
+  );
 
   const equalCount = slots.filter((s) => s.isEqual).length;
   const differentCount = slots.filter(
@@ -180,6 +241,14 @@ export default function FileComparePage() {
             )}
             <span className="summary-item summary-item--total">{slots.length} lines total</span>
           </div>
+          <div className="file-diff__actions">
+            <button className="download-btn" onClick={handleDownloadLeft} title="Download left file">
+              ⭳ Download Left
+            </button>
+            <button className="download-btn" onClick={handleDownloadRight} title="Download right file">
+              ⭳ Download Right
+            </button>
+          </div>
           <div className="file-diff">
             <div className="file-diff__header">
               <div className="file-diff__label file-diff__label--left">Left</div>
@@ -188,7 +257,11 @@ export default function FileComparePage() {
             </div>
             <div className="file-diff__body">
               {slots.map((slot) => (
-                <LineRow key={slot.lineNumber} slot={slot} />
+                <LineRow
+                  key={slot.lineNumber}
+                  slot={slot}
+                  onCopyToRight={handleCopyToRight}
+                />
               ))}
             </div>
           </div>
