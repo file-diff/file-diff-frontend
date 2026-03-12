@@ -3,7 +3,7 @@ import { JOBS_API_URL } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
-const REFS_LOAD_DEBOUNCE_MS = 300;
+const API_DEBOUNCE_MS = 300;
 
 interface ListRefsRequest {
   repo: string;
@@ -188,7 +188,7 @@ export function useRepositoryRefs(repo: string): RepositoryRefsState {
       };
 
       void loadRefs();
-    }, REFS_LOAD_DEBOUNCE_MS);
+    }, API_DEBOUNCE_MS);
 
     return () => {
       window.clearTimeout(timeoutId);
@@ -256,7 +256,7 @@ export function useResolvedCommit(
       };
 
       void loadCommit();
-    }, REFS_LOAD_DEBOUNCE_MS);
+    }, API_DEBOUNCE_MS);
 
     return () => {
       window.clearTimeout(timeoutId);

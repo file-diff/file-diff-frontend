@@ -42,6 +42,38 @@ function formatCommitSummary(commit: string): string {
   return `Commit ${commit.slice(0, 7)}.`;
 }
 
+function getSelectionHint(
+  currentCommit: string,
+  refsState: RepositoryRefsState,
+  resolvedCommitState: ResolvedCommitState
+): string {
+  if (resolvedCommitState.isLoading) {
+    return "Resolving full commit SHA…";
+  }
+
+  if (resolvedCommitState.error) {
+    return resolvedCommitState.error;
+  }
+
+  if (currentCommit) {
+    return formatCommitSummary(currentCommit);
+  }
+
+  if (refsState.isLoading) {
+    return "Loading available refs…";
+  }
+
+  if (refsState.error) {
+    return "Unable to load available refs for this repository.";
+  }
+
+  if (refsState.refs.length > 0) {
+    return `Select from ${refsState.refs.length} branches and tags or enter any ref manually.`;
+  }
+
+  return "Enter any branch, tag, or commit. Matching refs will appear here when available.";
+}
+
 function renderJobStatus(job: RepositoryCommitSelectorJob | null) {
   if (!job) {
     return null;
@@ -112,19 +144,11 @@ export default function RepositoryCommitSelector({
   onRepoChange,
   onStartIndexing,
 }: RepositoryCommitSelectorProps) {
-  const hint = resolvedCommitState.isLoading
-    ? "Resolving full commit SHA…"
-    : resolvedCommitState.error
-      ? resolvedCommitState.error
-      : currentCommit
-        ? formatCommitSummary(currentCommit)
-        : refsState.isLoading
-          ? "Loading available refs…"
-          : refsState.error
-            ? "Unable to load available refs for this repository."
-            : refsState.refs.length > 0
-              ? `Select from ${refsState.refs.length} branches and tags or enter any ref manually.`
-              : "Enter any branch, tag, or commit. Matching refs will appear here when available.";
+  const hint = getSelectionHint(
+    currentCommit,
+    refsState,
+    resolvedCommitState
+  );
 
   return (
     <>
