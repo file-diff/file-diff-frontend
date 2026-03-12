@@ -152,8 +152,7 @@ export default function FileComparePage() {
       if (lineIndex < 0 || lineIndex >= leftLines.length) return;
 
       setRightLines((prev) => {
-        if (!prev) return prev;
-        const updated = [...prev];
+        const updated = [...prev!];
         // Ensure array is large enough
         while (updated.length <= lineIndex) {
           updated.push("");
