@@ -125,7 +125,7 @@ export default function FileComparePage() {
 
   const slots =
     hasContent
-      ? buildLineSlots(leftText.split("\n"), rightText.split("\n"))
+      ? buildLineSlots(leftText.split(/\r?\n|\r/), rightText.split(/\r?\n|\r/))
       : [];
 
   const equalCount = slots.filter((s) => s.isEqual).length;
