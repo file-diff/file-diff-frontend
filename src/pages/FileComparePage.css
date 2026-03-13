@@ -264,3 +264,16 @@
 .diff-arrow:hover {
   color: #79c0ff;
 }
+
+.diff-highlight {
+  background-color: rgba(218, 54, 51, 0.35);
+  border-radius: 2px;
+}
+
+.file-line--same .diff-highlight {
+  background-color: transparent;
+}
+
+.summary-item--diff-aligned {
+  color: #58a6ff;
+}
