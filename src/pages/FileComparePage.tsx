@@ -47,25 +47,9 @@ interface DiffResponse {
   chunks?: DiffChunkEntry[][];
 }
 
-interface JobFileInfo {
-  jobId: string;
-  hash: string;
-}
-
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-function parseJobFileInfo(downloadUrl: string): JobFileInfo | null {
-  const match = downloadUrl.match(
-    /\/jobs\/([^/]+)\/files\/hash\/([^/]+)\/download/
-  );
-  if (!match) return null;
-  return {
-    jobId: decodeURIComponent(match[1]),
-    hash: decodeURIComponent(match[2]),
-  };
-}
 
 function buildHighlightMaps(chunks: DiffChunkEntry[][]) {
   const left = new Map<number, ChangeRange[]>();
@@ -289,6 +273,8 @@ export default function FileComparePage() {
   const [searchParams] = useSearchParams();
   const leftUrl = searchParams.get("leftUrl") ?? "";
   const rightUrl = searchParams.get("rightUrl") ?? "";
+  const leftHash = searchParams.get("leftHash") ?? "";
+  const rightHash = searchParams.get("rightHash") ?? "";
   const filePath = searchParams.get("path") ?? "";
 
   const [leftLines, setLeftLines] = useState<string[] | null>(null);
@@ -308,17 +294,10 @@ export default function FileComparePage() {
       setDiffData(null);
 
       try {
-        const leftInfo = parseJobFileInfo(leftUrl);
-        const rightInfo = parseJobFileInfo(rightUrl);
-
         const diffPromise =
-          leftInfo && rightInfo
+          leftHash && rightHash
             ? fetch(
-                buildJobFileDiffUrl(
-                  leftInfo.jobId,
-                  leftInfo.hash,
-                  rightInfo.hash
-                ),
+                buildJobFileDiffUrl(leftHash, rightHash),
                 { signal: controller.signal }
               )
                 .then((r) =>
@@ -372,7 +351,7 @@ export default function FileComparePage() {
     return () => {
       controller.abort();
     };
-  }, [leftUrl, rightUrl]);
+  }, [leftHash, leftUrl, rightHash, rightUrl]);
 
   const handleCopyToRight = useCallback(
     (rightLineIndex: number, text: string) => {

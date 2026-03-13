@@ -20,16 +20,10 @@ export function buildJobFileDownloadUrl(jobId: string, hash: string): string {
   )}/files/hash/${encodeURIComponent(hash)}/download`;
 }
 
-export function buildJobFileDiffUrl(
-  jobId: string,
-  leftHash: string,
-  rightHash: string
-): string {
-  return `${JOBS_API_URL}/${encodeURIComponent(
-    jobId
-  )}/files/hash/${encodeURIComponent(leftHash)}/diff/${encodeURIComponent(
-    rightHash
-  )}`;
+export function buildJobFileDiffUrl(leftHash: string, rightHash: string): string {
+  return `${JOBS_API_URL}/files/hash/${encodeURIComponent(
+    leftHash
+  )}/diff/${encodeURIComponent(rightHash)}`;
 }
 
 export function buildOrganizationRepositoriesUrl(

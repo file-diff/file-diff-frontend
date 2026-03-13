@@ -95,6 +95,12 @@ function buildFileCompareUrl(
   params.set("leftUrl", leftUrl);
   params.set("rightUrl", rightUrl);
   params.set("path", leftEntry.path);
+  if (leftEntry.hash && leftEntry.hash !== "N/A") {
+    params.set("leftHash", leftEntry.hash);
+  }
+  if (rightEntry.hash && rightEntry.hash !== "N/A") {
+    params.set("rightHash", rightEntry.hash);
+  }
   return `/files?${params.toString()}`;
 }
 
