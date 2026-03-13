@@ -123,11 +123,11 @@ function buildLineSlotsFromDiff(
 
   return alignedLines.map(([lhsLine, rhsLine]) => {
     const leftText =
-      lhsLine !== null && lhsLine < leftLines.length
+      lhsLine !== null && lhsLine >= 0 && lhsLine < leftLines.length
         ? leftLines[lhsLine]
         : null;
     const rightText =
-      rhsLine !== null && rhsLine < rightLines.length
+      rhsLine !== null && rhsLine >= 0 && rhsLine < rightLines.length
         ? rightLines[rhsLine]
         : null;
     const isEqual =
@@ -529,7 +529,7 @@ export default function FileComparePage() {
             <div className="file-diff__body">
               {slots.map((slot, i) => (
                 <LineRow
-                  key={`${slot.leftLineNumber ?? "x"}-${slot.rightLineNumber ?? "x"}-${i}`}
+                  key={i}
                   slot={slot}
                   onCopyToRight={handleCopyToRight}
                 />
