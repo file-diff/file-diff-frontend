@@ -316,7 +316,7 @@ export default function TreeComparePage() {
     useState<PullRequestPopupResult | null>(null);
 
   const runWithRepoStartLock = useCallback(
-    async function runWithRepoStartLock<T>(
+    async function executeWithRepoStartLock<T>(
       repo: string,
       task: () => Promise<T>
     ): Promise<T> {
@@ -327,7 +327,9 @@ export default function TreeComparePage() {
       const nextLock = new Promise<void>((resolve) => {
         releaseLock = () => resolve();
       });
-      const currentLock = previousLock.catch(() => undefined).then(() => nextLock);
+      const currentLock = previousLock.catch(() => undefined).then(async () => {
+        await nextLock;
+      });
 
       repoStartLocksRef.current.set(normalizedRepo, currentLock);
       await previousLock.catch(() => undefined);
