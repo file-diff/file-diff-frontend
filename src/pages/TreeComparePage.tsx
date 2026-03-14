@@ -245,6 +245,7 @@ function setQueryParam(
 }
 
 export default function TreeComparePage() {
+  const repoStartLocksRef = useRef(new Map<string, Promise<void>>());
   const [searchParams, setSearchParams] = useSearchParams();
   const currentSearch = searchParams.toString();
   const { leftProvider, rightProvider } = useMemo(() => {
@@ -313,6 +314,38 @@ export default function TreeComparePage() {
   const [isPullRequestPopupOpen, setIsPullRequestPopupOpen] = useState(false);
   const [pendingPullRequestSelection, setPendingPullRequestSelection] =
     useState<PullRequestPopupResult | null>(null);
+
+  const runWithRepoStartLock = useCallback(
+    async function executeWithRepoStartLock<T>(
+      repo: string,
+      task: () => Promise<T>
+    ): Promise<T> {
+      const normalizedRepo = repo.trim().toLowerCase();
+      const previousLock =
+        repoStartLocksRef.current.get(normalizedRepo) ?? Promise.resolve();
+      let releaseLock: () => void = () => undefined;
+      const nextLock = new Promise<void>((resolve) => {
+        releaseLock = () => resolve();
+      });
+      const currentLock = previousLock.catch(() => undefined).then(async () => {
+        await nextLock;
+      });
+
+      repoStartLocksRef.current.set(normalizedRepo, currentLock);
+      await previousLock.catch(() => undefined);
+
+      try {
+        return await task();
+      } finally {
+        releaseLock();
+
+        if (repoStartLocksRef.current.get(normalizedRepo) === currentLock) {
+          repoStartLocksRef.current.delete(normalizedRepo);
+        }
+      }
+    },
+    []
+  );
   const [apiError, setApiError] = useState("");
   const [useNaturalSort, setUseNaturalSort] = useState(
     () => savedParams.current?.useNaturalSort ?? false
@@ -580,76 +613,78 @@ export default function TreeComparePage() {
       });
 
       try {
-        const resolvedCommit = currentCommit
-          ? {
-              repo,
-              ref,
-              commit: currentCommit,
-              commitShort: currentCommit.slice(0, 7),
-            }
-          : await requestResolvedCommit(repo, ref);
-        const payload: JobRequest = {
-          repo,
-          commit: resolvedCommit.commit,
-        };
+        await runWithRepoStartLock(repo, async () => {
+          const resolvedCommit = currentCommit
+            ? {
+                repo,
+                ref,
+                commit: currentCommit,
+                commitShort: currentCommit.slice(0, 7),
+              }
+            : await requestResolvedCommit(repo, ref);
+          const payload: JobRequest = {
+            repo,
+            commit: resolvedCommit.commit,
+          };
 
-        const response = await fetch(INDEXING_TRIGGER_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
+          const response = await fetch(INDEXING_TRIGGER_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            throw new Error("Unable to start indexing job");
+          }
+
+          const data = (await response.json()) as IndexingJobStartResponse;
+
+          if (!data.id) {
+            throw new Error("Missing job id");
+          }
+
+          const nextJob: IndexingJobState = {
+            id: data.id,
+            repo: data.repo ?? repo,
+            ref,
+            status: data.status ?? DEFAULT_JOB_STATUS,
+            progress: data.progress ?? 0,
+            total_files: getTotalFiles(data) ?? 0,
+            processed_files: getProcessedFiles(data) ?? 0,
+            created_at: getCreatedAt(data) ?? "",
+            updated_at: getUpdatedAt(data) ?? "",
+            error: data.error,
+            filesLoaded: 0,
+            filesUrl: buildJobFilesUrl(data.id),
+            historyEntryId,
+            inputRefName: ref,
+            resolvedCommit: extractResolvedCommit(data) || resolvedCommit.commit,
+          };
+
+          if (side === "left") {
+            setLeftPinnedCommit(nextJob.resolvedCommit);
+          } else {
+            setRightPinnedCommit(nextJob.resolvedCommit);
+          }
+
+          updateIndexingHistoryEntry(historyEntryId, side, nextJob);
+
+          if (side === "left") {
+            setLeftEndpoint(nextJob.filesUrl);
+            setLeftInput("");
+            setLeftLabel(`Left (${data.id})`);
+            setLeftJob(nextJob);
+          } else {
+            setRightEndpoint(nextJob.filesUrl);
+            setRightInput("");
+            setRightLabel(`Right (${data.id})`);
+            setRightJob(nextJob);
+          }
+
+          void pollIndexingJob(side, nextJob);
         });
-
-        if (!response.ok) {
-          throw new Error("Unable to start indexing job");
-        }
-
-        const data = (await response.json()) as IndexingJobStartResponse;
-
-        if (!data.id) {
-          throw new Error("Missing job id");
-        }
-
-        const nextJob: IndexingJobState = {
-          id: data.id,
-          repo: data.repo ?? repo,
-          ref,
-          status: data.status ?? DEFAULT_JOB_STATUS,
-          progress: data.progress ?? 0,
-          total_files: getTotalFiles(data) ?? 0,
-          processed_files: getProcessedFiles(data) ?? 0,
-          created_at: getCreatedAt(data) ?? "",
-          updated_at: getUpdatedAt(data) ?? "",
-          error: data.error,
-          filesLoaded: 0,
-          filesUrl: buildJobFilesUrl(data.id),
-          historyEntryId,
-          inputRefName: ref,
-          resolvedCommit: extractResolvedCommit(data) || resolvedCommit.commit,
-        };
-
-        if (side === "left") {
-          setLeftPinnedCommit(nextJob.resolvedCommit);
-        } else {
-          setRightPinnedCommit(nextJob.resolvedCommit);
-        }
-
-        updateIndexingHistoryEntry(historyEntryId, side, nextJob);
-
-        if (side === "left") {
-          setLeftEndpoint(nextJob.filesUrl);
-          setLeftInput("");
-          setLeftLabel(`Left (${data.id})`);
-          setLeftJob(nextJob);
-        } else {
-          setRightEndpoint(nextJob.filesUrl);
-          setRightInput("");
-          setRightLabel(`Right (${data.id})`);
-          setRightJob(nextJob);
-        }
-
-        void pollIndexingJob(side, nextJob);
       } catch {
         setApiError(`Unable to start ${side} indexing job.`);
       } finally {
@@ -676,6 +711,7 @@ export default function TreeComparePage() {
       rightRef,
       rightRepo,
       rightRoot,
+      runWithRepoStartLock,
       useNaturalSort,
     ]
   );
