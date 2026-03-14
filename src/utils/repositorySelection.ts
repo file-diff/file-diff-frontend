@@ -5,6 +5,11 @@ const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
 const RESOLVE_PULL_REQUEST_URL = `${JOBS_API_URL}/pull-request/resolve`;
 const API_DEBOUNCE_MS = 300;
+const inFlightResolvedCommitRequests = new Map<
+  string,
+  Promise<ResolveCommitResponse>
+>();
+const inFlightRepositoryRefsRequests = new Map<string, Promise<GitRefSummary[]>>();
 
 interface ListRefsRequest {
   repo: string;
@@ -67,6 +72,41 @@ export interface ResolvedCommitState {
   error: string;
 }
 
+function createAbortError(): Error {
+  return new DOMException("The operation was aborted.", "AbortError");
+}
+
+function awaitWithAbort<T>(
+  request: Promise<T>,
+  signal?: AbortSignal
+): Promise<T> {
+  if (!signal) {
+    return request;
+  }
+
+  if (signal.aborted) {
+    return Promise.reject(createAbortError());
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const handleAbort = () => {
+      reject(createAbortError());
+    };
+
+    signal.addEventListener("abort", handleAbort, { once: true });
+    request.then(
+      (value) => {
+        signal.removeEventListener("abort", handleAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", handleAbort);
+        reject(error);
+      }
+    );
+  });
+}
+
 function sortGitRefs(a: GitRefSummary, b: GitRefSummary): number {
   if (a.type !== b.type) {
     return a.type.localeCompare(b.type);
@@ -111,31 +151,54 @@ export async function requestResolvedCommit(
   ref: string,
   signal?: AbortSignal
 ): Promise<ResolveCommitResponse> {
-  const response = await fetch(RESOLVE_COMMIT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ repo, ref } satisfies ResolveCommitRequest),
-    signal,
-  });
+  const normalizedRepo = repo.trim();
+  const normalizedRef = ref.trim();
+  const requestKey = `${normalizedRepo.toLowerCase()}\n${normalizedRef}`;
+  const inFlightRequest = inFlightResolvedCommitRequests.get(requestKey);
 
-  if (!response.ok) {
-    let message = "Unable to resolve commit";
-
-    try {
-      const errorData = (await response.json()) as ErrorResponse;
-      if (typeof errorData.error === "string" && errorData.error.trim()) {
-        message = errorData.error.trim();
-      }
-    } catch {
-      // Ignore response parsing failures and fall back to the generic message.
-    }
-
-    throw new Error(message);
+  if (inFlightRequest) {
+    return awaitWithAbort(inFlightRequest, signal);
   }
 
-  return (await response.json()) as ResolveCommitResponse;
+  const request = (async () => {
+    const response = await fetch(RESOLVE_COMMIT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        repo: normalizedRepo,
+        ref: normalizedRef,
+      } satisfies ResolveCommitRequest),
+    });
+
+    if (!response.ok) {
+      let message = "Unable to resolve commit";
+
+      try {
+        const errorData = (await response.json()) as ErrorResponse;
+        if (typeof errorData.error === "string" && errorData.error.trim()) {
+          message = errorData.error.trim();
+        }
+      } catch {
+        // Ignore response parsing failures and fall back to the generic message.
+      }
+
+      throw new Error(message);
+    }
+
+    return (await response.json()) as ResolveCommitResponse;
+  })();
+
+  inFlightResolvedCommitRequests.set(requestKey, request);
+
+  try {
+    return awaitWithAbort(request, signal);
+  } finally {
+    if (inFlightResolvedCommitRequests.get(requestKey) === request) {
+      inFlightResolvedCommitRequests.delete(requestKey);
+    }
+  }
 }
 
 export async function requestResolvedPullRequest(
@@ -175,37 +238,56 @@ export async function requestRepositoryRefs(
   repo: string,
   signal?: AbortSignal
 ): Promise<GitRefSummary[]> {
-  const response = await fetch(LIST_REFS_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ repo } satisfies ListRefsRequest),
-    signal,
-  });
+  const normalizedRepo = repo.trim();
+  const requestKey = normalizedRepo.toLowerCase();
+  const inFlightRequest = inFlightRepositoryRefsRequests.get(requestKey);
 
-  if (!response.ok) {
-    let message = "Unable to load refs";
-
-    try {
-      const errorData = (await response.json()) as ErrorResponse;
-      if (typeof errorData.error === "string" && errorData.error.trim()) {
-        message = errorData.error.trim();
-      }
-    } catch {
-      // Ignore response parsing failures and fall back to the generic message.
-    }
-
-    throw new Error(message);
+  if (inFlightRequest) {
+    return awaitWithAbort(inFlightRequest, signal);
   }
 
-  const data = (await response.json()) as ListRefsResponse;
-  return Array.isArray(data.refs)
-    ? data.refs
-        .map(normalizeGitRefSummary)
-        .filter((value): value is GitRefSummary => value !== null)
-        .sort(sortGitRefs)
-    : [];
+  const request = (async () => {
+    const response = await fetch(LIST_REFS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ repo: normalizedRepo } satisfies ListRefsRequest),
+    });
+
+    if (!response.ok) {
+      let message = "Unable to load refs";
+
+      try {
+        const errorData = (await response.json()) as ErrorResponse;
+        if (typeof errorData.error === "string" && errorData.error.trim()) {
+          message = errorData.error.trim();
+        }
+      } catch {
+        // Ignore response parsing failures and fall back to the generic message.
+      }
+
+      throw new Error(message);
+    }
+
+    const data = (await response.json()) as ListRefsResponse;
+    return Array.isArray(data.refs)
+      ? data.refs
+          .map(normalizeGitRefSummary)
+          .filter((value): value is GitRefSummary => value !== null)
+          .sort(sortGitRefs)
+      : [];
+  })();
+
+  inFlightRepositoryRefsRequests.set(requestKey, request);
+
+  try {
+    return awaitWithAbort(request, signal);
+  } finally {
+    if (inFlightRepositoryRefsRequests.get(requestKey) === request) {
+      inFlightRepositoryRefsRequests.delete(requestKey);
+    }
+  }
 }
 
 export function useRepositoryRefs(repo: string): RepositoryRefsState {
