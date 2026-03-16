@@ -208,7 +208,7 @@
   border-radius: 6px;
   background: #1e1e1e;
   color: #d4d4d4;
-  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-family: var(--code-font-family);
   font-size: 13px;
   resize: vertical;
   line-height: 1.4;

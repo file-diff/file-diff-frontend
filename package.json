@@ -10,7 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/fira-code": "^5.2.7",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/inconsolata": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/roboto-mono": "^5.2.8",
+    "@fontsource/source-code-pro": "^5.2.7",
+    "@fontsource/ubuntu-mono": "^5.2.8",
     "natsort": "^2.0.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

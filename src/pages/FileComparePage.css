@@ -8,7 +8,7 @@
 
 .file-compare-page .page-subtitle {
   color: #999;
-  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-family: var(--code-font-family);
   font-size: 14px;
   margin: 8px 0;
   word-break: break-all;
@@ -78,7 +78,7 @@
   flex-wrap: wrap;
   margin-bottom: 12px;
   font-size: 13px;
-  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-family: var(--code-font-family);
 }
 
 .summary-item {
@@ -108,7 +108,7 @@
   border: 1px solid #333;
   border-radius: 8px;
   overflow: hidden;
-  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-family: var(--code-font-family);
   font-size: 13px;
   background: #1e1e1e;
 }
@@ -246,7 +246,7 @@
   border-radius: 6px;
   color: #58a6ff;
   font-size: 13px;
-  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-family: var(--code-font-family);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -420,7 +420,7 @@
   border-radius: 6px;
   background: #161616;
   color: #d4d4d4;
-  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-family: var(--code-font-family);
   font-size: 12px;
   line-height: 1.45;
   white-space: pre-wrap;
