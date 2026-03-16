@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { buildJobFileDiffUrl, buildTokenizeUrl } from "../config/api";
 import "./FileComparePage.css";
@@ -22,6 +22,8 @@ interface LineSlot {
   rightHighlights: ChangeRange[];
   leftTokens: Token[] | null;
   rightTokens: Token[] | null;
+  leftDiffInfo: DiffLineSide | null;
+  rightDiffInfo: DiffLineSide | null;
 }
 
 interface DiffChange {
@@ -85,19 +87,23 @@ interface RenderSegment {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function buildHighlightMaps(chunks: DiffChunkEntry[][]) {
+function buildLineInfoMaps(chunks: DiffChunkEntry[][]) {
   const left = new Map<number, ChangeRange[]>();
   const right = new Map<number, ChangeRange[]>();
+  const leftDiffInfo = new Map<number, DiffLineSide>();
+  const rightDiffInfo = new Map<number, DiffLineSide>();
 
   for (const chunk of chunks) {
     for (const entry of chunk) {
       if (entry.lhs) {
+        leftDiffInfo.set(entry.lhs.line_number, entry.lhs);
         left.set(
           entry.lhs.line_number,
           entry.lhs.changes.map((c) => ({ start: c.start, end: c.end }))
         );
       }
       if (entry.rhs) {
+        rightDiffInfo.set(entry.rhs.line_number, entry.rhs);
         right.set(
           entry.rhs.line_number,
           entry.rhs.changes.map((c) => ({ start: c.start, end: c.end }))
@@ -106,7 +112,7 @@ function buildHighlightMaps(chunks: DiffChunkEntry[][]) {
     }
   }
 
-  return { left, right };
+  return { left, right, leftDiffInfo, rightDiffInfo };
 }
 
 /**
@@ -260,6 +266,8 @@ function buildLineSlots(
         rightTokenLines && i < rightTokenLines.length
           ? rightTokenLines[i]
           : null,
+      leftDiffInfo: null,
+      rightDiffInfo: null,
     });
   }
 
@@ -274,7 +282,7 @@ function buildLineSlotsFromDiff(
   leftTokenLines: Token[][] | null,
   rightTokenLines: Token[][] | null
 ): LineSlot[] {
-  const highlights = buildHighlightMaps(chunks);
+  const lineInfo = buildLineInfoMaps(chunks);
 
   return alignedLines.map(([lhsLine, rhsLine]) => {
     const leftText =
@@ -295,9 +303,9 @@ function buildLineSlotsFromDiff(
       rightText,
       isEqual,
       leftHighlights:
-        lhsLine !== null ? (highlights.left.get(lhsLine) ?? []) : [],
+        lhsLine !== null ? (lineInfo.left.get(lhsLine) ?? []) : [],
       rightHighlights:
-        rhsLine !== null ? (highlights.right.get(rhsLine) ?? []) : [],
+        rhsLine !== null ? (lineInfo.right.get(rhsLine) ?? []) : [],
       leftTokens:
         leftTokenLines && lhsLine !== null && lhsLine < leftTokenLines.length
           ? leftTokenLines[lhsLine]
@@ -308,6 +316,10 @@ function buildLineSlotsFromDiff(
         rhsLine < rightTokenLines.length
           ? rightTokenLines[rhsLine]
           : null,
+      leftDiffInfo:
+        lhsLine !== null ? (lineInfo.leftDiffInfo.get(lhsLine) ?? null) : null,
+      rightDiffInfo:
+        rhsLine !== null ? (lineInfo.rightDiffInfo.get(rhsLine) ?? null) : null,
     };
   });
 }
@@ -408,12 +420,127 @@ function TokenizedHighlightedText({
   );
 }
 
+function formatDetailValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return JSON.stringify(value, null, 2);
+}
+
+function LineDetailsDialog({
+  selectedLine,
+  onClose,
+}: {
+  selectedLine: { slot: LineSlot; rowIndex: number } | null;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (selectedLine && !dialog.open) {
+      dialog.showModal();
+    } else if (!selectedLine && dialog.open) {
+      dialog.close();
+    }
+  }, [selectedLine]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const handleClose = () => onClose();
+    dialog.addEventListener("close", handleClose);
+    return () => dialog.removeEventListener("close", handleClose);
+  }, [onClose]);
+
+  const slot = selectedLine?.slot;
+
+  return (
+    <dialog className="line-details-dialog" ref={dialogRef}>
+      <div className="line-details">
+        <div className="line-details__header">
+          <div>
+            <h2>Line details</h2>
+            <p className="line-details__meta">
+              Row {selectedLine ? selectedLine.rowIndex + 1 : ""} · Left line{" "}
+              {slot?.leftLineNumber ?? ""} · Right line{" "}
+              {slot?.rightLineNumber ?? ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="line-details__close"
+            onClick={() => dialogRef.current?.close()}
+            aria-label="Close line details"
+          >
+            ×
+          </button>
+        </div>
+        <div className="line-details__content">
+          <section className="line-details__column">
+            <h3>Left</h3>
+            <div className="line-details__group">
+              <span className="line-details__label">Raw text</span>
+              <pre className="line-details__value">
+                {formatDetailValue(slot?.leftText ?? "")}
+              </pre>
+            </div>
+            <div className="line-details__group">
+              <span className="line-details__label">Diff info</span>
+              <pre className="line-details__value">
+                {formatDetailValue(slot?.leftDiffInfo)}
+              </pre>
+            </div>
+            <div className="line-details__group">
+              <span className="line-details__label">Tokenizer info</span>
+              <pre className="line-details__value">
+                {formatDetailValue(slot?.leftTokens)}
+              </pre>
+            </div>
+          </section>
+          <section className="line-details__column">
+            <h3>Right</h3>
+            <div className="line-details__group">
+              <span className="line-details__label">Raw text</span>
+              <pre className="line-details__value">
+                {formatDetailValue(slot?.rightText ?? "")}
+              </pre>
+            </div>
+            <div className="line-details__group">
+              <span className="line-details__label">Diff info</span>
+              <pre className="line-details__value">
+                {formatDetailValue(slot?.rightDiffInfo)}
+              </pre>
+            </div>
+            <div className="line-details__group">
+              <span className="line-details__label">Tokenizer info</span>
+              <pre className="line-details__value">
+                {formatDetailValue(slot?.rightTokens)}
+              </pre>
+            </div>
+          </section>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
 function LineRow({
   slot,
   onCopyToRight,
+  onShowDetails,
 }: {
   slot: LineSlot;
   onCopyToRight: (rightLineIndex: number, text: string) => void;
+  onShowDetails: () => void;
 }) {
   const leftClass =
     slot.leftText === null
@@ -456,31 +583,42 @@ function LineRow({
         </span>
       </div>
       <div className="file-diff__indicator">
-        {showArrow ? (
+        <div className="file-diff__indicator-actions">
+          {showArrow ? (
+            <button
+              className="diff-arrow"
+              title="Copy left line to right"
+              onClick={() =>
+                onCopyToRight(slot.rightLineNumber! - 1, slot.leftText!)
+              }
+            >
+              →
+            </button>
+          ) : slot.leftText === null || slot.rightText === null ? (
+            <span
+              className="diff-icon diff-icon--absent"
+              title="Line only on one side"
+            >
+              ◌
+            </span>
+          ) : (
+            <span
+              className="diff-icon diff-icon--equal"
+              title="Lines are equal"
+            >
+              ✓
+            </span>
+          )}
           <button
-            className="diff-arrow"
-            title="Copy left line to right"
-            onClick={() =>
-              onCopyToRight(slot.rightLineNumber! - 1, slot.leftText!)
-            }
+            type="button"
+            className="line-details-button"
+            title="Show line details"
+            aria-label="Show line details"
+            onClick={onShowDetails}
           >
-            →
+            i
           </button>
-        ) : slot.leftText === null || slot.rightText === null ? (
-          <span
-            className="diff-icon diff-icon--absent"
-            title="Line only on one side"
-          >
-            ◌
-          </span>
-        ) : (
-          <span
-            className="diff-icon diff-icon--equal"
-            title="Lines are equal"
-          >
-            ✓
-          </span>
-        )}
+        </div>
       </div>
       <div className={`file-diff__cell file-diff__cell--right ${rightClass}`}>
         <span className="file-line__number">
@@ -530,6 +668,10 @@ export default function FileComparePage() {
     useState<TokenizeResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedLine, setSelectedLine] = useState<{
+    slot: LineSlot;
+    rowIndex: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!leftUrl || !rightUrl) return;
@@ -542,6 +684,7 @@ export default function FileComparePage() {
       setDiffData(null);
       setLeftTokenData(null);
       setRightTokenData(null);
+      setSelectedLine(null);
 
       try {
         const diffPromise =
@@ -620,6 +763,7 @@ export default function FileComparePage() {
           setError(
             err instanceof Error ? err.message : "Failed to load files"
           );
+          setSelectedLine(null);
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -823,10 +967,15 @@ export default function FileComparePage() {
                   key={i}
                   slot={slot}
                   onCopyToRight={handleCopyToRight}
+                  onShowDetails={() => setSelectedLine({ slot, rowIndex: i })}
                 />
               ))}
             </div>
           </div>
+          <LineDetailsDialog
+            selectedLine={selectedLine}
+            onClose={() => setSelectedLine(null)}
+          />
         </>
       )}
     </div>
