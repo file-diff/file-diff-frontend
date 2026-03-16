@@ -24,6 +24,10 @@
   flex: 1;
 }
 
+.tokenize-field--theme {
+  flex: 0 0 220px;
+}
+
 .tokenize-field label {
   margin-bottom: 6px;
   color: #8b949e;
@@ -128,7 +132,8 @@
   display: inline-block;
   min-width: 3em;
   margin-right: 12px;
-  color: #555;
+  color: inherit;
+  opacity: 0.55;
   text-align: right;
   user-select: none;
 }
@@ -136,10 +141,11 @@
 .tokenize-line-json-button {
   margin-right: 12px;
   padding: 1px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid currentColor;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #9ecbff;
+  background: rgba(127, 127, 127, 0.08);
+  color: inherit;
+  opacity: 0.8;
   cursor: pointer;
   font-family: inherit;
   font-size: 0.75rem;
@@ -147,7 +153,7 @@
 }
 
 .tokenize-line-json-button:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(127, 127, 127, 0.16);
 }
 
 .tokenize-json-dialog {
