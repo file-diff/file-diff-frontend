@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { buildJobFileDiffUrl, buildTokenizeUrl } from "../config/api";
+import { DEFAULT_SHIKI_THEME, SHIKI_THEMES } from "../constants/shikiThemes";
 import "./FileComparePage.css";
 
 /* ------------------------------------------------------------------ */
@@ -651,12 +652,13 @@ function LineRow({
 /* ------------------------------------------------------------------ */
 
 export default function FileComparePage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const leftUrl = searchParams.get("leftUrl") ?? "";
   const rightUrl = searchParams.get("rightUrl") ?? "";
   const leftHash = searchParams.get("leftHash") ?? "";
   const rightHash = searchParams.get("rightHash") ?? "";
   const filePath = searchParams.get("path") ?? "";
+  const initialTheme = searchParams.get("theme") ?? DEFAULT_SHIKI_THEME;
 
   const [leftLines, setLeftLines] = useState<string[] | null>(null);
   const [rightLines, setRightLines] = useState<string[] | null>(null);
@@ -668,6 +670,7 @@ export default function FileComparePage() {
     useState<TokenizeResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [theme, setTheme] = useState(initialTheme);
   const [selectedLine, setSelectedLine] = useState<{
     slot: LineSlot;
     rowIndex: number;
@@ -701,7 +704,9 @@ export default function FileComparePage() {
 
         // Fetch tokenizer output for both sides (non-blocking: if it fails, we just skip syntax highlighting)
         const leftTokenPromise = leftHash
-          ? fetch(buildTokenizeUrl(leftHash), { signal: controller.signal })
+          ? fetch(buildTokenizeUrl(leftHash, theme), {
+              signal: controller.signal,
+            })
               .then((r) =>
                 r.ok ? (r.json() as Promise<TokenizeResponse>) : null
               )
@@ -709,7 +714,9 @@ export default function FileComparePage() {
           : Promise.resolve(null);
 
         const rightTokenPromise = rightHash
-          ? fetch(buildTokenizeUrl(rightHash), { signal: controller.signal })
+          ? fetch(buildTokenizeUrl(rightHash, theme), {
+              signal: controller.signal,
+            })
               .then((r) =>
                 r.ok ? (r.json() as Promise<TokenizeResponse>) : null
               )
@@ -777,7 +784,7 @@ export default function FileComparePage() {
     return () => {
       controller.abort();
     };
-  }, [leftHash, leftUrl, rightHash, rightUrl]);
+  }, [leftHash, leftUrl, rightHash, rightUrl, theme]);
 
   const handleCopyToRight = useCallback(
     (rightLineIndex: number, text: string) => {
@@ -909,6 +916,37 @@ export default function FileComparePage() {
 
       {hasContent && (
         <>
+          <div className="file-compare-controls">
+            <div className="file-compare-field file-compare-field--theme">
+              <label htmlFor="file-compare-theme">Theme</label>
+              <input
+                id="file-compare-theme"
+                type="text"
+                list="file-compare-theme-options"
+                placeholder={DEFAULT_SHIKI_THEME}
+                value={theme}
+                onChange={(e) => {
+                  const nextTheme = e.target.value;
+                  const nextSearchParams = new URLSearchParams(searchParams);
+
+                  setTheme(nextTheme);
+
+                  if (nextTheme.trim()) {
+                    nextSearchParams.set("theme", nextTheme.trim());
+                  } else {
+                    nextSearchParams.delete("theme");
+                  }
+
+                  setSearchParams(nextSearchParams, { replace: true });
+                }}
+              />
+              <datalist id="file-compare-theme-options">
+                {SHIKI_THEMES.map((themeName) => (
+                  <option key={themeName} value={themeName} />
+                ))}
+              </datalist>
+            </div>
+          </div>
           <div className="file-diff__summary">
             <span className="summary-item summary-item--equal">
               ✓ {equalCount} equal

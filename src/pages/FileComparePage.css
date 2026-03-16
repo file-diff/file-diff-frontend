@@ -72,6 +72,44 @@
   font-style: italic;
 }
 
+.file-compare-controls {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+.file-compare-field {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.file-compare-field--theme {
+  flex: 0 0 220px;
+}
+
+.file-compare-field label {
+  margin-bottom: 6px;
+  color: #8b949e;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.file-compare-field input {
+  padding: 10px 12px;
+  border: 1px solid #3b4a5a;
+  border-radius: 6px;
+  background: rgba(88, 166, 255, 0.08);
+  color: #e0e0e0;
+  font-family: var(--code-font-family);
+  font-size: 0.85rem;
+}
+
+.file-compare-field input::placeholder {
+  color: #555;
+}
+
 .file-diff__summary {
   display: flex;
   gap: 16px;

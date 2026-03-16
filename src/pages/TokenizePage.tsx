@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { buildTokenizeUrl } from "../config/api";
+import { DEFAULT_SHIKI_THEME, SHIKI_THEMES } from "../constants/shikiThemes";
 import "./TokenizePage.css";
 
 interface Token {
@@ -16,58 +17,6 @@ interface TokenizeResponse {
   bg?: string;
   themeName?: string;
 }
-
-const SHIKI_THEMES = [
-  "andromeeda",
-  "aurora-x",
-  "ayu-dark",
-  "catppuccin-frappe",
-  "catppuccin-latte",
-  "catppuccin-macchiato",
-  "catppuccin-mocha",
-  "dark-plus",
-  "dracula",
-  "everforest-dark",
-  "everforest-light",
-  "github-dark",
-  "github-dark-default",
-  "github-dark-dimmed",
-  "github-dark-high-contrast",
-  "github-light",
-  "github-light-default",
-  "github-light-high-contrast",
-  "gruvbox-dark-hard",
-  "gruvbox-light-hard",
-  "houston",
-  "kanagawa-dragon",
-  "kanagawa-lotus",
-  "kanagawa-wave",
-  "light-plus",
-  "material-theme",
-  "material-theme-darker",
-  "material-theme-lighter",
-  "material-theme-ocean",
-  "material-theme-palenight",
-  "min-dark",
-  "min-light",
-  "monokai",
-  "night-owl",
-  "nord",
-  "one-dark-pro",
-  "one-light",
-  "poimandres",
-  "rose-pine",
-  "rose-pine-dawn",
-  "rose-pine-moon",
-  "slack-dark",
-  "snazzy-light",
-  "solarized-dark",
-  "solarized-light",
-  "synthwave-84",
-  "tokyo-night",
-  "vesper",
-] as const;
-const DEFAULT_SHIKI_THEME = "github-dark";
 
 type FontStyleFlag = number;
 const FONT_STYLE_ITALIC: FontStyleFlag = 1;
