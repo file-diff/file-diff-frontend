@@ -3,6 +3,7 @@ import TreeComparePage from "./pages/TreeComparePage";
 import FileComparePage from "./pages/FileComparePage";
 import HealthCheckPage from "./pages/HealthCheckPage";
 import HistoryPage from "./pages/HistoryPage";
+import TokenizePage from "./pages/TokenizePage";
 import "./App.css";
 
 function App() {
@@ -31,6 +32,9 @@ function App() {
           <Link to="/history" className="nav-link">
             📜 History
           </Link>
+          <Link to="/tokenize" className="nav-link">
+            🎨 Tokenize
+          </Link>
           <Link to="/health" className="nav-link">
             🩺 Backend Check
           </Link>
@@ -41,6 +45,7 @@ function App() {
           <Route path="/" element={<TreeComparePage />} />
           <Route path="/files" element={<FileComparePage />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/tokenize" element={<TokenizePage />} />
           <Route path="/health" element={<HealthCheckPage />} />
         </Routes>
       </main>

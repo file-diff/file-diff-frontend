@@ -26,6 +26,10 @@ export function buildJobFileDiffUrl(leftHash: string, rightHash: string): string
   )}/diff/${encodeURIComponent(rightHash)}`;
 }
 
+export function buildTokenizeUrl(hash: string): string {
+  return `${JOBS_API_URL}/files/hash/${encodeURIComponent(hash)}/tokenize`;
+}
+
 export function buildOrganizationRepositoriesUrl(
   organization: string
 ): string {
