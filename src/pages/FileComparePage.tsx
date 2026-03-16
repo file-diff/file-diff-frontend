@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { buildJobFileDiffUrl } from "../config/api";
+import { buildJobFileDiffUrl, buildTokenizeUrl } from "../config/api";
 import "./FileComparePage.css";
 
 /* ------------------------------------------------------------------ */
@@ -20,6 +20,8 @@ interface LineSlot {
   isEqual: boolean;
   leftHighlights: ChangeRange[];
   rightHighlights: ChangeRange[];
+  leftTokens: Token[] | null;
+  rightTokens: Token[] | null;
 }
 
 interface DiffChange {
@@ -45,6 +47,38 @@ interface DiffResponse {
   path?: string;
   aligned_lines?: [number | null, number | null][];
   chunks?: DiffChunkEntry[][];
+}
+
+/* --- Tokenizer types (mirrored from TokenizePage) --- */
+
+interface Token {
+  content: string;
+  offset: number;
+  color?: string;
+  fontStyle?: number;
+}
+
+interface TokenizeResponse {
+  tokens: Token[][];
+  fg?: string;
+  bg?: string;
+  themeName?: string;
+}
+
+type FontStyleFlag = number;
+const FONT_STYLE_ITALIC: FontStyleFlag = 1;
+const FONT_STYLE_BOLD: FontStyleFlag = 2;
+const FONT_STYLE_UNDERLINE: FontStyleFlag = 4;
+
+/**
+ * A single renderable piece of text with syntax color and diff-highlight info.
+ * Produced by splitting tokenizer tokens at diff-highlight boundaries.
+ */
+interface RenderSegment {
+  text: string;
+  color?: string;
+  fontStyle?: number;
+  isHighlighted: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -75,7 +109,134 @@ function buildHighlightMaps(chunks: DiffChunkEntry[][]) {
   return { left, right };
 }
 
-function buildLineSlots(leftLines: string[], rightLines: string[]): LineSlot[] {
+/**
+ * Convert fontStyle bitflags into React CSS properties.
+ * Bit 1 = italic, Bit 2 = bold, Bit 4 = underline.
+ */
+function tokenFontStyle(flags?: number): React.CSSProperties | undefined {
+  if (!flags) return undefined;
+
+  const style: React.CSSProperties = {};
+  if (flags & FONT_STYLE_ITALIC) style.fontStyle = "italic";
+  if (flags & FONT_STYLE_BOLD) style.fontWeight = "bold";
+  if (flags & FONT_STYLE_UNDERLINE) style.textDecoration = "underline";
+
+  return Object.keys(style).length > 0 ? style : undefined;
+}
+
+/**
+ * Split tokenizer tokens at diff-highlight boundaries.
+ *
+ * For each token we know its character range: [token.offset, token.offset + content.length).
+ * Highlight ranges (from the diff) also use character offsets within the line.
+ *
+ * Wherever a highlight boundary falls inside a token, we split that token so
+ * each resulting segment can independently carry a diff-highlight background
+ * while keeping the token's original syntax color.
+ *
+ * Example:
+ *   Token "constFoo" at offset 0, color #d73a49
+ *   Highlight {start: 5, end: 8} (the "Foo" part)
+ *   → Segment "const" [0,5)  no highlight, color #d73a49
+ *   → Segment "Foo"   [5,8)  highlighted,  color #d73a49
+ */
+function splitTokensByHighlights(
+  tokens: Token[],
+  highlights: ChangeRange[]
+): RenderSegment[] {
+  const segments: RenderSegment[] = [];
+
+  if (tokens.length === 0) {
+    console.log("[splitTokensByHighlights] No tokens to process");
+    return segments;
+  }
+
+  // Sort highlights by start position so overlap checks are predictable
+  const sortedHighlights = [...highlights].sort((a, b) => a.start - b.start);
+
+  if (sortedHighlights.length > 0) {
+    console.log(
+      "[splitTokensByHighlights] Processing",
+      tokens.length,
+      "tokens with",
+      sortedHighlights.length,
+      "highlight ranges:",
+      sortedHighlights
+    );
+  }
+
+  for (const token of tokens) {
+    // Count the character range this token covers
+    const tokenStart = token.offset;
+    const tokenEnd = token.offset + token.content.length;
+
+    // When there are no highlights, the whole token is a single segment
+    if (sortedHighlights.length === 0) {
+      segments.push({
+        text: token.content,
+        color: token.color,
+        fontStyle: token.fontStyle,
+        isHighlighted: false,
+      });
+      continue;
+    }
+
+    // Collect all cut points within this token from highlight boundaries.
+    // Always include tokenStart and tokenEnd as boundaries.
+    const cutPoints: Set<number> = new Set([tokenStart, tokenEnd]);
+
+    for (const hl of sortedHighlights) {
+      // Add highlight start if it falls strictly inside this token
+      if (hl.start > tokenStart && hl.start < tokenEnd) {
+        cutPoints.add(hl.start);
+      }
+      // Add highlight end if it falls strictly inside this token
+      if (hl.end > tokenStart && hl.end < tokenEnd) {
+        cutPoints.add(hl.end);
+      }
+    }
+
+    // Sort cut points to process left-to-right
+    const sortedCuts = [...cutPoints].sort((a, b) => a - b);
+
+    // Generate one segment per pair of adjacent cut points
+    for (let i = 0; i < sortedCuts.length - 1; i++) {
+      const segStart = sortedCuts[i];
+      const segEnd = sortedCuts[i + 1];
+      const text = token.content.slice(
+        segStart - tokenStart,
+        segEnd - tokenStart
+      );
+
+      // A segment is highlighted if it's fully contained in any highlight range
+      const isHighlighted = sortedHighlights.some(
+        (hl) => segStart >= hl.start && segEnd <= hl.end
+      );
+
+      if (isHighlighted) {
+        console.log(
+          `[splitTokensByHighlights] Highlighted segment "${text}" [${segStart},${segEnd}) from token "${token.content}"`
+        );
+      }
+
+      segments.push({
+        text,
+        color: token.color,
+        fontStyle: token.fontStyle,
+        isHighlighted,
+      });
+    }
+  }
+
+  return segments;
+}
+
+function buildLineSlots(
+  leftLines: string[],
+  rightLines: string[],
+  leftTokenLines: Token[][] | null,
+  rightTokenLines: Token[][] | null
+): LineSlot[] {
   const maxLen = Math.max(leftLines.length, rightLines.length);
   const slots: LineSlot[] = [];
 
@@ -91,6 +252,14 @@ function buildLineSlots(leftLines: string[], rightLines: string[]): LineSlot[] {
       isEqual,
       leftHighlights: [],
       rightHighlights: [],
+      leftTokens:
+        leftTokenLines && i < leftTokenLines.length
+          ? leftTokenLines[i]
+          : null,
+      rightTokens:
+        rightTokenLines && i < rightTokenLines.length
+          ? rightTokenLines[i]
+          : null,
     });
   }
 
@@ -101,7 +270,9 @@ function buildLineSlotsFromDiff(
   leftLines: string[],
   rightLines: string[],
   alignedLines: [number | null, number | null][],
-  chunks: DiffChunkEntry[][]
+  chunks: DiffChunkEntry[][],
+  leftTokenLines: Token[][] | null,
+  rightTokenLines: Token[][] | null
 ): LineSlot[] {
   const highlights = buildHighlightMaps(chunks);
 
@@ -127,6 +298,16 @@ function buildLineSlotsFromDiff(
         lhsLine !== null ? (highlights.left.get(lhsLine) ?? []) : [],
       rightHighlights:
         rhsLine !== null ? (highlights.right.get(rhsLine) ?? []) : [],
+      leftTokens:
+        leftTokenLines && lhsLine !== null && lhsLine < leftTokenLines.length
+          ? leftTokenLines[lhsLine]
+          : null,
+      rightTokens:
+        rightTokenLines &&
+        rhsLine !== null &&
+        rhsLine < rightTokenLines.length
+          ? rightTokenLines[rhsLine]
+          : null,
     };
   });
 }
@@ -179,6 +360,54 @@ function HighlightedText({
   return <>{parts}</>;
 }
 
+/**
+ * Render a line using tokenizer output with diff highlights applied.
+ *
+ * Each token provides syntax highlighting (color, fontStyle).
+ * Diff highlights specify character ranges that changed.
+ * We split tokens at highlight boundaries so each span gets the right
+ * combination of syntax color AND diff background.
+ *
+ * Falls back gracefully: if tokens is empty, renders nothing.
+ */
+function TokenizedHighlightedText({
+  tokens,
+  highlights,
+}: {
+  tokens: Token[];
+  highlights: ChangeRange[];
+}) {
+  // Split tokens at diff-highlight boundaries, counting letters from each token
+  const segments = splitTokensByHighlights(tokens, highlights);
+
+  console.log(
+    "[TokenizedHighlightedText]",
+    tokens.length,
+    "tokens →",
+    segments.length,
+    "segments,",
+    highlights.length,
+    "highlight ranges"
+  );
+
+  return (
+    <>
+      {segments.map((seg, i) => (
+        <span
+          key={i}
+          className={seg.isHighlighted ? "diff-highlight" : undefined}
+          style={{
+            color: seg.color,
+            ...tokenFontStyle(seg.fontStyle),
+          }}
+        >
+          {seg.text}
+        </span>
+      ))}
+    </>
+  );
+}
+
 function LineRow({
   slot,
   onCopyToRight,
@@ -210,10 +439,17 @@ function LineRow({
         </span>
         <span className="file-line__text">
           {slot.leftText !== null ? (
-            <HighlightedText
-              text={slot.leftText}
-              highlights={slot.leftHighlights}
-            />
+            slot.leftTokens ? (
+              <TokenizedHighlightedText
+                tokens={slot.leftTokens}
+                highlights={slot.leftHighlights}
+              />
+            ) : (
+              <HighlightedText
+                text={slot.leftText}
+                highlights={slot.leftHighlights}
+              />
+            )
           ) : (
             ""
           )}
@@ -252,10 +488,17 @@ function LineRow({
         </span>
         <span className="file-line__text">
           {slot.rightText !== null ? (
-            <HighlightedText
-              text={slot.rightText}
-              highlights={slot.rightHighlights}
-            />
+            slot.rightTokens ? (
+              <TokenizedHighlightedText
+                tokens={slot.rightTokens}
+                highlights={slot.rightHighlights}
+              />
+            ) : (
+              <HighlightedText
+                text={slot.rightText}
+                highlights={slot.rightHighlights}
+              />
+            )
           ) : (
             ""
           )}
@@ -280,6 +523,11 @@ export default function FileComparePage() {
   const [leftLines, setLeftLines] = useState<string[] | null>(null);
   const [rightLines, setRightLines] = useState<string[] | null>(null);
   const [diffData, setDiffData] = useState<DiffResponse | null>(null);
+  const [leftTokenData, setLeftTokenData] = useState<TokenizeResponse | null>(
+    null
+  );
+  const [rightTokenData, setRightTokenData] =
+    useState<TokenizeResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -292,6 +540,8 @@ export default function FileComparePage() {
       setIsLoading(true);
       setError("");
       setDiffData(null);
+      setLeftTokenData(null);
+      setRightTokenData(null);
 
       try {
         const diffPromise =
@@ -306,11 +556,41 @@ export default function FileComparePage() {
                 .catch(() => null)
             : Promise.resolve(null);
 
-        const [leftResponse, rightResponse, diff] = await Promise.all([
-          fetch(leftUrl, { signal: controller.signal }),
-          fetch(rightUrl, { signal: controller.signal }),
-          diffPromise,
-        ]);
+        // Fetch tokenizer output for both sides (non-blocking: if it fails, we just skip syntax highlighting)
+        const leftTokenPromise = leftHash
+          ? fetch(buildTokenizeUrl(leftHash), { signal: controller.signal })
+              .then((r) =>
+                r.ok ? (r.json() as Promise<TokenizeResponse>) : null
+              )
+              .catch(() => null)
+          : Promise.resolve(null);
+
+        const rightTokenPromise = rightHash
+          ? fetch(buildTokenizeUrl(rightHash), { signal: controller.signal })
+              .then((r) =>
+                r.ok ? (r.json() as Promise<TokenizeResponse>) : null
+              )
+              .catch(() => null)
+          : Promise.resolve(null);
+
+        const [leftResponse, rightResponse, diff, leftTokens, rightTokens] =
+          await Promise.all([
+            fetch(leftUrl, { signal: controller.signal }),
+            fetch(rightUrl, { signal: controller.signal }),
+            diffPromise,
+            leftTokenPromise,
+            rightTokenPromise,
+          ]);
+
+        console.log(
+          "[FileComparePage] Fetched tokenizer data:",
+          leftTokens
+            ? `left: ${leftTokens.tokens.length} lines`
+            : "left: none",
+          rightTokens
+            ? `right: ${rightTokens.tokens.length} lines`
+            : "right: none"
+        );
 
         if (!leftResponse.ok) {
           throw new Error(
@@ -332,6 +612,8 @@ export default function FileComparePage() {
           setLeftLines(left.split(/\r?\n|\r/));
           setRightLines(right.split(/\r?\n|\r/));
           setDiffData(diff);
+          setLeftTokenData(leftTokens);
+          setRightTokenData(rightTokens);
         }
       } catch (err: unknown) {
         if (!controller.signal.aborted) {
@@ -401,16 +683,46 @@ export default function FileComparePage() {
 
   const slots = useMemo(() => {
     if (!hasContent) return [];
+
+    // Extract per-line token arrays (null if tokenizer data unavailable)
+    const leftTokenLines = leftTokenData?.tokens ?? null;
+    const rightTokenLines = rightTokenData?.tokens ?? null;
+
+    console.log(
+      "[FileComparePage] Building line slots —",
+      "leftTokenLines:",
+      leftTokenLines ? `${leftTokenLines.length} lines` : "none",
+      "rightTokenLines:",
+      rightTokenLines ? `${rightTokenLines.length} lines` : "none",
+      "useDiffAlignment:",
+      useDiffAlignment
+    );
+
     if (useDiffAlignment) {
       return buildLineSlotsFromDiff(
         leftLines,
         rightLines,
         diffData!.aligned_lines!,
-        diffData!.chunks ?? []
+        diffData!.chunks ?? [],
+        leftTokenLines,
+        rightTokenLines
       );
     }
-    return buildLineSlots(leftLines, rightLines);
-  }, [hasContent, leftLines, rightLines, useDiffAlignment, diffData]);
+    return buildLineSlots(
+      leftLines,
+      rightLines,
+      leftTokenLines,
+      rightTokenLines
+    );
+  }, [
+    hasContent,
+    leftLines,
+    rightLines,
+    useDiffAlignment,
+    diffData,
+    leftTokenData,
+    rightTokenData,
+  ]);
 
   const equalCount = slots.filter((s) => s.isEqual).length;
   const differentCount = slots.filter(
