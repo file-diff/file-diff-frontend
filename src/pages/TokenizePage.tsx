@@ -57,6 +57,17 @@ export default function TokenizePage() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const selectedLine =
     selectedLineIndex !== null ? result?.tokens[selectedLineIndex] ?? null : null;
+  const selectedLineJson =
+    selectedLine && selectedLineIndex !== null
+      ? JSON.stringify(
+          {
+            lineNumber: selectedLineIndex + 1,
+            tokens: selectedLine,
+          },
+          null,
+          2
+        )
+      : "";
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -268,16 +279,7 @@ export default function TokenizePage() {
                   </button>
                 </div>
                 <pre className="tokenize-json-modal__content">
-                  {selectedLine
-                    ? JSON.stringify(
-                        {
-                          lineNumber: selectedLineIndex! + 1,
-                          tokens: selectedLine,
-                        },
-                        null,
-                        2
-                      )
-                    : ""}
+                  {selectedLineJson}
                 </pre>
               </div>
             </dialog>
