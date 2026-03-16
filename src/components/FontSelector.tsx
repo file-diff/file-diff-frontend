@@ -1,20 +1,20 @@
-import { useCallback } from "react";
+import { useState } from "react";
 import { MONOSPACE_FONTS, DEFAULT_FONT_ID } from "../config/fonts";
 import { readFontPreference, writeFontPreference } from "../utils/storage";
 import { applyFont } from "../utils/fontInit";
 import "./FontSelector.css";
 
 export default function FontSelector() {
-  const currentId = readFontPreference() ?? DEFAULT_FONT_ID;
-
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const id = e.target.value;
-      writeFontPreference(id);
-      applyFont(id);
-    },
-    [],
+  const [currentId, setCurrentId] = useState(
+    () => readFontPreference() ?? DEFAULT_FONT_ID
   );
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const id = e.target.value;
+    writeFontPreference(id);
+    setCurrentId(id);
+    applyFont(id);
+  };
 
   return (
     <div className="font-selector">
