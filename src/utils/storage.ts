@@ -1,5 +1,6 @@
 const LAST_PARAMS_STORAGE_KEY = "last-selected-params";
 const INDEXING_HISTORY_STORAGE_KEY = "indexing-parameter-history";
+const FONT_PREFERENCE_STORAGE_KEY = "code-font-preference";
 
 export interface LastSelectedParams {
   leftRepo: string;
@@ -193,6 +194,22 @@ export function writeIndexingHistory(history: IndexingHistoryEntry[]): void {
 export function clearIndexingHistory(): void {
   try {
     window.localStorage.removeItem(INDEXING_HISTORY_STORAGE_KEY);
+  } catch {
+    return;
+  }
+}
+
+export function readFontPreference(): string | null {
+  try {
+    return window.localStorage.getItem(FONT_PREFERENCE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeFontPreference(fontId: string): void {
+  try {
+    window.localStorage.setItem(FONT_PREFERENCE_STORAGE_KEY, fontId);
   } catch {
     return;
   }

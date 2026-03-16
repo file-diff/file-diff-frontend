@@ -4,6 +4,7 @@ import FileComparePage from "./pages/FileComparePage";
 import HealthCheckPage from "./pages/HealthCheckPage";
 import HistoryPage from "./pages/HistoryPage";
 import TokenizePage from "./pages/TokenizePage";
+import FontSelector from "./components/FontSelector";
 import "./App.css";
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
           <Link to="/health" className="nav-link">
             🩺 Backend Check
           </Link>
+          <FontSelector />
         </div>
       </nav>
       <main>
