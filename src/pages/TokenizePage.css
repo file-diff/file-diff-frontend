@@ -133,6 +133,82 @@
   user-select: none;
 }
 
+.tokenize-line-json-button {
+  margin-right: 12px;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #9ecbff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.tokenize-line-json-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tokenize-json-dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.tokenize-json-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.tokenize-json-modal {
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #333;
+  border-radius: 12px;
+  background: #101418;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  color: #e6edf3;
+}
+
+.tokenize-json-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #2b3440;
+}
+
+.tokenize-json-modal__header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.tokenize-json-modal__close {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e6edf3;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 8px 10px;
+}
+
+.tokenize-json-modal__content {
+  margin: 0;
+  padding: 18px;
+  overflow: auto;
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 .tokenize-loading {
   padding: 16px;
   border: 1px solid #3b4a5a;

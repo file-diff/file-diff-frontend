@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { buildTokenizeUrl } from "../config/api";
 import "./TokenizePage.css";
@@ -52,6 +52,46 @@ export default function TokenizePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<TokenizeResponse | null>(null);
+  const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
+
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const selectedLine =
+    selectedLineIndex !== null ? result?.tokens[selectedLineIndex] ?? null : null;
+  const selectedLineJson =
+    selectedLine && selectedLineIndex !== null
+      ? JSON.stringify(
+          {
+            lineNumber: selectedLineIndex + 1,
+            tokens: selectedLine,
+          },
+          null,
+          2
+        )
+      : "";
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+
+    if (selectedLine && !dialog.open) {
+      dialog.showModal();
+    } else if (!selectedLine && dialog.open) {
+      dialog.close();
+    }
+  }, [selectedLine]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+
+    const handleClose = () => setSelectedLineIndex(null);
+    dialog.addEventListener("close", handleClose);
+    return () => dialog.removeEventListener("close", handleClose);
+  }, []);
 
   const handleTokenize = useCallback(async () => {
     const trimmed = hash.trim();
@@ -64,6 +104,7 @@ export default function TokenizePage() {
     setError("");
     setLoading(true);
     setResult(null);
+    setSelectedLineIndex(null);
 
     setSearchParams({ hash: trimmed }, { replace: true });
 
@@ -193,6 +234,14 @@ export default function TokenizePage() {
                   <span className="tokenize-line-number">
                     {lineIndex + 1}
                   </span>
+                  <button
+                    type="button"
+                    className="tokenize-line-json-button"
+                    onClick={() => setSelectedLineIndex(lineIndex)}
+                    aria-label={`Show JSON for line ${lineIndex + 1}`}
+                  >
+                    {"{}"}
+                  </button>
                   {line.map((token, tokenIndex) => (
                     <span
                       key={tokenIndex}
@@ -207,6 +256,33 @@ export default function TokenizePage() {
                 </div>
               ))}
             </div>
+
+            <dialog
+              ref={dialogRef}
+              className="tokenize-json-dialog"
+              onClick={(event) => {
+                if (event.target === dialogRef.current) {
+                  setSelectedLineIndex(null);
+                }
+              }}
+            >
+              <div className="tokenize-json-modal">
+                <div className="tokenize-json-modal__header">
+                  <h2>Line {selectedLineIndex !== null ? selectedLineIndex + 1 : ""} JSON</h2>
+                  <button
+                    type="button"
+                    className="tokenize-json-modal__close"
+                    onClick={() => setSelectedLineIndex(null)}
+                    aria-label="Close JSON preview"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <pre className="tokenize-json-modal__content">
+                  {selectedLineJson}
+                </pre>
+              </div>
+            </dialog>
           </>
         )}
       </div>
