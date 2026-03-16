@@ -67,6 +67,7 @@ const SHIKI_THEMES = [
   "tokyo-night",
   "vesper",
 ] as const;
+const DEFAULT_SHIKI_THEME = "github-dark";
 
 type FontStyleFlag = number;
 const FONT_STYLE_ITALIC: FontStyleFlag = 1;
@@ -98,7 +99,7 @@ function tokenFontStyle(flags?: number): React.CSSProperties | undefined {
 export default function TokenizePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialHash = searchParams.get("hash") ?? "";
-  const initialTheme = searchParams.get("theme") ?? "github-dark";
+  const initialTheme = searchParams.get("theme") ?? DEFAULT_SHIKI_THEME;
 
   const [hash, setHash] = useState(initialHash);
   const [theme, setTheme] = useState(initialTheme);
@@ -220,7 +221,7 @@ export default function TokenizePage() {
               id="tokenize-theme"
               type="text"
               list="tokenize-theme-options"
-              placeholder="github-dark"
+              placeholder={DEFAULT_SHIKI_THEME}
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
             />

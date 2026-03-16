@@ -30,9 +30,10 @@ export function buildTokenizeUrl(hash: string, theme?: string): string {
   const url = new URL(
     `${JOBS_API_URL}/files/hash/${encodeURIComponent(hash)}/tokenize`
   );
+  const normalizedTheme = theme?.trim();
 
-  if (theme?.trim()) {
-    url.searchParams.set("theme", theme.trim());
+  if (normalizedTheme) {
+    url.searchParams.set("theme", normalizedTheme);
   }
 
   return url.toString();
