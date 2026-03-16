@@ -17,137 +17,61 @@ interface TokenizeResponse {
   themeName?: string;
 }
 
+const SHIKI_THEMES = [
+  "andromeeda",
+  "aurora-x",
+  "ayu-dark",
+  "catppuccin-frappe",
+  "catppuccin-latte",
+  "catppuccin-macchiato",
+  "catppuccin-mocha",
+  "dark-plus",
+  "dracula",
+  "everforest-dark",
+  "everforest-light",
+  "github-dark",
+  "github-dark-default",
+  "github-dark-dimmed",
+  "github-dark-high-contrast",
+  "github-light",
+  "github-light-default",
+  "github-light-high-contrast",
+  "gruvbox-dark-hard",
+  "gruvbox-light-hard",
+  "houston",
+  "kanagawa-dragon",
+  "kanagawa-lotus",
+  "kanagawa-wave",
+  "light-plus",
+  "material-theme",
+  "material-theme-darker",
+  "material-theme-lighter",
+  "material-theme-ocean",
+  "material-theme-palenight",
+  "min-dark",
+  "min-light",
+  "monokai",
+  "night-owl",
+  "nord",
+  "one-dark-pro",
+  "one-light",
+  "poimandres",
+  "rose-pine",
+  "rose-pine-dawn",
+  "rose-pine-moon",
+  "slack-dark",
+  "snazzy-light",
+  "solarized-dark",
+  "solarized-light",
+  "synthwave-84",
+  "tokyo-night",
+  "vesper",
+] as const;
+
 type FontStyleFlag = number;
 const FONT_STYLE_ITALIC: FontStyleFlag = 1;
 const FONT_STYLE_BOLD: FontStyleFlag = 2;
 const FONT_STYLE_UNDERLINE: FontStyleFlag = 4;
-const DEFAULT_DARK_THEME_BACKGROUND = "#0d1117";
-const MIN_DARK_THEME_CONTRAST = 4.5;
-
-function parseHexColor(color?: string): [number, number, number] | null {
-  if (!color) {
-    return null;
-  }
-
-  const match = color.trim().match(/^#([\da-f]{3}|[\da-f]{6})$/i);
-  if (!match) {
-    return null;
-  }
-
-  const hex = match[1];
-  const normalized =
-    hex.length === 3
-      ? hex
-          .split("")
-          .map((value) => value + value)
-          .join("")
-      : hex;
-
-  return [
-    Number.parseInt(normalized.slice(0, 2), 16),
-    Number.parseInt(normalized.slice(2, 4), 16),
-    Number.parseInt(normalized.slice(4, 6), 16),
-  ];
-}
-
-function relativeLuminance([red, green, blue]: [number, number, number]): number {
-  const toLinear = (channel: number) => {
-    const value = channel / 255;
-    return value <= 0.04045
-      ? value / 12.92
-      : Math.pow((value + 0.055) / 1.055, 2.4);
-  };
-
-  return (
-    0.2126 * toLinear(red) +
-    0.7152 * toLinear(green) +
-    0.0722 * toLinear(blue)
-  );
-}
-
-function contrastRatio(
-  foreground: [number, number, number],
-  background: [number, number, number]
-): number {
-  const foregroundLuminance = relativeLuminance(foreground);
-  const backgroundLuminance = relativeLuminance(background);
-  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
-  const darker = Math.min(foregroundLuminance, backgroundLuminance);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-function mixWithWhite(
-  [red, green, blue]: [number, number, number],
-  weight: number
-): [number, number, number] {
-  const mixChannel = (channel: number) =>
-    Math.round(channel + (255 - channel) * weight);
-
-  return [mixChannel(red), mixChannel(green), mixChannel(blue)];
-}
-
-function toHexColor([red, green, blue]: [number, number, number]): string {
-  return `#${[red, green, blue]
-    .map((channel) => channel.toString(16).padStart(2, "0"))
-    .join("")}`;
-}
-
-function ensureContrastAgainstDarkTheme(
-  color: string | undefined,
-  background: string
-): string | undefined {
-  if (!color) {
-    return undefined;
-  }
-
-  const foregroundRgb = parseHexColor(color);
-  const backgroundRgb = parseHexColor(background);
-  if (!foregroundRgb || !backgroundRgb) {
-    return color;
-  }
-
-  if (contrastRatio(foregroundRgb, backgroundRgb) >= MIN_DARK_THEME_CONTRAST) {
-    return color;
-  }
-
-  let low = 0;
-  let high = 1;
-
-  for (let index = 0; index < 12; index += 1) {
-    const midpoint = (low + high) / 2;
-    const adjusted = mixWithWhite(foregroundRgb, midpoint);
-    if (contrastRatio(adjusted, backgroundRgb) >= MIN_DARK_THEME_CONTRAST) {
-      high = midpoint;
-    } else {
-      low = midpoint;
-    }
-  }
-
-  return toHexColor(mixWithWhite(foregroundRgb, high));
-}
-
-function shouldUseDarkTokenizerTheme(result: TokenizeResponse): boolean {
-  const backgroundRgb = parseHexColor(result.bg);
-  const hasLightBackground =
-    backgroundRgb !== null && relativeLuminance(backgroundRgb) > 0.5;
-
-  return hasLightBackground || result.themeName?.toLowerCase().includes("light") === true;
-}
-
-function formatColorValue(
-  originalColor: string | undefined,
-  displayedColor: string | undefined
-): string | undefined {
-  if (!displayedColor) {
-    return undefined;
-  }
-
-  if (!originalColor || originalColor === displayedColor) {
-    return displayedColor;
-  }
-
-  return `${originalColor} → ${displayedColor}`;
-}
 
 function tokenFontStyle(flags?: number): React.CSSProperties | undefined {
   if (!flags) {
@@ -174,8 +98,10 @@ function tokenFontStyle(flags?: number): React.CSSProperties | undefined {
 export default function TokenizePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialHash = searchParams.get("hash") ?? "";
+  const initialTheme = searchParams.get("theme") ?? "github-dark";
 
   const [hash, setHash] = useState(initialHash);
+  const [theme, setTheme] = useState(initialTheme);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<TokenizeResponse | null>(null);
@@ -195,22 +121,6 @@ export default function TokenizePage() {
           2
         )
       : "";
-  const previewUsesDarkTheme = result ? shouldUseDarkTokenizerTheme(result) : false;
-  const displayedBackground = previewUsesDarkTheme
-    ? DEFAULT_DARK_THEME_BACKGROUND
-    : result?.bg ?? DEFAULT_DARK_THEME_BACKGROUND;
-  const displayedForeground = result
-    ? ensureContrastAgainstDarkTheme(
-        previewUsesDarkTheme ? result.fg ?? "#24292e" : result.fg,
-        displayedBackground
-      )
-    : undefined;
-  const displayedThemeName =
-    result?.themeName && previewUsesDarkTheme
-      ? `${result.themeName} → dark preview`
-      : result?.themeName;
-  const displayedForegroundValue = formatColorValue(result?.fg, displayedForeground);
-  const displayedBackgroundValue = formatColorValue(result?.bg, displayedBackground);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -238,6 +148,7 @@ export default function TokenizePage() {
 
   const handleTokenize = useCallback(async () => {
     const trimmed = hash.trim();
+    const trimmedTheme = theme.trim();
 
     if (!trimmed) {
       setError("Enter a file hash to tokenize.");
@@ -249,10 +160,13 @@ export default function TokenizePage() {
     setResult(null);
     setSelectedLineIndex(null);
 
-    setSearchParams({ hash: trimmed }, { replace: true });
+    setSearchParams(
+      trimmedTheme ? { hash: trimmed, theme: trimmedTheme } : { hash: trimmed },
+      { replace: true }
+    );
 
     try {
-      const response = await fetch(buildTokenizeUrl(trimmed));
+      const response = await fetch(buildTokenizeUrl(trimmed, trimmedTheme));
 
       if (!response.ok) {
         const body = await response.json().catch(() => null);
@@ -271,7 +185,7 @@ export default function TokenizePage() {
     } finally {
       setLoading(false);
     }
-  }, [hash, setSearchParams]);
+  }, [hash, setSearchParams, theme]);
 
   return (
     <div className="tokenize-page">
@@ -300,6 +214,22 @@ export default function TokenizePage() {
               onChange={(e) => setHash(e.target.value)}
             />
           </div>
+          <div className="tokenize-field tokenize-field--theme">
+            <label htmlFor="tokenize-theme">Theme</label>
+            <input
+              id="tokenize-theme"
+              type="text"
+              list="tokenize-theme-options"
+              placeholder="github-dark"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+            />
+            <datalist id="tokenize-theme-options">
+              {SHIKI_THEMES.map((themeName) => (
+                <option key={themeName} value={themeName} />
+              ))}
+            </datalist>
+          </div>
           <button type="submit" disabled={loading}>
             {loading ? "Loading…" : "Tokenize"}
           </button>
@@ -317,10 +247,10 @@ export default function TokenizePage() {
               {result.themeName && (
                 <div className="tokenize-meta-item">
                   <span className="tokenize-meta-label">Theme</span>
-                  <span className="tokenize-meta-value">{displayedThemeName}</span>
+                  <span className="tokenize-meta-value">{result.themeName}</span>
                 </div>
               )}
-              {displayedForegroundValue && (
+              {result.fg && (
                 <div className="tokenize-meta-item">
                   <span className="tokenize-meta-label">Foreground</span>
                   <span className="tokenize-meta-value">
@@ -329,18 +259,18 @@ export default function TokenizePage() {
                         display: "inline-block",
                         width: 12,
                         height: 12,
-                        background: displayedForeground,
+                        background: result.fg,
                         borderRadius: 2,
                         marginRight: 6,
                         verticalAlign: "middle",
                         border: "1px solid #555",
                       }}
                     />
-                    {displayedForegroundValue}
+                    {result.fg}
                   </span>
                 </div>
               )}
-              {displayedBackgroundValue && (
+              {result.bg && (
                 <div className="tokenize-meta-item">
                   <span className="tokenize-meta-label">Background</span>
                   <span className="tokenize-meta-value">
@@ -349,14 +279,14 @@ export default function TokenizePage() {
                         display: "inline-block",
                         width: 12,
                         height: 12,
-                        background: displayedBackground,
+                        background: result.bg,
                         borderRadius: 2,
                         marginRight: 6,
                         verticalAlign: "middle",
                         border: "1px solid #555",
                       }}
                     />
-                    {displayedBackgroundValue}
+                    {result.bg}
                   </span>
                 </div>
               )}
@@ -370,7 +300,7 @@ export default function TokenizePage() {
 
             <div
               className="tokenize-output"
-              style={{ background: displayedBackground }}
+              style={{ background: result.bg, color: result.fg }}
             >
               {result.tokens.map((line, lineIndex) => (
                 <div key={lineIndex} className="tokenize-line">
@@ -389,12 +319,7 @@ export default function TokenizePage() {
                     <span
                       key={tokenIndex}
                       style={{
-                        color: ensureContrastAgainstDarkTheme(
-                          previewUsesDarkTheme
-                            ? token.color ?? displayedForeground
-                            : token.color ?? result.fg,
-                          displayedBackground
-                        ),
+                        color: token.color ?? result.fg,
                         ...tokenFontStyle(token.fontStyle),
                       }}
                     >
