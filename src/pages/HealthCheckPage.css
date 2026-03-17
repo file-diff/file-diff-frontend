@@ -121,3 +121,47 @@
   color: #8b949e !important;
   font-size: 0.85rem;
 }
+
+.health-check-stats-card {
+  margin-top: 20px;
+}
+
+.health-check-stats-card h2 {
+  margin: 0 0 16px;
+  color: #e0e0e0;
+  font-size: 1.15rem;
+}
+
+.health-check-stats-error {
+  color: #f85149;
+  font-size: 0.9rem;
+}
+
+.health-check-cache-table {
+  width: 100%;
+  margin-top: 16px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.health-check-cache-table th,
+.health-check-cache-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #333;
+}
+
+.health-check-cache-table th {
+  color: #8b949e;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.health-check-cache-table td {
+  color: #e0e0e0;
+}
+
+.health-check-cache-table code {
+  color: #7ee787;
+  font-size: 0.85rem;
+}
