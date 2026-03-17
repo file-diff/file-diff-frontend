@@ -19,10 +19,10 @@ interface LineSlot {
   leftText: string | null;
   rightText: string | null;
   isEqual: boolean;
-  leftHighlights: ChangeRange[];
-  rightHighlights: ChangeRange[];
-  leftTokens: Token[] | null;
-  rightTokens: Token[] | null;
+  leftHighlights: DiffChange[];
+  rightHighlights: DiffChange[];
+  leftTokens: TokenStyle[] | null;
+  rightTokens: TokenStyle[] | null;
   leftDiffInfo: DiffLineSide | null;
   rightDiffInfo: DiffLineSide | null;
 }
@@ -54,15 +54,15 @@ interface DiffResponse {
 
 /* --- Tokenizer types (mirrored from TokenizePage) --- */
 
-interface Token {
+interface TokenStyle {
   content: string;
   offset: number;
-  color?: string;
-  fontStyle?: number;
+  color: string;
+  fontStyle: number;
 }
 
 interface TokenizeResponse {
-  tokens: Token[][];
+  tokens: TokenStyle[][];
   fg?: string;
   bg?: string;
   themeName?: string;
@@ -73,24 +73,82 @@ const FONT_STYLE_ITALIC: FontStyleFlag = 1;
 const FONT_STYLE_BOLD: FontStyleFlag = 2;
 const FONT_STYLE_UNDERLINE: FontStyleFlag = 4;
 
-/**
- * A single renderable piece of text with syntax color and diff-highlight info.
- * Produced by splitting tokenizer tokens at diff-highlight boundaries.
- */
-interface RenderSegment {
-  text: string;
-  color?: string;
-  fontStyle?: number;
-  isHighlighted: boolean;
+interface MergedToken {
+  content: string;
+  offset: number;
+  color: string;
+  fontStyle: number;
+  highlight?: string;
 }
+
+function mergeStyles(tokens: TokenStyle[], highlights: DiffChange[]): MergedToken[] {
+  const result: MergedToken[] = [];
+
+  for (const token of tokens) {
+    const tokenStart = token.offset;
+    const tokenEnd = token.offset + token.content.length;
+    let currentPos = tokenStart;
+
+    // Find highlights that overlap with this specific token
+    const overlappingHighlights = highlights.filter(h =>
+      h.start < tokenEnd && h.end > tokenStart
+    ).sort((a, b) => a.start - b.start);
+
+    if (overlappingHighlights.length === 0) {
+      result.push({ ...token });
+      continue;
+    }
+
+    for (const hl of overlappingHighlights) {
+      // 1. Handle gap before the highlight (if any)
+      if (hl.start > currentPos) {
+        const partContent = token.content.substring(currentPos - tokenStart, hl.start - tokenStart);
+        result.push({
+          ...token,
+          content: partContent,
+          offset: currentPos
+        });
+        currentPos = hl.start;
+      }
+
+      // 2. Handle the overlapping part
+      const overlapStart = Math.max(currentPos, hl.start);
+      const overlapEnd = Math.min(tokenEnd, hl.end);
+
+      if (overlapEnd > overlapStart) {
+        const partContent = token.content.substring(overlapStart - tokenStart, overlapEnd - tokenStart);
+        result.push({
+          ...token,
+          content: partContent,
+          offset: overlapStart,
+          highlight: hl.highlight // Merging the highlight property here
+        });
+        currentPos = overlapEnd;
+      }
+    }
+
+    // 3. Handle remaining part of token after last highlight
+    if (currentPos < tokenEnd) {
+      const partContent = token.content.substring(currentPos - tokenStart, tokenEnd - tokenStart);
+      result.push({
+        ...token,
+        content: partContent,
+        offset: currentPos
+      });
+    }
+  }
+
+  return result;
+}
+
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
 function buildLineInfoMaps(chunks: DiffChunkEntry[][]) {
-  const left = new Map<number, ChangeRange[]>();
-  const right = new Map<number, ChangeRange[]>();
+  const left = new Map<number, DiffChange[]>();
+  const right = new Map<number, DiffChange[]>();
   const leftDiffInfo = new Map<number, DiffLineSide>();
   const rightDiffInfo = new Map<number, DiffLineSide>();
 
@@ -100,14 +158,14 @@ function buildLineInfoMaps(chunks: DiffChunkEntry[][]) {
         leftDiffInfo.set(entry.lhs.line_number, entry.lhs);
         left.set(
           entry.lhs.line_number,
-          entry.lhs.changes.map((c) => ({ start: c.start, end: c.end }))
+          entry.lhs.changes
         );
       }
       if (entry.rhs) {
         rightDiffInfo.set(entry.rhs.line_number, entry.rhs);
         right.set(
           entry.rhs.line_number,
-          entry.rhs.changes.map((c) => ({ start: c.start, end: c.end }))
+          entry.rhs.changes
         );
       }
     }
@@ -131,118 +189,11 @@ function tokenFontStyle(flags?: number): React.CSSProperties | undefined {
   return Object.keys(style).length > 0 ? style : undefined;
 }
 
-/**
- * Split tokenizer tokens at diff-highlight boundaries.
- *
- * For each token we know its character range: [token.offset, token.offset + content.length).
- * Highlight ranges (from the diff) also use character offsets within the line.
- *
- * Wherever a highlight boundary falls inside a token, we split that token so
- * each resulting segment can independently carry a diff-highlight background
- * while keeping the token's original syntax color.
- *
- * Example:
- *   Token "constFoo" at offset 0, color #d73a49
- *   Highlight {start: 5, end: 8} (the "Foo" part)
- *   → Segment "const" [0,5)  no highlight, color #d73a49
- *   → Segment "Foo"   [5,8)  highlighted,  color #d73a49
- */
-function splitTokensByHighlights(
-  tokens: Token[],
-  highlights: ChangeRange[]
-): RenderSegment[] {
-  const segments: RenderSegment[] = [];
-
-  if (tokens.length === 0) {
-    console.log("[splitTokensByHighlights] No tokens to process");
-    return segments;
-  }
-
-  // Sort highlights by start position so overlap checks are predictable
-  const sortedHighlights = [...highlights].sort((a, b) => a.start - b.start);
-
-  if (sortedHighlights.length > 0) {
-    console.log(
-      "[splitTokensByHighlights] Processing",
-      tokens.length,
-      "tokens with",
-      sortedHighlights.length,
-      "highlight ranges:",
-      sortedHighlights
-    );
-  }
-
-  for (const token of tokens) {
-    // Count the character range this token covers
-    const tokenStart = token.offset;
-    const tokenEnd = token.offset + token.content.length;
-
-    // When there are no highlights, the whole token is a single segment
-    if (sortedHighlights.length === 0) {
-      segments.push({
-        text: token.content,
-        color: token.color,
-        fontStyle: token.fontStyle,
-        isHighlighted: false,
-      });
-      continue;
-    }
-
-    // Collect all cut points within this token from highlight boundaries.
-    // Always include tokenStart and tokenEnd as boundaries.
-    const cutPoints: Set<number> = new Set([tokenStart, tokenEnd]);
-
-    for (const hl of sortedHighlights) {
-      // Add highlight start if it falls strictly inside this token
-      if (hl.start > tokenStart && hl.start < tokenEnd) {
-        cutPoints.add(hl.start);
-      }
-      // Add highlight end if it falls strictly inside this token
-      if (hl.end > tokenStart && hl.end < tokenEnd) {
-        cutPoints.add(hl.end);
-      }
-    }
-
-    // Sort cut points to process left-to-right
-    const sortedCuts = [...cutPoints].sort((a, b) => a - b);
-
-    // Generate one segment per pair of adjacent cut points
-    for (let i = 0; i < sortedCuts.length - 1; i++) {
-      const segStart = sortedCuts[i];
-      const segEnd = sortedCuts[i + 1];
-      const text = token.content.slice(
-        segStart - tokenStart,
-        segEnd - tokenStart
-      );
-
-      // A segment is highlighted if it's fully contained in any highlight range
-      const isHighlighted = sortedHighlights.some(
-        (hl) => segStart >= hl.start && segEnd <= hl.end
-      );
-
-      if (isHighlighted) {
-        console.log(
-          `[splitTokensByHighlights] Highlighted segment "${text}" [${segStart},${segEnd}) from token "${token.content}"`
-        );
-      }
-
-      segments.push({
-        text,
-        color: token.color,
-        fontStyle: token.fontStyle,
-        isHighlighted,
-      });
-    }
-  }
-
-  return segments;
-}
-
 function buildLineSlots(
   leftLines: string[],
   rightLines: string[],
-  leftTokenLines: Token[][] | null,
-  rightTokenLines: Token[][] | null
+  leftTokenLines: TokenStyle[][] | null,
+  rightTokenLines: TokenStyle[][] | null
 ): LineSlot[] {
   const maxLen = Math.max(leftLines.length, rightLines.length);
   const slots: LineSlot[] = [];
@@ -280,8 +231,8 @@ function buildLineSlotsFromDiff(
   rightLines: string[],
   alignedLines: [number | null, number | null][],
   chunks: DiffChunkEntry[][],
-  leftTokenLines: Token[][] | null,
-  rightTokenLines: Token[][] | null
+  leftTokenLines: TokenStyle[][] | null,
+  rightTokenLines: TokenStyle[][] | null
 ): LineSlot[] {
   const lineInfo = buildLineInfoMaps(chunks);
 
@@ -387,34 +338,24 @@ function TokenizedHighlightedText({
   tokens,
   highlights,
 }: {
-  tokens: Token[];
-  highlights: ChangeRange[];
+  tokens: TokenStyle[];
+  highlights: DiffChange[];
 }) {
   // Split tokens at diff-highlight boundaries, counting letters from each token
-  const segments = splitTokensByHighlights(tokens, highlights);
-
-  console.log(
-    "[TokenizedHighlightedText]",
-    tokens.length,
-    "tokens →",
-    segments.length,
-    "segments,",
-    highlights.length,
-    "highlight ranges"
-  );
+  const segments = mergeStyles(tokens, highlights);
 
   return (
     <>
       {segments.map((seg, i) => (
         <span
           key={i}
-          className={seg.isHighlighted ? "diff-highlight" : undefined}
+          className={seg.highlight ? "diff-highlight" : undefined}
           style={{
             color: seg.color,
             ...tokenFontStyle(seg.fontStyle),
           }}
         >
-          {seg.text}
+          {seg.content}
         </span>
       ))}
     </>
