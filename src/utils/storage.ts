@@ -199,6 +199,16 @@ export function clearIndexingHistory(): void {
   }
 }
 
+export function clearAllStoredData(): void {
+  try {
+    window.localStorage.removeItem(LAST_PARAMS_STORAGE_KEY);
+    window.localStorage.removeItem(INDEXING_HISTORY_STORAGE_KEY);
+    window.localStorage.removeItem(FONT_PREFERENCE_STORAGE_KEY);
+  } catch {
+    return;
+  }
+}
+
 export function readFontPreference(): string | null {
   try {
     return window.localStorage.getItem(FONT_PREFERENCE_STORAGE_KEY);

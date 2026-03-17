@@ -34,8 +34,8 @@ const DEFAULT_RIGHT_REF = "main";
 const DEFAULT_LEFT_REPO = "file-diff/file-diff-test-data";
 const DEFAULT_RIGHT_REPO = "file-diff/file-diff-test-data";
 
-const DEFAULT_LEFT_ROOT = "/tree1";
-const DEFAULT_RIGHT_ROOT = "/tree2";
+const DEFAULT_LEFT_ROOT = "/";
+const DEFAULT_RIGHT_ROOT = "/";
 
 const TERMINAL_JOB_STATUSES = new Set([
   "cancelled",
@@ -246,6 +246,7 @@ function setQueryParam(
 
 export default function TreeComparePage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const isClearRequest = searchParams.get("clear") === "1";
   const currentSearch = searchParams.toString();
   const { leftProvider, rightProvider } = useMemo(() => {
     const params = new URLSearchParams(currentSearch);
@@ -256,22 +257,26 @@ export default function TreeComparePage() {
       rightProvider: params.get("rightProvider")?.trim() || defaultProvider,
     };
   }, [currentSearch]);
-  const savedParams = useRef(readLastSelectedParams());
-  const [leftInput, setLeftInput] = useState(sampleCsvLeft);
-  const [rightInput, setRightInput] = useState(sampleCsvRight);
+  const savedParams = useRef(isClearRequest ? null : readLastSelectedParams());
+  const [leftInput, setLeftInput] = useState(isClearRequest ? "" : sampleCsvLeft);
+  const [rightInput, setRightInput] = useState(isClearRequest ? "" : sampleCsvRight);
   const [leftEndpoint, setLeftEndpoint] = useState("");
   const [rightEndpoint, setRightEndpoint] = useState("");
   const [leftRepo, setLeftRepo] = useState(
     () =>
-      searchParams.get("leftRepo")?.trim() ||
-      savedParams.current?.leftRepo ||
-      DEFAULT_LEFT_REPO
+      isClearRequest
+        ? ""
+        : searchParams.get("leftRepo")?.trim() ||
+          savedParams.current?.leftRepo ||
+          DEFAULT_LEFT_REPO
   );
   const [rightRepo, setRightRepo] = useState(
     () =>
-      searchParams.get("rightRepo")?.trim() ||
-      savedParams.current?.rightRepo ||
-      DEFAULT_RIGHT_REPO
+      isClearRequest
+        ? ""
+        : searchParams.get("rightRepo")?.trim() ||
+          savedParams.current?.rightRepo ||
+          DEFAULT_RIGHT_REPO
   );
   const [leftRef, setLeftRef] = useState(
     () =>
@@ -315,8 +320,47 @@ export default function TreeComparePage() {
     useState<PullRequestPopupResult | null>(null);
   const [apiError, setApiError] = useState("");
   const [useNaturalSort, setUseNaturalSort] = useState(
-    () => savedParams.current?.useNaturalSort ?? false
+    () => (isClearRequest ? false : savedParams.current?.useNaturalSort ?? false)
   );
+  const skipInitialPersistRef = useRef(isClearRequest);
+  const initialAutoIndexTargets = useRef({
+    left: {
+      repo: isClearRequest
+        ? ""
+        : (
+            searchParams.get("leftRepo")?.trim() ||
+            savedParams.current?.leftRepo ||
+            DEFAULT_LEFT_REPO
+          ).trim(),
+      ref: isClearRequest
+        ? DEFAULT_LEFT_REF
+        : (
+            searchParams.get("leftRef")?.trim() ||
+            savedParams.current?.leftRef ||
+            DEFAULT_LEFT_REF
+          ).trim(),
+    },
+    right: {
+      repo: isClearRequest
+        ? ""
+        : (
+            searchParams.get("rightRepo")?.trim() ||
+            savedParams.current?.rightRepo ||
+            DEFAULT_RIGHT_REPO
+          ).trim(),
+      ref: isClearRequest
+        ? DEFAULT_RIGHT_REF
+        : (
+            searchParams.get("rightRef")?.trim() ||
+            savedParams.current?.rightRef ||
+            DEFAULT_RIGHT_REF
+          ).trim(),
+    },
+  });
+  const autoIndexStartedKeys = useRef<{ left: string | null; right: string | null }>({
+    left: null,
+    right: null,
+  });
   const leftRefsState = useRepositoryRefs(leftRepo);
   const rightRefsState = useRepositoryRefs(rightRepo);
   const leftResolvedCommitState = useResolvedCommit(leftRepo, leftRef);
@@ -347,14 +391,15 @@ export default function TreeComparePage() {
 
   useEffect(() => {
     const nextParams = new URLSearchParams(currentSearch);
+    nextParams.delete("clear");
     setQueryParam(nextParams, "leftRepo", leftRepo);
     setQueryParam(nextParams, "rightRepo", rightRepo);
-    setQueryParam(nextParams, "leftRef", leftRef);
-    setQueryParam(nextParams, "rightRef", rightRef);
+    setQueryParam(nextParams, "leftRef", leftRef, DEFAULT_LEFT_REF);
+    setQueryParam(nextParams, "rightRef", rightRef, DEFAULT_RIGHT_REF);
     setQueryParam(nextParams, "leftCommit", leftCurrentCommit);
     setQueryParam(nextParams, "rightCommit", rightCurrentCommit);
-    setQueryParam(nextParams, "leftRoot", leftRoot);
-    setQueryParam(nextParams, "rightRoot", rightRoot);
+    setQueryParam(nextParams, "leftRoot", leftRoot, DEFAULT_LEFT_ROOT);
+    setQueryParam(nextParams, "rightRoot", rightRoot, DEFAULT_RIGHT_ROOT);
 
     if (nextParams.toString() !== currentSearch) {
       setSearchParams(nextParams, { replace: true });
@@ -373,6 +418,11 @@ export default function TreeComparePage() {
   ]);
 
   useEffect(() => {
+    if (skipInitialPersistRef.current) {
+      skipInitialPersistRef.current = false;
+      return;
+    }
+
     writeLastSelectedParams({
       leftRepo,
       rightRepo,
@@ -398,26 +448,6 @@ export default function TreeComparePage() {
     setLeftLabel("Left");
     setRightLabel("Right");
     setApiError("");
-  };
-
-  const handleClear = () => {
-    setLeftInput("");
-    setRightInput("");
-    setLeftEndpoint("");
-    setRightEndpoint("");
-    setLeftRepo("");
-    setRightRepo("");
-    setLeftRef(DEFAULT_LEFT_REF);
-    setRightRef(DEFAULT_RIGHT_REF);
-    setLeftRoot(DEFAULT_LEFT_ROOT);
-    setRightRoot(DEFAULT_RIGHT_ROOT);
-    setLeftPinnedCommit("");
-    setRightPinnedCommit("");
-    setLeftJob(null);
-    setRightJob(null);
-    setApiError("");
-    setLeftLabel("Left");
-    setRightLabel("Right");
   };
 
   const applyFilesResponse = useCallback(
@@ -527,6 +557,7 @@ export default function TreeComparePage() {
 
     return () => window.clearInterval(intervalId);
   }, [leftJob, rightJob, pollIndexingJob]);
+
 
   const handleStartIndexing = useCallback(
     async (
@@ -681,6 +712,71 @@ export default function TreeComparePage() {
   );
 
   useEffect(() => {
+    const initialTarget = initialAutoIndexTargets.current.left;
+    const currentRepo = leftRepo.trim();
+    const currentRef = leftRef.trim();
+    const currentCommit = leftCurrentCommit.trim();
+    const autoIndexKey =
+      initialTarget.repo && initialTarget.ref && currentCommit
+        ? `${initialTarget.repo}\n${initialTarget.ref}\n${currentCommit}`
+        : "";
+
+    if (
+      !autoIndexKey ||
+      autoIndexStartedKeys.current.left === autoIndexKey ||
+      leftIsStarting ||
+      leftJob ||
+      currentRepo !== initialTarget.repo ||
+      currentRef !== initialTarget.ref
+    ) {
+      return;
+    }
+
+    autoIndexStartedKeys.current.left = autoIndexKey;
+    void handleStartIndexing("left", {
+      repo: currentRepo,
+      ref: currentRef,
+      commit: currentCommit,
+    });
+  }, [handleStartIndexing, leftCurrentCommit, leftIsStarting, leftJob, leftRef, leftRepo]);
+
+  useEffect(() => {
+    const initialTarget = initialAutoIndexTargets.current.right;
+    const currentRepo = rightRepo.trim();
+    const currentRef = rightRef.trim();
+    const currentCommit = rightCurrentCommit.trim();
+    const autoIndexKey =
+      initialTarget.repo && initialTarget.ref && currentCommit
+        ? `${initialTarget.repo}\n${initialTarget.ref}\n${currentCommit}`
+        : "";
+
+    if (
+      !autoIndexKey ||
+      autoIndexStartedKeys.current.right === autoIndexKey ||
+      rightIsStarting ||
+      rightJob ||
+      currentRepo !== initialTarget.repo ||
+      currentRef !== initialTarget.ref
+    ) {
+      return;
+    }
+
+    autoIndexStartedKeys.current.right = autoIndexKey;
+    void handleStartIndexing("right", {
+      repo: currentRepo,
+      ref: currentRef,
+      commit: currentCommit,
+    });
+  }, [
+    handleStartIndexing,
+    rightCurrentCommit,
+    rightIsStarting,
+    rightJob,
+    rightRef,
+    rightRepo,
+  ]);
+
+  useEffect(() => {
     if (!pendingPullRequestSelection) {
       return;
     }
@@ -770,7 +866,6 @@ export default function TreeComparePage() {
 
       <div className="sample-buttons">
         <button onClick={loadSample}>Load Sample</button>
-        <button onClick={handleClear}>Clear</button>
         <button type="button" onClick={() => setIsPullRequestPopupOpen(true)}>
           Resolve pull request…
         </button>
