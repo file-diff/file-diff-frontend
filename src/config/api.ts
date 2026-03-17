@@ -1,11 +1,11 @@
-export const DEFAULT_API_BASE_URL = "https://filediff.org/api";
+export const DEFAULT_API_BASE_URL = "http://localhost:5173/api";
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
 const configuredJobsApiUrl = import.meta.env.VITE_JOBS_API_URL?.trim();
-const trimmedDefaultApiBaseUrl = trimTrailingSlash(DEFAULT_API_BASE_URL);
+const trimmedDefaultApiBaseUrl = trimTrailingSlash(import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL);
 
 export const JOBS_API_URL = trimTrailingSlash(
   configuredJobsApiUrl || `${trimmedDefaultApiBaseUrl}/jobs`
