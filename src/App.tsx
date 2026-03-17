@@ -1,21 +1,39 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  useLocation,
+} from "react-router-dom";
 import TreeComparePage from "./pages/TreeComparePage";
 import FileComparePage from "./pages/FileComparePage";
 import HealthCheckPage from "./pages/HealthCheckPage";
 import HistoryPage from "./pages/HistoryPage";
 import TokenizePage from "./pages/TokenizePage";
 import FontSelector from "./components/FontSelector";
+import { DEFAULT_FONT_ID } from "./config/fonts";
+import { applyFont } from "./utils/fontInit";
+import { clearAllStoredData } from "./utils/storage";
 import "./App.css";
 
-function App() {
+function AppShell() {
   const buildVersion = import.meta.env.VITE_BUILD_VERSION?.trim();
   const gitCommit = import.meta.env.VITE_GIT_COMMIT?.trim();
+  const location = useLocation();
   const buildLabel = [buildVersion, gitCommit && `(${gitCommit})`]
     .filter(Boolean)
     .join(" ");
 
+  const handleClearAll = () => {
+    clearAllStoredData();
+    applyFont(DEFAULT_FONT_ID);
+    window.location.replace(
+      location.pathname === "/" ? "/?clear=1" : location.pathname
+    );
+  };
+
   return (
-    <BrowserRouter>
+    <>
       <nav className="app-nav">
         <div className="nav-brand-group">
           <div className="nav-brand">Git Diff Online</div>
@@ -39,6 +57,9 @@ function App() {
           <Link to="/health" className="nav-link">
             🩺 Backend Check
           </Link>
+          <button type="button" className="nav-clear-button" onClick={handleClearAll}>
+            Clear all
+          </button>
           <FontSelector />
         </div>
       </nav>
@@ -51,6 +72,14 @@ function App() {
           <Route path="/health" element={<HealthCheckPage />} />
         </Routes>
       </main>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppShell />
     </BrowserRouter>
   );
 }

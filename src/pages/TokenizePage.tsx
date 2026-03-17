@@ -71,6 +71,7 @@ export default function TokenizePage() {
           2
         )
       : "";
+  const autoLoadedRequestKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -96,46 +97,73 @@ export default function TokenizePage() {
     return () => dialog.removeEventListener("close", handleClose);
   }, []);
 
-  const handleTokenize = useCallback(async () => {
-    const trimmed = hash.trim();
-    const trimmedTheme = theme.trim();
+  const requestTokenize = useCallback(
+    async (
+      nextHash: string,
+      nextTheme: string,
+      options?: { syncSearchParams?: boolean }
+    ) => {
+      const trimmed = nextHash.trim();
+      const trimmedTheme = nextTheme.trim();
 
-    if (!trimmed) {
-      setError("Enter a file hash to tokenize.");
+      if (!trimmed) {
+        setError("Enter a file hash to tokenize.");
+        return;
+      }
+
+      setHash(trimmed);
+      setTheme(trimmedTheme || DEFAULT_SHIKI_THEME);
+      setError("");
+      setLoading(true);
+      setResult(null);
+      setSelectedLineIndex(null);
+
+      if (options?.syncSearchParams !== false) {
+        setSearchParams(
+          trimmedTheme ? { hash: trimmed, theme: trimmedTheme } : { hash: trimmed },
+          { replace: true }
+        );
+      }
+
+      try {
+        const response = await fetch(buildTokenizeUrl(trimmed, trimmedTheme));
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          const message =
+            (body as { error?: string } | null)?.error ??
+            `Request failed with status ${response.status}`;
+          throw new Error(message);
+        }
+
+        const data = (await response.json()) as TokenizeResponse;
+        setResult(data);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch tokenization result."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setSearchParams]
+  );
+
+  const handleTokenize = useCallback(async () => {
+    await requestTokenize(hash, theme);
+  }, [hash, requestTokenize, theme]);
+
+  useEffect(() => {
+    const trimmedHash = initialHash.trim();
+    const requestKey = `${trimmedHash}\n${initialTheme.trim()}`;
+
+    if (!trimmedHash || autoLoadedRequestKeyRef.current === requestKey) {
       return;
     }
 
-    setError("");
-    setLoading(true);
-    setResult(null);
-    setSelectedLineIndex(null);
-
-    setSearchParams(
-      trimmedTheme ? { hash: trimmed, theme: trimmedTheme } : { hash: trimmed },
-      { replace: true }
-    );
-
-    try {
-      const response = await fetch(buildTokenizeUrl(trimmed, trimmedTheme));
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        const message =
-          (body as { error?: string } | null)?.error ??
-          `Request failed with status ${response.status}`;
-        throw new Error(message);
-      }
-
-      const data = (await response.json()) as TokenizeResponse;
-      setResult(data);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch tokenization result."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [hash, setSearchParams, theme]);
+    autoLoadedRequestKeyRef.current = requestKey;
+    void requestTokenize(trimmedHash, initialTheme, { syncSearchParams: false });
+  }, [initialHash, initialTheme, requestTokenize]);
 
   return (
     <div className="tokenize-page">

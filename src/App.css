@@ -26,6 +26,8 @@
 
 .nav-links {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
 }
 
@@ -41,4 +43,22 @@
 .nav-link:hover {
   color: #e0e0e0;
   background: #2d2d2d;
+}
+
+.nav-clear-button {
+  appearance: none;
+  border: 1px solid #5a2b2b;
+  background: #2d1717;
+  color: #f0b5b5;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.nav-clear-button:hover {
+  color: #fff;
+  background: #4c1f1f;
+  border-color: #8f3b3b;
 }
