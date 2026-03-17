@@ -1,4 +1,4 @@
-export const DEFAULT_API_BASE_URL = "http://localhost:5173/api";
+export const DEFAULT_API_BASE_URL = "https://filediff.org/api";
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");

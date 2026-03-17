@@ -5,7 +5,7 @@ A React + Vite application for comparing directory trees and files from two repo
 ## Features
 
 - **Tree Comparison**: Paste the output of `tree` commands to compare two directory structures. Highlights added, removed, and common entries.
-- **File Comparison** *(coming soon)*: Compare individual file contents side by side.
+- **File Comparison**: Compare individual file contents side by side.
 
 ## Getting Started
 
