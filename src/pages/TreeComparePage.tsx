@@ -322,7 +322,7 @@ export default function TreeComparePage() {
   const [useNaturalSort, setUseNaturalSort] = useState(
     () => (isClearRequest ? false : savedParams.current?.useNaturalSort ?? false)
   );
-  const skipNextPersistRef = useRef(isClearRequest);
+  const skipInitialPersistRef = useRef(isClearRequest);
   const initialAutoIndexTargets = useRef({
     left: {
       repo: isClearRequest
@@ -357,7 +357,7 @@ export default function TreeComparePage() {
           ).trim(),
     },
   });
-  const initialAutoIndexStarted = useRef<{ left: string | null; right: string | null }>({
+  const autoIndexStartedKeys = useRef<{ left: string | null; right: string | null }>({
     left: null,
     right: null,
   });
@@ -418,8 +418,8 @@ export default function TreeComparePage() {
   ]);
 
   useEffect(() => {
-    if (skipNextPersistRef.current) {
-      skipNextPersistRef.current = false;
+    if (skipInitialPersistRef.current) {
+      skipInitialPersistRef.current = false;
       return;
     }
 
@@ -723,7 +723,7 @@ export default function TreeComparePage() {
 
     if (
       !autoIndexKey ||
-      initialAutoIndexStarted.current.left === autoIndexKey ||
+      autoIndexStartedKeys.current.left === autoIndexKey ||
       leftIsStarting ||
       leftJob ||
       currentRepo !== initialTarget.repo ||
@@ -732,7 +732,7 @@ export default function TreeComparePage() {
       return;
     }
 
-    initialAutoIndexStarted.current.left = autoIndexKey;
+    autoIndexStartedKeys.current.left = autoIndexKey;
     void handleStartIndexing("left", {
       repo: currentRepo,
       ref: currentRef,
@@ -752,7 +752,7 @@ export default function TreeComparePage() {
 
     if (
       !autoIndexKey ||
-      initialAutoIndexStarted.current.right === autoIndexKey ||
+      autoIndexStartedKeys.current.right === autoIndexKey ||
       rightIsStarting ||
       rightJob ||
       currentRepo !== initialTarget.repo ||
@@ -761,7 +761,7 @@ export default function TreeComparePage() {
       return;
     }
 
-    initialAutoIndexStarted.current.right = autoIndexKey;
+    autoIndexStartedKeys.current.right = autoIndexKey;
     void handleStartIndexing("right", {
       repo: currentRepo,
       ref: currentRef,
