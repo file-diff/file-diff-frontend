@@ -41,6 +41,9 @@ interface StorageStatsSummary {
   sizeStored: number;
 }
 
+const BYTES_PER_UNIT = 1024;
+const BYTE_PRECISION_THRESHOLD = 10;
+
 function asTrimmedString(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -181,7 +184,29 @@ function formatNumber(value: number): string {
 }
 
 function formatBytes(value: number): string {
-  return `${formatNumber(value)} B`;
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let normalizedValue = value;
+  let unitIndex = 0;
+
+  while (
+    Math.abs(normalizedValue) >= BYTES_PER_UNIT &&
+    unitIndex < units.length - 1
+  ) {
+    normalizedValue /= BYTES_PER_UNIT;
+    unitIndex += 1;
+  }
+
+  const formattedValue =
+    unitIndex === 0
+      ? formatNumber(normalizedValue)
+      : new Intl.NumberFormat(undefined, {
+          maximumFractionDigits:
+            normalizedValue >= BYTE_PRECISION_THRESHOLD ? 1 : 2,
+        }).format(normalizedValue);
+
+  return unitIndex === 0
+    ? `${formattedValue} B`
+    : `${formattedValue} ${units[unitIndex]} (${formatNumber(value)} B)`;
 }
 
 export default function HealthCheckPage() {
@@ -232,11 +257,12 @@ export default function HealthCheckPage() {
       const stats = statsResponse?.ok
         ? await parseJsonResponse(statsResponse, parseStorageStatsSummary)
         : undefined;
-      const isHealthy = Boolean(
-        healthResponse?.ok && versionResponse?.ok && cacheResponse?.ok && statsResponse?.ok
-      );
+      const isHealthy = Boolean(healthResponse?.ok);
       const isReachable = Boolean(
         healthResponse || versionResponse || cacheResponse || statsResponse
+      );
+      const supplementalEndpointsHealthy = Boolean(
+        versionResponse?.ok && cacheResponse?.ok && statsResponse?.ok
       );
       const durationMs = Math.round(performance.now() - startedAt);
       const rejectedResults = [
@@ -244,7 +270,9 @@ export default function HealthCheckPage() {
         versionResult,
         cacheResult,
         statsResult,
-      ].filter((result): result is PromiseRejectedResult => result.status === "rejected");
+      ].filter(
+        (result): result is PromiseRejectedResult => result.status === "rejected"
+      );
       const networkMessage = rejectedResults
         .map((result) =>
           result.reason instanceof Error ? result.reason.message : "Failed to fetch"
@@ -258,7 +286,9 @@ export default function HealthCheckPage() {
         durationMs,
         healthStatus: healthResponse?.status,
         message: isHealthy
-          ? "The public health, version, cache, and stats endpoints all responded successfully."
+          ? supplementalEndpointsHealthy
+            ? "The public health, version, cache, and stats endpoints all responded successfully."
+            : "The public health endpoint responded successfully, but at least one additional version, cache, or stats endpoint did not return a success response."
           : isReachable
             ? "The backend is reachable, but at least one health, version, cache, or stats endpoint did not return a success response."
             : networkMessage || "Failed to fetch",
