@@ -56,6 +56,7 @@ interface DiffResponse {
 
 interface TokenStyle {
   content: string;
+  /// Offset from the beginning of the file
   offset: number;
   color: string;
   fontStyle: number;
@@ -75,6 +76,7 @@ const FONT_STYLE_UNDERLINE: FontStyleFlag = 4;
 
 interface MergedToken {
   content: string;
+  /// Offset from the beginning of the line (after merging with highlights)
   offset: number;
   color: string;
   fontStyle: number;
@@ -84,9 +86,11 @@ interface MergedToken {
 function mergeStyles(tokens: TokenStyle[], highlights: DiffChange[]): MergedToken[] {
   const result: MergedToken[] = [];
 
+  const lineStart = tokens.length > 0 ? tokens[0].offset : 0;
   for (const token of tokens) {
-    const tokenStart = token.offset;
-    const tokenEnd = token.offset + token.content.length;
+    // Calculate token's position relative to the start of the line, offset is from the file start
+    const tokenStart = token.offset - lineStart;
+    const tokenEnd = token.offset - lineStart + token.content.length;
     let currentPos = tokenStart;
 
     // Find highlights that overlap with this specific token
@@ -95,7 +99,12 @@ function mergeStyles(tokens: TokenStyle[], highlights: DiffChange[]): MergedToke
     ).sort((a, b) => a.start - b.start);
 
     if (overlappingHighlights.length === 0) {
-      result.push({ ...token });
+      result.push({
+        content: token.content,
+        offset: tokenStart,
+        color: token.color,
+        fontStyle: token.fontStyle
+      });
       continue;
     }
 
