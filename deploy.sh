@@ -10,7 +10,7 @@ test -n "$GIT_COMMIT" || { echo "Error: Unable to determine git commit SHA" >&2;
 GIT_COMMIT="${GIT_COMMIT:0:7}"
 
 # Build the docker image using the dedicated build Dockerfile
-docker build --build-arg VITE_GIT_COMMIT="$GIT_COMMIT" --build-arg VITE_API_BASE_URL="https://filediff.org" -t "$IMAGE_NAME" -f Dockerfile.build .
+docker build --build-arg VITE_GIT_COMMIT="$GIT_COMMIT" --build-arg VITE_API_BASE_URL="https://filediff.org/api" -t "$IMAGE_NAME" -f Dockerfile.build .
 
 # Create a temporary container from the image
 docker create --name "$CONTAINER_NAME" "$IMAGE_NAME"
