@@ -9,6 +9,8 @@ WORKDIR /app
 
 ARG VITE_GIT_COMMIT
 ENV VITE_GIT_COMMIT=${VITE_GIT_COMMIT}
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 # Copy all files (keeps it simple – the image is only used for build artifacts)
 COPY . .

@@ -28,6 +28,16 @@ const gitCommit = readGitCommit()
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: "https://filediff.org", // The remote server
+        changeOrigin: true,            // Needed for virtual hosted sites
+        rewrite: (path) => path.replace(/^\/api/, '/api'), // Keep the /api prefix
+        secure: false,                 // If your remote uses self-signed SSL
+      },
+    },
+  },
   define: {
     'import.meta.env.VITE_BUILD_VERSION': JSON.stringify(buildVersion),
     'import.meta.env.VITE_GIT_COMMIT': JSON.stringify(gitCommit),
