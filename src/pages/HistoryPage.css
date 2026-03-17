@@ -36,7 +36,7 @@
   padding: 60px 24px;
   border: 1px solid #333;
   border-radius: 12px;
-  background: #1e1e1e;
+  background: #191a1c;
 }
 
 .history-empty__icon {
@@ -75,7 +75,7 @@
   padding: 16px;
   border: 1px solid #333;
   border-radius: 10px;
-  background: #1e1e1e;
+  background: #191a1c;
   transition: border-color 0.15s;
 }
 
