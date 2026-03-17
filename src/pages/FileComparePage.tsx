@@ -405,11 +405,11 @@ function LineDetailsDialog({
 
   const slot = selectedLine?.slot;
   const leftMergedTokens =
-    slot?.leftTokens !== null && slot?.leftTokens !== undefined
+    slot?.leftTokens != null
       ? mergeStyles(slot.leftTokens, slot.leftHighlights)
       : null;
   const rightMergedTokens =
-    slot?.rightTokens !== null && slot?.rightTokens !== undefined
+    slot?.rightTokens != null
       ? mergeStyles(slot.rightTokens, slot.rightHighlights)
       : null;
 
