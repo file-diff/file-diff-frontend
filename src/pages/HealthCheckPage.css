@@ -121,3 +121,45 @@
   color: #8b949e !important;
   font-size: 0.85rem;
 }
+
+.health-check-section {
+  margin-top: 16px;
+}
+
+.health-check-section h3 {
+  margin: 0 0 12px;
+  color: #e0e0e0;
+  font-size: 1rem;
+}
+
+.health-check-folder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.health-check-folder-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.health-check-folder-list code {
+  color: #7ee787;
+  word-break: break-all;
+}
+
+.health-check-folder-list span {
+  color: #e0e0e0;
+  white-space: nowrap;
+}
+
+.health-check-empty {
+  color: #8b949e !important;
+}

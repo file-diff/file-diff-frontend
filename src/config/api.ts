@@ -13,6 +13,8 @@ export const JOBS_API_URL = trimTrailingSlash(
 
 export const HEALTH_API_URL = `${trimmedDefaultApiBaseUrl}/health`;
 export const VERSION_API_URL = `${trimmedDefaultApiBaseUrl}/version`;
+export const JOBS_CACHE_API_URL = `${JOBS_API_URL}/cache`;
+export const STATS_API_URL = `${trimmedDefaultApiBaseUrl}/stats`;
 
 export function buildJobFileDownloadUrl(jobId: string, hash: string): string {
   return `${JOBS_API_URL}/${encodeURIComponent(
