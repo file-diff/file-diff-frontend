@@ -404,6 +404,14 @@ function LineDetailsDialog({
   }, [onClose]);
 
   const slot = selectedLine?.slot;
+  const leftMergedTokens =
+    slot?.leftTokens != null
+      ? mergeStyles(slot.leftTokens, slot.leftHighlights)
+      : null;
+  const rightMergedTokens =
+    slot?.rightTokens != null
+      ? mergeStyles(slot.rightTokens, slot.rightHighlights)
+      : null;
 
   return (
     <dialog className="line-details-dialog" ref={dialogRef}>
@@ -447,6 +455,12 @@ function LineDetailsDialog({
                 {formatDetailValue(slot?.leftTokens)}
               </pre>
             </div>
+            <div className="line-details__group">
+              <span className="line-details__label">Merged tokenizer info</span>
+              <pre className="line-details__value">
+                {formatDetailValue(leftMergedTokens)}
+              </pre>
+            </div>
           </section>
           <section className="line-details__column">
             <h3>Right</h3>
@@ -466,6 +480,12 @@ function LineDetailsDialog({
               <span className="line-details__label">Tokenizer info</span>
               <pre className="line-details__value">
                 {formatDetailValue(slot?.rightTokens)}
+              </pre>
+            </div>
+            <div className="line-details__group">
+              <span className="line-details__label">Merged tokenizer info</span>
+              <pre className="line-details__value">
+                {formatDetailValue(rightMergedTokens)}
               </pre>
             </div>
           </section>
