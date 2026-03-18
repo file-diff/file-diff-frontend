@@ -283,7 +283,7 @@ export default function HealthCheckPage() {
           >
             <h2>
               {result.state === "healthy" && "Healthy"}
-              {result.state === "reachable" && "Reachable"}
+              {result.state === "reachable" && "Backend failed"}
               {result.state === "error" && "Unavailable"}
             </h2>
             <p>{result.message}</p>

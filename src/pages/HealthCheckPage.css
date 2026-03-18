@@ -81,8 +81,8 @@
 }
 
 .health-check-status--reachable {
-  border: 1px solid rgba(210, 153, 34, 0.4);
-  background: rgba(210, 153, 34, 0.12);
+  border: 1px solid rgba(46, 160, 67, 0.4);
+  background: rgba(46, 160, 67, 0.12);
 }
 
 .health-check-status--error {
