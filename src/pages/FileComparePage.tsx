@@ -8,11 +8,6 @@ import "./FileComparePage.css";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface ChangeRange {
-  start: number;
-  end: number;
-}
-
 interface LineSlot {
   leftLineNumber: number | null;
   rightLineNumber: number | null;
@@ -30,7 +25,6 @@ interface LineSlot {
 interface DiffChange {
   start: number;
   end: number;
-  content: string;
   highlight: string;
 }
 
@@ -306,7 +300,7 @@ function HighlightedText({
   highlights,
 }: {
   text: string;
-  highlights: ChangeRange[];
+  highlights: DiffChange[];
 }) {
   if (highlights.length === 0) return <>{text}</>;
 
@@ -319,7 +313,7 @@ function HighlightedText({
       parts.push(<span key={`t${i}`}>{text.slice(lastEnd, range.start)}</span>);
     }
     parts.push(
-      <span key={`h${i}`} className="diff-highlight">
+      <span key={`h${i}`} className={`diff-highlight-${range.highlight}`}>
         {text.slice(range.start, range.end)}
       </span>
     );
