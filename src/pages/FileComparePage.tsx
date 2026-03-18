@@ -352,7 +352,7 @@ function TokenizedHighlightedText({
       {segments.map((seg, i) => (
         <span
           key={i}
-          className={seg.highlight ? "diff-highlight" : undefined}
+          className={seg.highlight ? `diff-highlight-${seg.highlight}` : undefined}
           style={{
             color: seg.color,
             ...tokenFontStyle(seg.fontStyle),
