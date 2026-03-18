@@ -334,6 +334,25 @@
   background-color: #385570;
   border-radius: 2px;
 }
+.diff-highlight-ignored {
+  background-color: transparent;
+}
+.diff-highlight-unchanged {
+  background-color: transparent;
+}
+.diff-highlight-novel {
+  background-color: #283520;
+  border-radius: 2px;
+}
+.diff-highlight-novel_word {
+  background-color: #187520;
+  border-radius: 2px;
+}
+.diff-highlight-novel_unchanged {
+  background-color: #385570;
+  border-radius: 2px;
+}
+
 
 .file-line--same .diff-highlight {
   background-color: transparent;
