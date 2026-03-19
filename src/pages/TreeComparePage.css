@@ -170,6 +170,66 @@
   background: #3d3d3d;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.action-buttons button {
+  padding: 8px 16px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: #2d2d2d;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+
+.action-buttons button:hover {
+  background: #3d3d3d;
+}
+
+.compare-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid #3b4a5a;
+  border-radius: 6px;
+  background: rgba(88, 166, 255, 0.06);
+}
+
+.compare-summary__side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: #d4d4d4;
+  min-width: 0;
+}
+
+.compare-summary__label {
+  font-weight: 600;
+  color: #8b949e;
+  flex-shrink: 0;
+}
+
+.compare-summary__repo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compare-summary__commit {
+  color: #7ee787;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
 .indexing-job-status {
   margin-bottom: 12px;
   padding: 12px;
@@ -302,5 +362,13 @@
 
   .indexing-controls {
     grid-template-columns: 1fr;
+  }
+
+  .compare-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .action-buttons {
+    flex-wrap: wrap;
   }
 }
