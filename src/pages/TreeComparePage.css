@@ -296,6 +296,10 @@
   margin-bottom: 12px;
 }
 
+.compare-roots__toggle {
+  justify-content: flex-start;
+}
+
 .compare-roots__field {
   display: flex;
   flex-direction: column;

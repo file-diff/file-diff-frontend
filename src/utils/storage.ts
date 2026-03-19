@@ -9,6 +9,7 @@ export interface LastSelectedParams {
   rightRef: string;
   leftRoot: string;
   rightRoot: string;
+  useDifferentRoots: boolean;
   useNaturalSort: boolean;
 }
 
@@ -32,7 +33,13 @@ export interface IndexingHistoryEntry {
   right: StoredIndexingSideParams;
   startedSide: CompareSide;
   storedAt: string;
+  useDifferentRoots: boolean;
   useNaturalSort: boolean;
+}
+
+interface ComparePermalinkOptions {
+  useDifferentRoots?: boolean;
+  useNaturalSort?: boolean;
 }
 
 type ComparePermalinkSide = Pick<
@@ -64,32 +71,15 @@ function isStoredIndexingSideParams(
   );
 }
 
-function isIndexingHistoryEntry(value: unknown): value is IndexingHistoryEntry {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.id === "string" &&
-    isStoredIndexingSideParams(candidate.left) &&
-    isStoredIndexingSideParams(candidate.right) &&
-    (typeof candidate.permalink === "undefined" ||
-      typeof candidate.permalink === "string") &&
-    isCompareSide(candidate.startedSide) &&
-    typeof candidate.storedAt === "string" &&
-    typeof candidate.useNaturalSort === "boolean"
-  );
-}
-
 function setCompareQueryParam(
   params: URLSearchParams,
   key: string,
-  value: string
+  value: string,
+  defaultValue = ""
 ): void {
   const normalizedValue = value.trim();
 
-  if (!normalizedValue) {
+  if (!normalizedValue || normalizedValue === defaultValue) {
     params.delete(key);
     return;
   }
@@ -97,20 +87,76 @@ function setCompareQueryParam(
   params.set(key, normalizedValue);
 }
 
-export function buildComparePermalink(
-  left: ComparePermalinkSide,
-  right: ComparePermalinkSide
-): string {
-  const params = new URLSearchParams();
+function setCompareBooleanQueryParam(
+  params: URLSearchParams,
+  key: string,
+  value: boolean
+): void {
+  if (!value) {
+    params.delete(key);
+    return;
+  }
 
+  params.set(key, "1");
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
+}
+
+function hasCustomCompareRoot(root: string): boolean {
+  const normalizedRoot = root.trim();
+  return normalizedRoot !== "/" && normalizedRoot !== "";
+}
+
+function normalizeUseDifferentRoots(
+  leftRoot: string,
+  rightRoot: string,
+  value: unknown
+): boolean {
+  return isBoolean(value)
+    ? value
+    : hasCustomCompareRoot(leftRoot) || hasCustomCompareRoot(rightRoot);
+}
+
+function applyComparePermalinkParams(
+  params: URLSearchParams,
+  left: ComparePermalinkSide,
+  right: ComparePermalinkSide,
+  options: ComparePermalinkOptions
+): void {
   setCompareQueryParam(params, "leftRepo", left.repo);
   setCompareQueryParam(params, "rightRepo", right.repo);
   setCompareQueryParam(params, "leftRef", left.inputRefName);
   setCompareQueryParam(params, "rightRef", right.inputRefName);
   setCompareQueryParam(params, "leftCommit", left.resolvedCommit);
   setCompareQueryParam(params, "rightCommit", right.resolvedCommit);
-  setCompareQueryParam(params, "leftRoot", left.root);
-  setCompareQueryParam(params, "rightRoot", right.root);
+  if (options.useDifferentRoots) {
+    setCompareQueryParam(params, "leftRoot", left.root, "/");
+    setCompareQueryParam(params, "rightRoot", right.root, "/");
+  } else {
+    params.delete("leftRoot");
+    params.delete("rightRoot");
+  }
+  setCompareBooleanQueryParam(
+    params,
+    "useDifferentRoots",
+    options.useDifferentRoots ?? false
+  );
+  setCompareBooleanQueryParam(
+    params,
+    "useNaturalSort",
+    options.useNaturalSort ?? false
+  );
+}
+
+export function buildComparePermalink(
+  left: ComparePermalinkSide,
+  right: ComparePermalinkSide,
+  options: ComparePermalinkOptions = {}
+): string {
+  const params = new URLSearchParams();
+  applyComparePermalinkParams(params, left, right, options);
 
   const query = params.toString();
   return query ? `/?${query}` : "/";
@@ -119,24 +165,94 @@ export function buildComparePermalink(
 export function buildHistoryEntryPermalink(
   entry: IndexingHistoryEntry
 ): string {
-  return entry.permalink?.trim() || buildComparePermalink(entry.left, entry.right);
+  const options = {
+    useDifferentRoots: entry.useDifferentRoots,
+    useNaturalSort: entry.useNaturalSort,
+  };
+  const existingPermalink = entry.permalink?.trim();
+
+  if (!existingPermalink) {
+    return buildComparePermalink(entry.left, entry.right, options);
+  }
+
+  try {
+    const existingUrl = new URL(existingPermalink, "https://filediff.local");
+    const params = new URLSearchParams(existingUrl.search);
+    applyComparePermalinkParams(params, entry.left, entry.right, options);
+    const query = params.toString();
+    return query ? `/?${query}` : "/";
+  } catch {
+    return buildComparePermalink(entry.left, entry.right, options);
+  }
 }
 
-function isLastSelectedParams(value: unknown): value is LastSelectedParams {
+function normalizeLastSelectedParams(value: unknown): LastSelectedParams | null {
   if (!value || typeof value !== "object") {
-    return false;
+    return null;
   }
 
   const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.leftRepo === "string" &&
-    typeof candidate.rightRepo === "string" &&
-    typeof candidate.leftRef === "string" &&
-    typeof candidate.rightRef === "string" &&
-    typeof candidate.leftRoot === "string" &&
-    typeof candidate.rightRoot === "string" &&
-    typeof candidate.useNaturalSort === "boolean"
-  );
+  if (
+    typeof candidate.leftRepo !== "string" ||
+    typeof candidate.rightRepo !== "string" ||
+    typeof candidate.leftRef !== "string" ||
+    typeof candidate.rightRef !== "string" ||
+    typeof candidate.leftRoot !== "string" ||
+    typeof candidate.rightRoot !== "string" ||
+    !isBoolean(candidate.useNaturalSort)
+  ) {
+    return null;
+  }
+
+  return {
+    leftRepo: candidate.leftRepo,
+    rightRepo: candidate.rightRepo,
+    leftRef: candidate.leftRef,
+    rightRef: candidate.rightRef,
+    leftRoot: candidate.leftRoot,
+    rightRoot: candidate.rightRoot,
+    useDifferentRoots: normalizeUseDifferentRoots(
+      candidate.leftRoot,
+      candidate.rightRoot,
+      candidate.useDifferentRoots
+    ),
+    useNaturalSort: candidate.useNaturalSort,
+  };
+}
+
+function normalizeIndexingHistoryEntry(value: unknown): IndexingHistoryEntry | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.id !== "string" ||
+    !isStoredIndexingSideParams(candidate.left) ||
+    !isStoredIndexingSideParams(candidate.right) ||
+    (typeof candidate.permalink !== "undefined" &&
+      typeof candidate.permalink !== "string") ||
+    !isCompareSide(candidate.startedSide) ||
+    typeof candidate.storedAt !== "string" ||
+    !isBoolean(candidate.useNaturalSort)
+  ) {
+    return null;
+  }
+
+  return {
+    id: candidate.id,
+    left: candidate.left,
+    permalink: candidate.permalink,
+    right: candidate.right,
+    startedSide: candidate.startedSide,
+    storedAt: candidate.storedAt,
+    useDifferentRoots: normalizeUseDifferentRoots(
+      candidate.left.root,
+      candidate.right.root,
+      candidate.useDifferentRoots
+    ),
+    useNaturalSort: candidate.useNaturalSort,
+  };
 }
 
 export function readLastSelectedParams(): LastSelectedParams | null {
@@ -147,7 +263,7 @@ export function readLastSelectedParams(): LastSelectedParams | null {
     }
 
     const parsed: unknown = JSON.parse(raw);
-    return isLastSelectedParams(parsed) ? parsed : null;
+    return normalizeLastSelectedParams(parsed);
   } catch {
     return null;
   }
@@ -173,7 +289,9 @@ export function readIndexingHistory(): IndexingHistoryEntry[] {
 
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed)
-      ? parsed.filter(isIndexingHistoryEntry)
+      ? parsed
+          .map((entry) => normalizeIndexingHistoryEntry(entry))
+          .filter((entry): entry is IndexingHistoryEntry => entry !== null)
       : [];
   } catch {
     return [];

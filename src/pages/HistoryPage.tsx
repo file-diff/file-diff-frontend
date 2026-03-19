@@ -102,6 +102,11 @@ export default function HistoryPage() {
                   <span className="history-entry__side-badge">
                     Started: {entry.startedSide}
                   </span>
+                  {entry.useDifferentRoots && (
+                    <span className="history-entry__sort-badge">
+                      Different roots
+                    </span>
+                  )}
                   {entry.useNaturalSort && (
                     <span className="history-entry__sort-badge">Natural sort</span>
                   )}
