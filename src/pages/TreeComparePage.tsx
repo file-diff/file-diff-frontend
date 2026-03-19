@@ -221,7 +221,10 @@ function updateIndexingHistoryEntry(
 
     history[index] = {
       ...updatedEntry,
-      permalink: buildComparePermalink(updatedEntry.left, updatedEntry.right),
+      permalink: buildComparePermalink(updatedEntry.left, updatedEntry.right, {
+        useDifferentRoots: entry.useDifferentRoots,
+        useNaturalSort: entry.useNaturalSort,
+      }),
     };
     writeIndexingHistory(history);
     return;
@@ -244,6 +247,35 @@ function setQueryParam(
   params.set(key, normalizedValue);
 }
 
+function setBooleanQueryParam(
+  params: URLSearchParams,
+  key: string,
+  value: boolean
+): void {
+  if (!value) {
+    params.delete(key);
+    return;
+  }
+
+  params.set(key, "1");
+}
+
+function readBooleanQueryParam(value: string | null): boolean | undefined {
+  if (value === null) {
+    return undefined;
+  }
+
+  if (value === "1" || value.toLowerCase() === "true") {
+    return true;
+  }
+
+  if (value === "0" || value.toLowerCase() === "false") {
+    return false;
+  }
+
+  return undefined;
+}
+
 export default function TreeComparePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const isClearRequest = searchParams.get("clear") === "1";
@@ -258,6 +290,14 @@ export default function TreeComparePage() {
     };
   }, [currentSearch]);
   const savedParams = useRef(isClearRequest ? null : readLastSelectedParams());
+  const initialLeftRoot =
+    searchParams.get("leftRoot")?.trim() ||
+    savedParams.current?.leftRoot ||
+    DEFAULT_LEFT_ROOT;
+  const initialRightRoot =
+    searchParams.get("rightRoot")?.trim() ||
+    savedParams.current?.rightRoot ||
+    DEFAULT_RIGHT_ROOT;
   const [leftInput, setLeftInput] = useState(isClearRequest ? "" : sampleCsvLeft);
   const [rightInput, setRightInput] = useState(isClearRequest ? "" : sampleCsvRight);
   const [leftEndpoint, setLeftEndpoint] = useState("");
@@ -290,18 +330,8 @@ export default function TreeComparePage() {
       savedParams.current?.rightRef ||
       DEFAULT_RIGHT_REF
   );
-  const [leftRoot, setLeftRoot] = useState(
-    () =>
-      searchParams.get("leftRoot")?.trim() ||
-      savedParams.current?.leftRoot ||
-      DEFAULT_LEFT_ROOT
-  );
-  const [rightRoot, setRightRoot] = useState(
-    () =>
-      searchParams.get("rightRoot")?.trim() ||
-      savedParams.current?.rightRoot ||
-      DEFAULT_RIGHT_ROOT
-  );
+  const [leftRoot, setLeftRoot] = useState(() => initialLeftRoot);
+  const [rightRoot, setRightRoot] = useState(() => initialRightRoot);
   const [leftLabel, setLeftLabel] = useState("Left");
   const [rightLabel, setRightLabel] = useState("Right");
   const [leftPinnedCommit, setLeftPinnedCommit] = useState(
@@ -319,9 +349,38 @@ export default function TreeComparePage() {
   const [pendingPullRequestSelection, setPendingPullRequestSelection] =
     useState<PullRequestPopupResult | null>(null);
   const [apiError, setApiError] = useState("");
-  const [useNaturalSort, setUseNaturalSort] = useState(
-    () => (isClearRequest ? false : savedParams.current?.useNaturalSort ?? false)
-  );
+  const [useNaturalSort, setUseNaturalSort] = useState(() => {
+    if (isClearRequest) {
+      return false;
+    }
+
+    return (
+      readBooleanQueryParam(searchParams.get("useNaturalSort")) ??
+      savedParams.current?.useNaturalSort ??
+      false
+    );
+  });
+  const [useDifferentRoots, setUseDifferentRoots] = useState(() => {
+    if (isClearRequest) {
+      return false;
+    }
+
+    const initialParamValue = readBooleanQueryParam(
+      searchParams.get("useDifferentRoots")
+    );
+    if (typeof initialParamValue === "boolean") {
+      return initialParamValue;
+    }
+
+    if (typeof savedParams.current?.useDifferentRoots === "boolean") {
+      return savedParams.current.useDifferentRoots;
+    }
+
+    return (
+      initialLeftRoot !== DEFAULT_LEFT_ROOT ||
+      initialRightRoot !== DEFAULT_RIGHT_ROOT
+    );
+  });
   const [showDetails, setShowDetails] = useState(false);
   const skipInitialPersistRef = useRef(isClearRequest);
   const initialAutoIndexTargets = useRef({
@@ -373,6 +432,8 @@ export default function TreeComparePage() {
   const leftDownloadJobId = leftJob?.id || extractJobIdFromFilesUrl(leftEndpoint);
   const rightDownloadJobId =
     rightJob?.id || extractJobIdFromFilesUrl(rightEndpoint);
+  const activeLeftRoot = useDifferentRoots ? leftRoot : DEFAULT_LEFT_ROOT;
+  const activeRightRoot = useDifferentRoots ? rightRoot : DEFAULT_RIGHT_ROOT;
 
   const diff = useMemo(() => {
     try {
@@ -381,14 +442,14 @@ export default function TreeComparePage() {
       return diffCsv(
         leftEntries,
         rightEntries,
-        leftRoot,
-        rightRoot,
+        activeLeftRoot,
+        activeRightRoot,
         useNaturalSort
       );
     } catch {
       return null;
     }
-  }, [leftInput, rightInput, leftRoot, rightRoot, useNaturalSort]);
+  }, [activeLeftRoot, activeRightRoot, leftInput, rightInput, useNaturalSort]);
 
   useEffect(() => {
     const nextParams = new URLSearchParams(currentSearch);
@@ -399,8 +460,10 @@ export default function TreeComparePage() {
     setQueryParam(nextParams, "rightRef", rightRef, DEFAULT_RIGHT_REF);
     setQueryParam(nextParams, "leftCommit", leftCurrentCommit);
     setQueryParam(nextParams, "rightCommit", rightCurrentCommit);
-    setQueryParam(nextParams, "leftRoot", leftRoot, DEFAULT_LEFT_ROOT);
-    setQueryParam(nextParams, "rightRoot", rightRoot, DEFAULT_RIGHT_ROOT);
+    setQueryParam(nextParams, "leftRoot", activeLeftRoot, DEFAULT_LEFT_ROOT);
+    setQueryParam(nextParams, "rightRoot", activeRightRoot, DEFAULT_RIGHT_ROOT);
+    setBooleanQueryParam(nextParams, "useDifferentRoots", useDifferentRoots);
+    setBooleanQueryParam(nextParams, "useNaturalSort", useNaturalSort);
 
     if (nextParams.toString() !== currentSearch) {
       setSearchParams(nextParams, { replace: true });
@@ -410,12 +473,14 @@ export default function TreeComparePage() {
     leftCurrentCommit,
     leftRepo,
     leftRef,
-    leftRoot,
+    activeLeftRoot,
     rightCurrentCommit,
     rightRepo,
     rightRef,
-    rightRoot,
+    activeRightRoot,
     setSearchParams,
+    useDifferentRoots,
+    useNaturalSort,
   ]);
 
   useEffect(() => {
@@ -429,11 +494,21 @@ export default function TreeComparePage() {
       rightRepo,
       leftRef,
       rightRef,
-      leftRoot,
-      rightRoot,
+      leftRoot: activeLeftRoot,
+      rightRoot: activeRightRoot,
+      useDifferentRoots,
       useNaturalSort,
     });
-  }, [leftRepo, rightRepo, leftRef, rightRef, leftRoot, rightRoot, useNaturalSort]);
+  }, [
+    activeLeftRoot,
+    activeRightRoot,
+    leftRef,
+    leftRepo,
+    rightRef,
+    rightRepo,
+    useDifferentRoots,
+    useNaturalSort,
+  ]);
 
   const loadSample = () => {
     setLeftInput(sampleCsvLeft);
@@ -444,6 +519,7 @@ export default function TreeComparePage() {
     setRightJob(null);
     setLeftRoot(DEFAULT_LEFT_ROOT);
     setRightRoot(DEFAULT_RIGHT_ROOT);
+    setUseDifferentRoots(false);
     setLeftPinnedCommit("");
     setRightPinnedCommit("");
     setLeftLabel("Left");
@@ -587,7 +663,7 @@ export default function TreeComparePage() {
         repo: leftRepo,
         inputRefName: leftRef,
         provider: leftProvider,
-        root: leftRoot,
+        root: activeLeftRoot,
         resolvedCommit: leftCurrentCommit,
         endpoint: side === "left" ? "" : leftEndpoint,
         job: side === "left" ? null : leftJob,
@@ -596,16 +672,20 @@ export default function TreeComparePage() {
         repo: rightRepo,
         inputRefName: rightRef,
         provider: rightProvider,
-        root: rightRoot,
+        root: activeRightRoot,
         resolvedCommit: rightCurrentCommit,
         endpoint: side === "right" ? "" : rightEndpoint,
         job: side === "right" ? null : rightJob,
       });
       appendIndexingHistoryEntry({
         id: historyEntryId,
-        permalink: buildComparePermalink(leftHistorySide, rightHistorySide),
+        permalink: buildComparePermalink(leftHistorySide, rightHistorySide, {
+          useDifferentRoots,
+          useNaturalSort,
+        }),
         storedAt: new Date().toISOString(),
         startedSide: side,
+        useDifferentRoots,
         useNaturalSort,
         left: leftHistorySide,
         right: rightHistorySide,
@@ -699,7 +779,7 @@ export default function TreeComparePage() {
       leftProvider,
       leftRef,
       leftRepo,
-      leftRoot,
+      activeLeftRoot,
       pollIndexingJob,
       rightCurrentCommit,
       rightEndpoint,
@@ -707,7 +787,8 @@ export default function TreeComparePage() {
       rightProvider,
       rightRef,
       rightRepo,
-      rightRoot,
+      activeRightRoot,
+      useDifferentRoots,
       useNaturalSort,
     ]
   );
@@ -1032,30 +1113,51 @@ export default function TreeComparePage() {
       {diff && (
         <div className="diff-result">
           <h2>Comparison Result</h2>
-          <div className="compare-roots">
-            <div className="compare-roots__field">
-              <label htmlFor="left-root">Left root</label>
-              <input
-                id="left-root"
-                type="text"
-                value={leftRoot}
-                onChange={(e) => setLeftRoot(e.target.value)}
-                placeholder="/"
-                spellCheck={false}
-              />
+          <label
+            className="sort-option compare-roots__toggle"
+            htmlFor="use-different-roots"
+          >
+            <input
+              id="use-different-roots"
+              type="checkbox"
+              checked={useDifferentRoots}
+              onChange={(e) => {
+                const { checked } = e.target;
+                setUseDifferentRoots(checked);
+                if (!checked) {
+                  setLeftRoot(DEFAULT_LEFT_ROOT);
+                  setRightRoot(DEFAULT_RIGHT_ROOT);
+                }
+              }}
+            />
+            Use different roots
+          </label>
+          {useDifferentRoots && (
+            <div className="compare-roots">
+              <div className="compare-roots__field">
+                <label htmlFor="left-root">Left root</label>
+                <input
+                  id="left-root"
+                  type="text"
+                  value={leftRoot}
+                  onChange={(e) => setLeftRoot(e.target.value)}
+                  placeholder="/"
+                  spellCheck={false}
+                />
+              </div>
+              <div className="compare-roots__field">
+                <label htmlFor="right-root">Right root</label>
+                <input
+                  id="right-root"
+                  type="text"
+                  value={rightRoot}
+                  onChange={(e) => setRightRoot(e.target.value)}
+                  placeholder="/"
+                  spellCheck={false}
+                />
+              </div>
             </div>
-            <div className="compare-roots__field">
-              <label htmlFor="right-root">Right root</label>
-              <input
-                id="right-root"
-                type="text"
-                value={rightRoot}
-                onChange={(e) => setRightRoot(e.target.value)}
-                placeholder="/"
-                spellCheck={false}
-              />
-            </div>
-          </div>
+          )}
           <div className="diff-legend">
             <span className="legend-item legend-item--same">● Same</span>
             <span className="legend-item legend-item--added">● Added</span>
