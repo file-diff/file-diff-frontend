@@ -322,6 +322,7 @@ export default function TreeComparePage() {
   const [useNaturalSort, setUseNaturalSort] = useState(
     () => (isClearRequest ? false : savedParams.current?.useNaturalSort ?? false)
   );
+  const [showDetails, setShowDetails] = useState(false);
   const skipInitialPersistRef = useRef(isClearRequest);
   const initialAutoIndexTargets = useRef({
     left: {
@@ -864,135 +865,169 @@ export default function TreeComparePage() {
         </p>
       </div>
 
-      <div className="sample-buttons">
-        <button onClick={loadSample}>Load Sample</button>
+      <div className="action-buttons">
+        <button
+          type="button"
+          className="browse-org-button"
+          onClick={() => setOrgBrowserSide("left")}
+        >
+          Browse left repository…
+        </button>
+        <button
+          type="button"
+          className="browse-org-button"
+          onClick={() => setOrgBrowserSide("right")}
+        >
+          Browse right repository…
+        </button>
         <button type="button" onClick={() => setIsPullRequestPopupOpen(true)}>
           Resolve pull request…
         </button>
       </div>
 
-      <label className="sort-option" htmlFor="use-natural-sort">
-        <input
-          id="use-natural-sort"
-          type="checkbox"
-          checked={useNaturalSort}
-          onChange={(e) => setUseNaturalSort(e.target.checked)}
-        />
-        Use natural sorting for both trees
-      </label>
-
-      {apiError && <div className="api-error">{apiError}</div>}
-
-      <div className="input-panels">
-        <div className="input-panel">
-          <RepositoryCommitSelector
-            label="Left repository"
-            repoInputId="left-repo"
-            refInputId="left-ref"
-            commitInputId="left-commit"
-            refOptionsId="left-ref-options"
-            repoValue={leftRepo}
-            refValue={leftRef}
-            currentCommit={leftCurrentCommit}
-            refsState={leftRefsState}
-            resolvedCommitState={leftResolvedCommitState}
-            isStarting={leftIsStarting}
-            job={leftJob}
-            repoPlaceholder="Arkiv-Network/arkiv-op-geth"
-            onRepoChange={(value) => {
-              setLeftRepo(value);
-              setLeftPinnedCommit("");
-              setLeftEndpoint("");
-              setLeftJob(null);
-            }}
-            onRefChange={(value) => {
-              setLeftRef(value);
-              setLeftPinnedCommit("");
-              setLeftEndpoint("");
-              setLeftJob(null);
-            }}
-            onStartIndexing={() => void handleStartIndexing("left")}
-          />
-          <button
-            type="button"
-            className="browse-org-button"
-            onClick={() => setOrgBrowserSide("left")}
-          >
-            Browse organization…
-          </button>
-          <label htmlFor="left-endpoint">Left API endpoint</label>
-          <input
-            id="left-endpoint"
-            type="url"
-            value={leftEndpoint}
-            onChange={(e) => setLeftEndpoint(e.target.value)}
-            placeholder={`${JOBS_API_URL}/<left-job-id>/files`}
-            spellCheck={false}
-          />
-          <label htmlFor="left-csv">Left</label>
-          <textarea
-            id="left-csv"
-            value={leftInput}
-            onChange={(e) => setLeftInput(e.target.value)}
-            placeholder="Paste CSV data here..."
-            spellCheck={false}
-          />
+      <div className="compare-summary">
+        <div className="compare-summary__side">
+          <span className="compare-summary__label">Left</span>
+          <span className="compare-summary__repo">{leftRepo || "—"}</span>
+          <code className="compare-summary__commit">
+            {leftCurrentCommit ? leftCurrentCommit.slice(0, 12) : "—"}
+          </code>
         </div>
-        <div className="input-panel">
-          <RepositoryCommitSelector
-            label="Right repository"
-            repoInputId="right-repo"
-            refInputId="right-ref"
-            commitInputId="right-commit"
-            refOptionsId="right-ref-options"
-            repoValue={rightRepo}
-            refValue={rightRef}
-            currentCommit={rightCurrentCommit}
-            refsState={rightRefsState}
-            resolvedCommitState={rightResolvedCommitState}
-            isStarting={rightIsStarting}
-            job={rightJob}
-            repoPlaceholder="Arkiv-Network/arkiv-op-geth"
-            onRepoChange={(value) => {
-              setRightRepo(value);
-              setRightPinnedCommit("");
-              setRightEndpoint("");
-              setRightJob(null);
-            }}
-            onRefChange={(value) => {
-              setRightRef(value);
-              setRightPinnedCommit("");
-              setRightEndpoint("");
-              setRightJob(null);
-            }}
-            onStartIndexing={() => void handleStartIndexing("right")}
-          />
-          <button
-            type="button"
-            className="browse-org-button"
-            onClick={() => setOrgBrowserSide("right")}
-          >
-            Browse organization…
-          </button>
-          <label htmlFor="right-endpoint">Right API endpoint</label>
-          <input
-            id="right-endpoint"
-            type="url"
-            value={rightEndpoint}
-            onChange={(e) => setRightEndpoint(e.target.value)}
-            placeholder={`${JOBS_API_URL}/<right-job-id>/files`}
-            spellCheck={false}
-          />
-          <label htmlFor="right-csv">Right</label>
-          <textarea
-            id="right-csv"
-            value={rightInput}
-            onChange={(e) => setRightInput(e.target.value)}
-            placeholder="Paste CSV data here..."
-            spellCheck={false}
-          />
+        <div className="compare-summary__side">
+          <span className="compare-summary__label">Right</span>
+          <span className="compare-summary__repo">{rightRepo || "—"}</span>
+          <code className="compare-summary__commit">
+            {rightCurrentCommit ? rightCurrentCommit.slice(0, 12) : "—"}
+          </code>
         </div>
       </div>
+
+      <label className="sort-option" htmlFor="show-details">
+        <input
+          id="show-details"
+          type="checkbox"
+          checked={showDetails}
+          onChange={(e) => setShowDetails(e.target.checked)}
+        />
+        Show details
+      </label>
+
+      {showDetails && (
+        <>
+          <div className="sample-buttons">
+            <button onClick={loadSample}>Load Sample</button>
+          </div>
+
+          <label className="sort-option" htmlFor="use-natural-sort">
+            <input
+              id="use-natural-sort"
+              type="checkbox"
+              checked={useNaturalSort}
+              onChange={(e) => setUseNaturalSort(e.target.checked)}
+            />
+            Use natural sorting for both trees
+          </label>
+
+          {apiError && <div className="api-error">{apiError}</div>}
+
+          <div className="input-panels">
+            <div className="input-panel">
+              <RepositoryCommitSelector
+                label="Left repository"
+                repoInputId="left-repo"
+                refInputId="left-ref"
+                commitInputId="left-commit"
+                refOptionsId="left-ref-options"
+                repoValue={leftRepo}
+                refValue={leftRef}
+                currentCommit={leftCurrentCommit}
+                refsState={leftRefsState}
+                resolvedCommitState={leftResolvedCommitState}
+                isStarting={leftIsStarting}
+                job={leftJob}
+                repoPlaceholder="Arkiv-Network/arkiv-op-geth"
+                onRepoChange={(value) => {
+                  setLeftRepo(value);
+                  setLeftPinnedCommit("");
+                  setLeftEndpoint("");
+                  setLeftJob(null);
+                }}
+                onRefChange={(value) => {
+                  setLeftRef(value);
+                  setLeftPinnedCommit("");
+                  setLeftEndpoint("");
+                  setLeftJob(null);
+                }}
+                onStartIndexing={() => void handleStartIndexing("left")}
+              />
+              <label htmlFor="left-endpoint">Left API endpoint</label>
+              <input
+                id="left-endpoint"
+                type="url"
+                value={leftEndpoint}
+                onChange={(e) => setLeftEndpoint(e.target.value)}
+                placeholder={`${JOBS_API_URL}/<left-job-id>/files`}
+                spellCheck={false}
+              />
+              <label htmlFor="left-csv">Left</label>
+              <textarea
+                id="left-csv"
+                value={leftInput}
+                onChange={(e) => setLeftInput(e.target.value)}
+                placeholder="Paste CSV data here..."
+                spellCheck={false}
+              />
+            </div>
+            <div className="input-panel">
+              <RepositoryCommitSelector
+                label="Right repository"
+                repoInputId="right-repo"
+                refInputId="right-ref"
+                commitInputId="right-commit"
+                refOptionsId="right-ref-options"
+                repoValue={rightRepo}
+                refValue={rightRef}
+                currentCommit={rightCurrentCommit}
+                refsState={rightRefsState}
+                resolvedCommitState={rightResolvedCommitState}
+                isStarting={rightIsStarting}
+                job={rightJob}
+                repoPlaceholder="Arkiv-Network/arkiv-op-geth"
+                onRepoChange={(value) => {
+                  setRightRepo(value);
+                  setRightPinnedCommit("");
+                  setRightEndpoint("");
+                  setRightJob(null);
+                }}
+                onRefChange={(value) => {
+                  setRightRef(value);
+                  setRightPinnedCommit("");
+                  setRightEndpoint("");
+                  setRightJob(null);
+                }}
+                onStartIndexing={() => void handleStartIndexing("right")}
+              />
+              <label htmlFor="right-endpoint">Right API endpoint</label>
+              <input
+                id="right-endpoint"
+                type="url"
+                value={rightEndpoint}
+                onChange={(e) => setRightEndpoint(e.target.value)}
+                placeholder={`${JOBS_API_URL}/<right-job-id>/files`}
+                spellCheck={false}
+              />
+              <label htmlFor="right-csv">Right</label>
+              <textarea
+                id="right-csv"
+                value={rightInput}
+                onChange={(e) => setRightInput(e.target.value)}
+                placeholder="Paste CSV data here..."
+                spellCheck={false}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       {diff && (
         <div className="diff-result">
