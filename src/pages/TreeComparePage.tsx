@@ -9,7 +9,6 @@ import PullRequestPopup from "../components/PullRequestPopup";
 import type { PullRequestPopupResult } from "../components/PullRequestPopup";
 import {
   requestResolvedCommit,
-  useRepositoryRefs,
   useResolvedCommit,
 } from "../utils/repositorySelection";
 import TreeDiffView from "../components/TreeDiffView";
@@ -359,7 +358,7 @@ export default function TreeComparePage() {
     return (
       readBooleanQueryParam(searchParams.get("useNaturalSort")) ??
       savedParams.current?.useNaturalSort ??
-      false
+      true
     );
   });
   const [useDifferentRoots, setUseDifferentRoots] = useState(() => {
@@ -423,8 +422,6 @@ export default function TreeComparePage() {
     left: null,
     right: null,
   });
-  const leftRefsState = useRepositoryRefs(leftRepo);
-  const rightRefsState = useRepositoryRefs(rightRepo);
   const leftResolvedCommitState = useResolvedCommit(leftRepo, leftRef);
   const rightResolvedCommitState = useResolvedCommit(rightRepo, rightRef);
   const leftCurrentCommit =
@@ -511,23 +508,6 @@ export default function TreeComparePage() {
     useDifferentRoots,
     useNaturalSort,
   ]);
-
-  const loadSample = () => {
-    setLeftInput(sampleCsvLeft);
-    setRightInput(sampleCsvRight);
-    setLeftEndpoint("");
-    setRightEndpoint("");
-    setLeftJob(null);
-    setRightJob(null);
-    setLeftRoot(DEFAULT_LEFT_ROOT);
-    setRightRoot(DEFAULT_RIGHT_ROOT);
-    setUseDifferentRoots(false);
-    setLeftPinnedCommit("");
-    setRightPinnedCommit("");
-    setLeftLabel("Left");
-    setRightLabel("Right");
-    setApiError("");
-  };
 
   const applyFilesResponse = useCallback(
     (
@@ -939,14 +919,6 @@ export default function TreeComparePage() {
 
   return (
     <div className="tree-compare-page">
-      <div className="page-header">
-        <h1>📂 Directory Comparison</h1>
-        <p className="page-subtitle">
-          Paste CSV data, start repository indexing jobs, or load two job file
-          endpoints to compare directory structures side by side. Format:{" "}
-          <code>type;path;size;timestamp;hash</code>
-        </p>
-      </div>
 
       <div className="action-buttons">
         <button
@@ -963,7 +935,7 @@ export default function TreeComparePage() {
         >
           Browse right repository…
         </button>
-        <button type="button" onClick={() => setIsPullRequestPopupOpen(true)}>
+        <button type="button" className="browse-org-button" onClick={() => setIsPullRequestPopupOpen(true)}>
           Resolve pull request…
         </button>
       </div>
@@ -985,6 +957,7 @@ export default function TreeComparePage() {
         </div>
       </div>
 
+
       <label className="sort-option" htmlFor="show-details">
         <input
           id="show-details"
@@ -994,13 +967,28 @@ export default function TreeComparePage() {
         />
         Show details
       </label>
+      <label
+        className="sort-option"
+        htmlFor="use-different-roots"
+      >
+        <input
+          id="use-different-roots"
+          type="checkbox"
+          checked={useDifferentRoots}
+          onChange={(e) => {
+            const { checked } = e.target;
+            setUseDifferentRoots(checked);
+            if (!checked) {
+              setLeftRoot(DEFAULT_LEFT_ROOT);
+              setRightRoot(DEFAULT_RIGHT_ROOT);
+            }
+          }}
+        />
+        Use different roots
+      </label>
 
       {showDetails && (
         <>
-          <div className="sample-buttons">
-            <button onClick={loadSample}>Load Sample</button>
-          </div>
-
           <label className="sort-option" htmlFor="use-natural-sort">
             <input
               id="use-natural-sort"
@@ -1016,32 +1004,9 @@ export default function TreeComparePage() {
           <div className="input-panels">
             <div className="input-panel">
               <RepositoryCommitSelector
+                job={leftJob}
                 label="Left repository"
                 repoInputId="left-repo"
-                refInputId="left-ref"
-                commitInputId="left-commit"
-                refOptionsId="left-ref-options"
-                repoValue={leftRepo}
-                refValue={leftRef}
-                currentCommit={leftCurrentCommit}
-                refsState={leftRefsState}
-                resolvedCommitState={leftResolvedCommitState}
-                isStarting={leftIsStarting}
-                job={leftJob}
-                repoPlaceholder="Arkiv-Network/arkiv-op-geth"
-                onRepoChange={(value) => {
-                  setLeftRepo(value);
-                  setLeftPinnedCommit("");
-                  setLeftEndpoint("");
-                  setLeftJob(null);
-                }}
-                onRefChange={(value) => {
-                  setLeftRef(value);
-                  setLeftPinnedCommit("");
-                  setLeftEndpoint("");
-                  setLeftJob(null);
-                }}
-                onStartIndexing={() => void handleStartIndexing("left")}
               />
               <label htmlFor="left-endpoint">Left API endpoint</label>
               <input
@@ -1065,30 +1030,7 @@ export default function TreeComparePage() {
               <RepositoryCommitSelector
                 label="Right repository"
                 repoInputId="right-repo"
-                refInputId="right-ref"
-                commitInputId="right-commit"
-                refOptionsId="right-ref-options"
-                repoValue={rightRepo}
-                refValue={rightRef}
-                currentCommit={rightCurrentCommit}
-                refsState={rightRefsState}
-                resolvedCommitState={rightResolvedCommitState}
-                isStarting={rightIsStarting}
                 job={rightJob}
-                repoPlaceholder="Arkiv-Network/arkiv-op-geth"
-                onRepoChange={(value) => {
-                  setRightRepo(value);
-                  setRightPinnedCommit("");
-                  setRightEndpoint("");
-                  setRightJob(null);
-                }}
-                onRefChange={(value) => {
-                  setRightRef(value);
-                  setRightPinnedCommit("");
-                  setRightEndpoint("");
-                  setRightJob(null);
-                }}
-                onStartIndexing={() => void handleStartIndexing("right")}
               />
               <label htmlFor="right-endpoint">Right API endpoint</label>
               <input
@@ -1114,26 +1056,6 @@ export default function TreeComparePage() {
 
       {diff && (
         <div className="diff-result">
-          <h2>Comparison Result</h2>
-          <label
-            className="sort-option compare-roots__toggle"
-            htmlFor="use-different-roots"
-          >
-            <input
-              id="use-different-roots"
-              type="checkbox"
-              checked={useDifferentRoots}
-              onChange={(e) => {
-                const { checked } = e.target;
-                setUseDifferentRoots(checked);
-                if (!checked) {
-                  setLeftRoot(DEFAULT_LEFT_ROOT);
-                  setRightRoot(DEFAULT_RIGHT_ROOT);
-                }
-              }}
-            />
-            Use different roots
-          </label>
           {useDifferentRoots && (
             <div className="compare-roots">
               <div className="compare-roots__field">
