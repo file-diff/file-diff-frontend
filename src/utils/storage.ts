@@ -100,12 +100,13 @@ function setCompareBooleanQueryParam(
   params.set(key, "1");
 }
 
-function isBooleanLike(value: unknown): value is boolean {
+function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
 function hasCustomCompareRoot(root: string): boolean {
-  return root.trim() !== "/" && root.trim() !== "";
+  const normalizedRoot = root.trim();
+  return normalizedRoot !== "/" && normalizedRoot !== "";
 }
 
 function normalizeUseDifferentRoots(
@@ -113,18 +114,17 @@ function normalizeUseDifferentRoots(
   rightRoot: string,
   value: unknown
 ): boolean {
-  return isBooleanLike(value)
+  return isBoolean(value)
     ? value
     : hasCustomCompareRoot(leftRoot) || hasCustomCompareRoot(rightRoot);
 }
 
-export function buildComparePermalink(
+function applyComparePermalinkParams(
+  params: URLSearchParams,
   left: ComparePermalinkSide,
   right: ComparePermalinkSide,
-  options: ComparePermalinkOptions = {}
-): string {
-  const params = new URLSearchParams();
-
+  options: ComparePermalinkOptions
+): void {
   setCompareQueryParam(params, "leftRepo", left.repo);
   setCompareQueryParam(params, "rightRepo", right.repo);
   setCompareQueryParam(params, "leftRef", left.inputRefName);
@@ -134,6 +134,9 @@ export function buildComparePermalink(
   if (options.useDifferentRoots) {
     setCompareQueryParam(params, "leftRoot", left.root, "/");
     setCompareQueryParam(params, "rightRoot", right.root, "/");
+  } else {
+    params.delete("leftRoot");
+    params.delete("rightRoot");
   }
   setCompareBooleanQueryParam(
     params,
@@ -145,6 +148,15 @@ export function buildComparePermalink(
     "useNaturalSort",
     options.useNaturalSort ?? false
   );
+}
+
+export function buildComparePermalink(
+  left: ComparePermalinkSide,
+  right: ComparePermalinkSide,
+  options: ComparePermalinkOptions = {}
+): string {
+  const params = new URLSearchParams();
+  applyComparePermalinkParams(params, left, right, options);
 
   const query = params.toString();
   return query ? `/?${query}` : "/";
@@ -153,10 +165,25 @@ export function buildComparePermalink(
 export function buildHistoryEntryPermalink(
   entry: IndexingHistoryEntry
 ): string {
-  return buildComparePermalink(entry.left, entry.right, {
+  const options = {
     useDifferentRoots: entry.useDifferentRoots,
     useNaturalSort: entry.useNaturalSort,
-  });
+  };
+  const existingPermalink = entry.permalink?.trim();
+
+  if (!existingPermalink) {
+    return buildComparePermalink(entry.left, entry.right, options);
+  }
+
+  try {
+    const existingUrl = new URL(existingPermalink, "https://filediff.local");
+    const params = new URLSearchParams(existingUrl.search);
+    applyComparePermalinkParams(params, entry.left, entry.right, options);
+    const query = params.toString();
+    return query ? `/?${query}` : "/";
+  } catch {
+    return buildComparePermalink(entry.left, entry.right, options);
+  }
 }
 
 function normalizeLastSelectedParams(value: unknown): LastSelectedParams | null {
@@ -172,7 +199,7 @@ function normalizeLastSelectedParams(value: unknown): LastSelectedParams | null 
     typeof candidate.rightRef !== "string" ||
     typeof candidate.leftRoot !== "string" ||
     typeof candidate.rightRoot !== "string" ||
-    !isBooleanLike(candidate.useNaturalSort)
+    !isBoolean(candidate.useNaturalSort)
   ) {
     return null;
   }
@@ -207,7 +234,7 @@ function normalizeIndexingHistoryEntry(value: unknown): IndexingHistoryEntry | n
       typeof candidate.permalink !== "string") ||
     !isCompareSide(candidate.startedSide) ||
     typeof candidate.storedAt !== "string" ||
-    !isBooleanLike(candidate.useNaturalSort)
+    !isBoolean(candidate.useNaturalSort)
   ) {
     return null;
   }

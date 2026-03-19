@@ -265,11 +265,13 @@ function readBooleanQueryParam(value: string | null): boolean | undefined {
     return undefined;
   }
 
-  if (value === "1" || value.toLowerCase() === "true") {
+  const normalizedValue = value.toLowerCase();
+
+  if (normalizedValue === "1" || normalizedValue === "true") {
     return true;
   }
 
-  if (value === "0" || value.toLowerCase() === "false") {
+  if (normalizedValue === "0" || normalizedValue === "false") {
     return false;
   }
 
