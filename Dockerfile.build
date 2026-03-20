@@ -1,10 +1,10 @@
-# Multi-stage Dockerfile to produce a static build in /app/dist
+# Multi-stage Dockerfile to build and serve the frontend with SSR
 # Usage:
-# docker build -t file-diff-frontend:build -f Dockerfile.build .
+#   docker build -t file-diff-frontend -f Dockerfile.build .
+#   docker run -p 3000:3000 file-diff-frontend
 
 FROM node:24-alpine AS build
 
-# Set working dir
 WORKDIR /app
 
 ARG VITE_GIT_COMMIT
@@ -12,18 +12,27 @@ ENV VITE_GIT_COMMIT=${VITE_GIT_COMMIT}
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
-# Copy all files (keeps it simple – the image is only used for build artifacts)
+COPY package.json package-lock.json ./
+RUN npm ci
+
 COPY . .
 
-# Install dependencies. Use npm ci when package-lock.json exists, fallback to npm install.
-RUN npm ci || npm install
+# Build client bundle and SSR server bundle
+RUN npm run build:all
 
-# Build the project (tsc + vite build as defined in package.json)
-RUN npm run build
+# ── Production image ────────────────────────────────────────────
+FROM node:24-alpine AS production
 
-# Final image with only the dist folder to keep it small
-FROM alpine AS dist
 WORKDIR /app
-COPY --from=build /app/dist ./dist
 
-# No runtime commands needed; this image just holds the build output.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# Copy build output and server entry point
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/server.js ./server.js
+
+ENV PORT=3000
+EXPOSE 3000
+
+CMD ["node", "server.js"]

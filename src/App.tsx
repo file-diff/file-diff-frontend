@@ -58,6 +58,9 @@ function AppShell() {
           <Link to="/health" className="nav-link">
             🩺 Backend Check
           </Link>
+          <a href="/ssr-health" className="nav-link">
+            🖥️ SSR Health
+          </a>
           <button type="button" className="nav-clear-button" onClick={handleClearAll}>
             Clear all
           </button>
