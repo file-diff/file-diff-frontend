@@ -6,7 +6,6 @@ import TreeDiffView from "../components/TreeDiffView";
 import { buildJobFileDownloadUrl, JOBS_API_URL } from "../config/api";
 import "./TreeComparePage2.css";
 
-const JOBS_BASE_URL = JOBS_API_URL;
 const POLL_INTERVAL_MS = 2000;
 const DEFAULT_JOB_STATUS = "waiting";
 
@@ -118,7 +117,7 @@ function getProcessedFiles(
 }
 
 function buildJobFilesUrl(jobId: string): string {
-  return `${JOBS_BASE_URL}/${jobId}/files`;
+  return `${JOBS_API_URL}/${jobId}/files`;
 }
 
 function createInitialSideState(repo: string, commit: string): SideState {
@@ -149,6 +148,7 @@ export default function TreeComparePage2() {
   const [right, setRight] = useState<SideState>(() =>
     createInitialSideState(rightRepo, rightCommit)
   );
+  const [parseError, setParseError] = useState("");
 
   const startedRef = useRef(false);
 
@@ -160,7 +160,7 @@ export default function TreeComparePage2() {
     ) => {
       try {
         const payload: JobRequest = { repo, commit };
-        const response = await fetch(JOBS_BASE_URL, {
+        const response = await fetch(JOBS_API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -215,7 +215,7 @@ export default function TreeComparePage2() {
 
       try {
         const [statusResult, filesResult] = await Promise.allSettled([
-          fetch(`${JOBS_BASE_URL}/${side.jobId}`),
+          fetch(`${JOBS_API_URL}/${side.jobId}`),
           fetch(buildJobFilesUrl(side.jobId)),
         ]);
 
@@ -273,13 +273,21 @@ export default function TreeComparePage2() {
   }, [left, right, pollSide]);
 
   const diff = useMemo(() => {
-    if (!left.filesLoaded || !right.filesLoaded) return null;
+    if (!left.filesLoaded || !right.filesLoaded) {
+      setParseError("");
+      return null;
+    }
 
     try {
       const leftEntries = parseCsv(left.csv, true);
       const rightEntries = parseCsv(right.csv, true);
-      return diffCsv(leftEntries, rightEntries, "/", "/", true);
-    } catch {
+      const result = diffCsv(leftEntries, rightEntries, "/", "/", true);
+      setParseError("");
+      return result;
+    } catch (err) {
+      setParseError(
+        err instanceof Error ? err.message : "Failed to parse file trees"
+      );
       return null;
     }
   }, [left.csv, left.filesLoaded, right.csv, right.filesLoaded]);
@@ -315,11 +323,12 @@ export default function TreeComparePage2() {
   const leftError = left.error;
   const rightError = right.error;
 
-  if (leftError || rightError) {
+  if (leftError || rightError || parseError) {
     return (
       <div className="tree-compare2-page">
         {leftError && <div className="tree-compare2-error">Left: {leftError}</div>}
         {rightError && <div className="tree-compare2-error">Right: {rightError}</div>}
+        {parseError && <div className="tree-compare2-error">{parseError}</div>}
       </div>
     );
   }
