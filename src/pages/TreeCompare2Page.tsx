@@ -227,7 +227,6 @@ export default function TreeCompare2Page() {
   const leftCommit = searchParams.get("leftCommit")?.trim() ?? "";
   const rightRepo = searchParams.get("rightRepo")?.trim() ?? "";
   const rightCommit = searchParams.get("rightCommit")?.trim() ?? "";
-  const requestKey = `${leftRepo}\n${leftCommit}\n${rightRepo}\n${rightCommit}`;
   const [compareData, setCompareData] = useState<LoadedCompareData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -280,7 +279,7 @@ export default function TreeCompare2Page() {
     void loadComparison();
 
     return () => controller.abort();
-  }, [leftCommit, leftRepo, requestKey, rightCommit, rightRepo]);
+  }, [leftCommit, leftRepo, rightCommit, rightRepo]);
 
   const diff = useMemo(() => {
     if (!compareData) {
