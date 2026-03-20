@@ -1,4 +1,5 @@
 import express from "express";
+import { rateLimit } from "express-rate-limit";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,8 +15,6 @@ const ssrHealthCacheKey = `ssr-health:${Buffer.from(apiBaseUrl).toString(
   "base64url"
 )}`;
 const ssrHealthCacheTtlSeconds = 10;
-const ssrHealthRateLimitWindowMs = 10_000;
-const ssrHealthRateLimitMaxRequests = 30;
 
 const clientDir = resolve(__dirname, "dist/client");
 const indexHtml = readFileSync(resolve(clientDir, "index.html"), "utf-8");
@@ -40,77 +39,20 @@ if (redisUrl) {
   }
 }
 
-/** @type {Map<string, number[]>} */
-const ssrHealthRequestLog = new Map();
-let lastSsrHealthRateLimitCleanup = 0;
-
-function pruneSsrHealthRateLimitEntries(now) {
-  if (now - lastSsrHealthRateLimitCleanup < ssrHealthRateLimitWindowMs) {
-    return;
-  }
-
-  for (const [clientKey, timestamps] of ssrHealthRequestLog.entries()) {
-    const recentTimestamps = timestamps.filter(
-      (timestamp) => now - timestamp < ssrHealthRateLimitWindowMs
-    );
-
-    if (recentTimestamps.length > 0) {
-      ssrHealthRequestLog.set(clientKey, recentTimestamps);
-    } else {
-      ssrHealthRequestLog.delete(clientKey);
-    }
-  }
-
-  lastSsrHealthRateLimitCleanup = now;
-}
-
-function getSsrHealthClientKey(req) {
-  const forwardedFor = req.headers["x-forwarded-for"];
-  const forwardedIp =
-    typeof forwardedFor === "string"
-      ? forwardedFor.split(",")[0]?.trim()
-      : undefined;
-  const remoteAddress = req.socket?.remoteAddress?.trim();
-  const userAgent = req.get("user-agent")?.trim() || "anonymous";
-
-  return req.ip || forwardedIp || remoteAddress || `unknown:${userAgent}`;
-}
-
-function isSsrHealthRateLimited(clientKey) {
-  const now = Date.now();
-  pruneSsrHealthRateLimitEntries(now);
-  const recentRequests = (ssrHealthRequestLog.get(clientKey) ?? []).filter(
-    (timestamp) => now - timestamp < ssrHealthRateLimitWindowMs
-  );
-
-  if (recentRequests.length >= ssrHealthRateLimitMaxRequests) {
-    ssrHealthRequestLog.set(clientKey, recentRequests);
-    return true;
-  }
-
-  recentRequests.push(now);
-  ssrHealthRequestLog.set(clientKey, recentRequests);
-  return false;
-}
-
 const app = express();
+const ssrHealthRateLimiter = rateLimit({
+  windowMs: 10_000,
+  limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
 
 // Serve static client assets (do not serve index.html for /)
 app.use(express.static(clientDir, { index: false }));
 
 // SSR-rendered health page
-app.get("/ssr-health", async (req, res) => {
+app.get("/ssr-health", ssrHealthRateLimiter, async (_req, res) => {
   try {
-    const clientKey = getSsrHealthClientKey(req);
-
-    if (isSsrHealthRateLimited(clientKey)) {
-      res
-        .status(429)
-        .set({ "Content-Type": "text/plain", "Retry-After": "10" })
-        .send("Too Many Requests");
-      return;
-    }
-
     if (redisClient?.isReady) {
       try {
         const cachedHtml = await redisClient.get(ssrHealthCacheKey);
