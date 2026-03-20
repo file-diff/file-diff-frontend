@@ -42,9 +42,43 @@ if (redisUrl) {
 
 /** @type {Map<string, number[]>} */
 const ssrHealthRequestLog = new Map();
+let lastSsrHealthRateLimitCleanup = 0;
+
+function pruneSsrHealthRateLimitEntries(now) {
+  if (now - lastSsrHealthRateLimitCleanup < ssrHealthRateLimitWindowMs) {
+    return;
+  }
+
+  for (const [clientKey, timestamps] of ssrHealthRequestLog.entries()) {
+    const recentTimestamps = timestamps.filter(
+      (timestamp) => now - timestamp < ssrHealthRateLimitWindowMs
+    );
+
+    if (recentTimestamps.length > 0) {
+      ssrHealthRequestLog.set(clientKey, recentTimestamps);
+    } else {
+      ssrHealthRequestLog.delete(clientKey);
+    }
+  }
+
+  lastSsrHealthRateLimitCleanup = now;
+}
+
+function getSsrHealthClientKey(req) {
+  const forwardedFor = req.headers["x-forwarded-for"];
+  const forwardedIp =
+    typeof forwardedFor === "string"
+      ? forwardedFor.split(",")[0]?.trim()
+      : undefined;
+  const remoteAddress = req.socket?.remoteAddress?.trim();
+  const userAgent = req.get("user-agent")?.trim() || "anonymous";
+
+  return req.ip || forwardedIp || remoteAddress || `unknown:${userAgent}`;
+}
 
 function isSsrHealthRateLimited(clientKey) {
   const now = Date.now();
+  pruneSsrHealthRateLimitEntries(now);
   const recentRequests = (ssrHealthRequestLog.get(clientKey) ?? []).filter(
     (timestamp) => now - timestamp < ssrHealthRateLimitWindowMs
   );
@@ -67,7 +101,7 @@ app.use(express.static(clientDir, { index: false }));
 // SSR-rendered health page
 app.get("/ssr-health", async (req, res) => {
   try {
-    const clientKey = req.ip || "unknown";
+    const clientKey = getSsrHealthClientKey(req);
 
     if (isSsrHealthRateLimited(clientKey)) {
       res
