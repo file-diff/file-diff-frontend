@@ -65,7 +65,7 @@ app.get("/ssr-health", ssrHealthRateLimiter, async (_req, res) => {
       }
     }
 
-    const html = await ssrModule.render(apiBaseUrl, Boolean(redisClient?.isReady));
+    const html = await ssrModule.render(apiBaseUrl, Boolean(redisUrl));
 
     if (redisClient?.isReady) {
       try {
