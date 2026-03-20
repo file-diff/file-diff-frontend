@@ -3,6 +3,7 @@ const SSR_HEALTH_STYLESHEET_PATH = "/ssr-health.css";
 interface SSRHealthData {
   status: "healthy" | "reachable" | "error";
   message: string;
+  frontendCacheEnabled: boolean;
   healthEndpoint: string;
   versionEndpoint: string;
   healthStatus?: number;
@@ -38,6 +39,12 @@ export default function SSRHealthPage({ data }: { data: SSRHealthData }) {
 
           <div className="health-card">
             <div className="health-config">
+              <div>
+                <span className="health-label">Redis frontend cache</span>
+                <code>
+                  {data.frontendCacheEnabled ? "Enabled" : "Disabled"}
+                </code>
+              </div>
               <div>
                 <span className="health-label">Health endpoint</span>
                 <code>{data.healthEndpoint}</code>

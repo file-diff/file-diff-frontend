@@ -49,7 +49,10 @@ async function parseVersionResponse(
   }
 }
 
-export async function render(apiBaseUrl: string): Promise<string> {
+export async function render(
+  apiBaseUrl: string,
+  frontendCacheEnabled: boolean
+): Promise<string> {
   const healthUrl = `${apiBaseUrl}/health`;
   const versionUrl = `${apiBaseUrl}/version`;
 
@@ -99,6 +102,7 @@ export async function render(apiBaseUrl: string): Promise<string> {
   const data = {
     status: status as "healthy" | "reachable" | "error",
     message,
+    frontendCacheEnabled,
     healthEndpoint: healthUrl,
     versionEndpoint: versionUrl,
     healthStatus: healthResponse?.status,
