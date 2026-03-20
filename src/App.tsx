@@ -6,6 +6,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import TreeComparePage from "./pages/TreeComparePage";
+import TreeComparePage2 from "./pages/TreeComparePage2";
 import FileComparePage from "./pages/FileComparePage";
 import HealthCheckPage from "./pages/HealthCheckPage";
 import HistoryPage from "./pages/HistoryPage";
@@ -66,6 +67,7 @@ function AppShell() {
       <main>
         <Routes>
           <Route path="/" element={<TreeComparePage />} />
+          <Route path="/compare2" element={<TreeComparePage2 />} />
           <Route path="/files" element={<FileComparePage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/tokenize" element={<TokenizePage />} />
