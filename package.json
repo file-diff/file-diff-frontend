@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:client": "vite build --outDir dist/client",
+    "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
+    "build:all": "tsc -b && npm run build:client && npm run build:server",
+    "start": "node server.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -17,6 +21,7 @@
     "@fontsource/roboto-mono": "^5.2.8",
     "@fontsource/source-code-pro": "^5.2.7",
     "@fontsource/ubuntu-mono": "^5.2.8",
+    "express": "^5.2.1",
     "natsort": "^2.0.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
