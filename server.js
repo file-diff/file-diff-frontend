@@ -10,7 +10,9 @@ const apiBaseUrl = (
   process.env.API_BASE_URL || "https://filediff.org/api"
 ).replace(/\/+$/, "");
 const redisUrl = process.env.REDIS_URL?.trim();
-const ssrHealthCacheKey = `ssr-health:${apiBaseUrl}`;
+const ssrHealthCacheKey = `ssr-health:${Buffer.from(apiBaseUrl).toString(
+  "base64url"
+)}`;
 const ssrHealthCacheTtlSeconds = 10;
 
 const clientDir = resolve(__dirname, "dist/client");
