@@ -11,4 +11,10 @@ services:
     environment:
       - PORT=3000
       - API_BASE_URL=${API_BASE_URL:-https://filediff.org/api}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+    depends_on:
+      - redis
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
     restart: unless-stopped
