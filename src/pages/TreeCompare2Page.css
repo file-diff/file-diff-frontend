@@ -1,0 +1,12 @@
+.tree-compare2-page {
+  min-height: 320px;
+}
+
+.tree-compare2-loading {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid #3b4a5a;
+  border-radius: 6px;
+  background: rgba(88, 166, 255, 0.08);
+  color: #d4d4d4;
+}
