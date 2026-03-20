@@ -233,37 +233,38 @@ export default function TreeCompare2Page() {
   const [apiError, setApiError] = useState("");
 
   useEffect(() => {
-    if (!leftRepo || !leftCommit || !rightRepo || !rightCommit) {
-      setCompareData(null);
-      setIsLoading(false);
-      setApiError(
-        "Provide leftRepo, leftCommit, rightRepo, and rightCommit in the URL."
-      );
-      return;
-    }
-
     const controller = new AbortController();
-    setIsLoading(true);
-    setApiError("");
-    setCompareData(null);
+    async function loadComparison(): Promise<void> {
+      if (!leftRepo || !leftCommit || !rightRepo || !rightCommit) {
+        setCompareData(null);
+        setIsLoading(false);
+        setApiError(
+          "Provide leftRepo, leftCommit, rightRepo, and rightCommit in the URL."
+        );
+        return;
+      }
 
-    void Promise.all([
-      loadCompareSide(
-        "left",
-        { repo: leftRepo, commit: leftCommit },
-        controller.signal
-      ),
-      loadCompareSide(
-        "right",
-        { repo: rightRepo, commit: rightCommit },
-        controller.signal
-      ),
-    ])
-      .then(([left, right]) => {
+      setIsLoading(true);
+      setApiError("");
+      setCompareData(null);
+
+      try {
+        const [left, right] = await Promise.all([
+          loadCompareSide(
+            "left",
+            { repo: leftRepo, commit: leftCommit },
+            controller.signal
+          ),
+          loadCompareSide(
+            "right",
+            { repo: rightRepo, commit: rightCommit },
+            controller.signal
+          ),
+        ]);
+
         setCompareData({ left, right });
         setIsLoading(false);
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
@@ -273,7 +274,10 @@ export default function TreeCompare2Page() {
         setApiError(
           extractErrorMessage(error, "Unable to load repository comparison.")
         );
-      });
+      }
+    }
+
+    void loadComparison();
 
     return () => controller.abort();
   }, [leftCommit, leftRepo, requestKey, rightCommit, rightRepo]);
