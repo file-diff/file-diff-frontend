@@ -52,7 +52,7 @@ function EntryRow({
       </span>
       <span className="tree-meta">
         {sizeStr && <span className="tree-size">{sizeStr}</span>}
-        {hashStr && <span className="tree-hash">{hashStr}</span>}
+        {hashStr && <span className="tree-hash">{hashStr.slice(0, 8)}</span>}
         {entry.fileType !== "d" && (
           downloadUrl ? (
             <a
