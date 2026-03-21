@@ -1,49 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import TreeDiffView from "../components/TreeDiffView";
-import { buildJobFileDownloadUrl, JOBS_API_URL } from "../config/api";
+import { buildCommitFilesUrl, buildJobFileDownloadUrl } from "../config/api";
 import { diffCsv, jobFilesResponseToCsv, parseCsv } from "../utils/csvParser";
 import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
 import "./TreeComparePage.css";
 import "./TreeCompare2Page.css";
 
-const POLL_INTERVAL_MS = 1500;
-const TERMINAL_JOB_STATUSES = new Set([
-  "cancelled",
-  "completed",
-  "error",
-  "failed",
-]);
-
 interface JobRequest {
   repo: string;
   commit: string;
-}
-
-interface IndexingJobStartResponse {
-  id?: string;
-  repo?: string;
-  status?: string;
-  error?: string;
-  commit?: string;
-  commit_sha?: string;
-  commitSha?: string;
-  resolved_commit?: string;
-  resolvedCommit?: string;
-  sha?: string;
-}
-
-interface IndexingJobStatusResponse {
-  id?: string;
-  repo?: string;
-  status?: string;
-  error?: string;
-  commit?: string;
-  commit_sha?: string;
-  commitSha?: string;
-  resolved_commit?: string;
-  resolvedCommit?: string;
-  sha?: string;
 }
 
 interface LoadedCompareSide {
@@ -59,41 +25,6 @@ interface LoadedCompareData {
   right: LoadedCompareSide;
 }
 
-function buildJobFilesUrl(jobId: string): string {
-  return `${JOBS_API_URL}/${encodeURIComponent(jobId)}/files`;
-}
-
-function buildJobStatusUrl(jobId: string): string {
-  return `${JOBS_API_URL}/${encodeURIComponent(jobId)}`;
-}
-
-function isTerminalJobStatus(status?: string): boolean {
-  return TERMINAL_JOB_STATUSES.has(status?.toLowerCase() ?? "");
-}
-
-function extractResolvedCommit(
-  data: IndexingJobStartResponse | IndexingJobStatusResponse | null | undefined
-): string {
-  if (!data) {
-    return "";
-  }
-
-  const candidates = [
-    data.resolvedCommit,
-    data.resolved_commit,
-    data.commitSha,
-    data.commit_sha,
-    data.commit,
-    data.sha,
-  ];
-
-  return (
-    candidates.find(
-      (value): value is string => typeof value === "string" && value.trim() !== ""
-    )?.trim() ?? ""
-  );
-}
-
 function extractErrorMessage(value: unknown, fallback: string): string {
   if (value instanceof Error && value.message.trim()) {
     return value.message.trim();
@@ -102,39 +33,15 @@ function extractErrorMessage(value: unknown, fallback: string): string {
   return fallback;
 }
 
-function delay(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timeoutId = window.setTimeout(resolve, ms);
-
-    const handleAbort = () => {
-      window.clearTimeout(timeoutId);
-      reject(new DOMException("The operation was aborted.", "AbortError"));
-    };
-
-    if (signal.aborted) {
-      handleAbort();
-      return;
-    }
-
-    signal.addEventListener("abort", handleAbort, { once: true });
-  });
-}
-
-async function startIndexingJob(
+async function loadCompareSide(
+  side: "left" | "right",
   request: JobRequest,
   signal: AbortSignal
-): Promise<IndexingJobStartResponse> {
-  const response = await fetch(JOBS_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-    signal,
-  });
+): Promise<LoadedCompareSide> {
+  const response = await fetch(buildCommitFilesUrl(request.commit), { signal });
 
   if (!response.ok) {
-    let message = `Unable to start indexing job for ${request.repo}.`;
+    let message = `Unable to load ${side} files for commit ${request.commit}.`;
 
     try {
       const errorData = (await response.json()) as { error?: string };
@@ -148,77 +55,18 @@ async function startIndexingJob(
     throw new Error(message);
   }
 
-  return (await response.json()) as IndexingJobStartResponse;
-}
+  const filesData = (await response.json()) as JobFilesResponse;
+  const commit = filesData.commit?.trim() || request.commit;
+  const jobId = filesData.jobId?.trim() || filesData.job_id?.trim() || commit;
+  const commitLabel = commit ? commit.slice(0, 12) : "unknown";
 
-async function loadCompareSide(
-  side: "left" | "right",
-  request: JobRequest,
-  signal: AbortSignal
-): Promise<LoadedCompareSide> {
-  const startedJob = await startIndexingJob(request, signal);
-  const jobId = startedJob.id?.trim();
-
-  if (!jobId) {
-    throw new Error(`Missing ${side} job id.`);
-  }
-
-  const filesUrl = buildJobFilesUrl(jobId);
-  const statusUrl = buildJobStatusUrl(jobId);
-  const initialResolvedCommit = extractResolvedCommit(startedJob) || request.commit;
-
-  while (true) {
-    const [statusResult, filesResult] = await Promise.allSettled([
-      fetch(statusUrl, { signal }),
-      fetch(filesUrl, { signal }),
-    ]);
-
-    let statusData: IndexingJobStatusResponse | null = null;
-    if (statusResult.status === "fulfilled") {
-      if (!statusResult.value.ok) {
-        throw new Error(`Unable to load ${side} job status.`);
-      }
-
-      statusData = (await statusResult.value.json()) as IndexingJobStatusResponse;
-    } else if (statusResult.reason instanceof DOMException && statusResult.reason.name === "AbortError") {
-      throw statusResult.reason;
-    } else {
-      throw new Error(`Unable to load ${side} job status.`);
-    }
-
-    if (filesResult.status === "fulfilled" && filesResult.value.ok) {
-      const filesData = (await filesResult.value.json()) as JobFilesResponse;
-      const csv = jobFilesResponseToCsv(filesData);
-
-      return {
-        repo: statusData.repo?.trim() || startedJob.repo?.trim() || request.repo,
-        commit:
-          extractResolvedCommit(statusData) ||
-          extractResolvedCommit(startedJob) ||
-          initialResolvedCommit,
-        csv,
-        jobId,
-        label: `${side === "left" ? "Left" : "Right"} (${jobId})`,
-      };
-    }
-
-    if (filesResult.status === "rejected") {
-      if (
-        filesResult.reason instanceof DOMException &&
-        filesResult.reason.name === "AbortError"
-      ) {
-        throw filesResult.reason;
-      }
-    }
-
-    if (isTerminalJobStatus(statusData.status)) {
-      throw new Error(
-        statusData.error?.trim() || `Unable to load ${side} files for job ${jobId}.`
-      );
-    }
-
-    await delay(POLL_INTERVAL_MS, signal);
-  }
+  return {
+    repo: request.repo,
+    commit,
+    csv: jobFilesResponseToCsv(filesData),
+    jobId,
+    label: `${side === "left" ? "Left" : "Right"} (${commitLabel})`,
+  };
 }
 
 export default function TreeCompare2Page() {
@@ -335,7 +183,7 @@ export default function TreeCompare2Page() {
 
       {isLoading && (
         <div className="tree-compare2-loading">
-          Loading indexed files for both repositories…
+          Loading files for both commits…
         </div>
       )}
 
