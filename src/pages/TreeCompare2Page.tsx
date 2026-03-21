@@ -58,13 +58,14 @@ async function loadCompareSide(
   const filesData = (await response.json()) as JobFilesResponse;
   const commit = filesData.commit?.trim() || request.commit;
   const jobId = filesData.jobId?.trim() || filesData.job_id?.trim() || commit;
+  const commitLabel = commit ? commit.slice(0, 12) : "unknown";
 
   return {
     repo: request.repo,
     commit,
     csv: jobFilesResponseToCsv(filesData),
     jobId,
-    label: `${side === "left" ? "Left" : "Right"} (${commit.slice(0, 12)})`,
+    label: `${side === "left" ? "Left" : "Right"} (${commitLabel})`,
   };
 }
 
