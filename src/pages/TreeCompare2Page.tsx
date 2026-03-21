@@ -63,7 +63,17 @@ async function loadCompareSide(
 
   if (contentType.includes("application/octet-stream")) {
     const buffer = await response.arrayBuffer();
-    filesData = deserializeJobFilesResponse(buffer);
+    try {
+      filesData = deserializeJobFilesResponse(buffer);
+    } catch (error: unknown) {
+      const details = extractErrorMessage(
+        error,
+        "Received an invalid or truncated binary file response."
+      );
+      throw new Error(
+        `Unable to load ${side} files for commit ${request.commit}: ${details}`
+      );
+    }
   } else {
     filesData = (await response.json()) as JobFilesResponse;
   }

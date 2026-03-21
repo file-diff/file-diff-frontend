@@ -49,62 +49,96 @@ export function deserializeJobFilesResponse(
   const decoder = new TextDecoder();
   let offset = 0;
 
+  const createTruncatedResponseError = (context: string): Error =>
+    new Error(`Invalid binary file response: truncated while reading ${context}.`);
+
+  const ensureAvailable = (size: number, context: string): void => {
+    if (offset + size > view.byteLength) {
+      throw createTruncatedResponseError(context);
+    }
+  };
+
+  const readUint8 = (context: string): number => {
+    ensureAvailable(1, context);
+    const value = view.getUint8(offset);
+    offset += 1;
+    return value;
+  };
+
+  const readUint16 = (context: string): number => {
+    ensureAvailable(2, context);
+    const value = view.getUint16(offset, false);
+    offset += 2;
+    return value;
+  };
+
+  const readUint32 = (context: string): number => {
+    ensureAvailable(4, context);
+    const value = view.getUint32(offset, false);
+    offset += 4;
+    return value;
+  };
+
+  const readFloat32 = (context: string): number => {
+    ensureAvailable(4, context);
+    const value = view.getFloat32(offset, false);
+    offset += 4;
+    return value;
+  };
+
+  const readString = (size: number, context: string): string => {
+    ensureAvailable(size, context);
+    const value = decoder.decode(bytes.subarray(offset, offset + size));
+    offset += size;
+    return value;
+  };
+
+  const readHexPrefix = (context: string): string => {
+    ensureAvailable(4, context);
+    const value = bytes4ToHexPrefix(view, offset);
+    offset += 4;
+    return value;
+  };
+
   // jobId
-  const jobIdLen = view.getUint16(offset, false);
-  offset += 2;
-  const jobId = decoder.decode(bytes.subarray(offset, offset + jobIdLen));
-  offset += jobIdLen;
+  const jobIdLen = readUint16("job id length");
+  const jobId = readString(jobIdLen, "job id");
 
   // commit
-  const commitLen = view.getUint16(offset, false);
-  offset += 2;
-  const commit = decoder.decode(bytes.subarray(offset, offset + commitLen));
-  offset += commitLen;
+  const commitLen = readUint16("commit length");
+  const commit = readString(commitLen, "commit");
 
   // commitShort
-  const commitShortLen = view.getUint16(offset, false);
-  offset += 2;
-  const commitShort = decoder.decode(
-    bytes.subarray(offset, offset + commitShortLen),
-  );
-  offset += commitShortLen;
+  const commitShortLen = readUint16("short commit length");
+  const commitShort = readString(commitShortLen, "short commit");
 
   // status
-  const statusByte = view.getUint8(offset);
-  offset += 1;
+  const statusByte = readUint8("status");
   const status: JobStatus = BYTE_TO_STATUS[statusByte] ?? "waiting";
 
   // progress
-  const progress = view.getFloat32(offset, false);
-  offset += 4;
+  const progress = readFloat32("progress");
 
   // file count
-  const fileCount = view.getUint32(offset, false);
-  offset += 4;
+  const fileCount = readUint32("file count");
 
   // files
   const files: NonNullable<JobFilesResponse["files"]> = [];
   for (let i = 0; i < fileCount; i++) {
-    const typeByte = view.getUint8(offset);
-    offset += 1;
+    const fileLabel = `file ${i + 1}`;
+    const typeByte = readUint8(`${fileLabel} type`);
 
-    const nameLen = view.getUint16(offset, false);
-    offset += 2;
+    const nameLen = readUint16(`${fileLabel} path length`);
 
-    const path = decoder.decode(bytes.subarray(offset, offset + nameLen));
-    offset += nameLen;
+    const path = readString(nameLen, `${fileLabel} path`);
 
-    const updateTs = view.getUint32(offset, false);
-    offset += 4;
+    const updateTs = readUint32(`${fileLabel} update timestamp`);
 
-    const s = view.getUint32(offset, false);
-    offset += 4;
+    const s = readUint32(`${fileLabel} size`);
 
-    const commitHex = bytes4ToHexPrefix(view, offset);
-    offset += 4;
+    const commitHex = readHexPrefix(`${fileLabel} commit prefix`);
 
-    const hashHex = bytes4ToHexPrefix(view, offset);
-    offset += 4;
+    const hashHex = readHexPrefix(`${fileLabel} hash prefix`);
 
     files.push({
       t: String.fromCharCode(typeByte) as FileType,
