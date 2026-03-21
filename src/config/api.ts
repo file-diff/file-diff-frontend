@@ -16,6 +16,10 @@ export const VERSION_API_URL = `${trimmedDefaultApiBaseUrl}/version`;
 export const CACHE_API_URL = `${JOBS_API_URL}/cache`;
 export const STATS_API_URL = `${trimmedDefaultApiBaseUrl}/stats`;
 
+export function buildCommitFilesUrl(commit: string): string {
+  return `${trimmedDefaultApiBaseUrl}/commit/${encodeURIComponent(commit)}/files`;
+}
+
 export function buildJobFileDownloadUrl(jobId: string, hash: string): string {
   return `${JOBS_API_URL}/${encodeURIComponent(
     jobId
