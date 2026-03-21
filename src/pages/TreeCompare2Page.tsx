@@ -68,7 +68,7 @@ async function loadCompareSide(
     const buffer = await response.arrayBuffer();
     try {
       filesData = deserializeJobFilesResponse(buffer);
-    } catch (error: unknown) {
+    } catch (jobResponseError: unknown) {
       try {
         filesData = {
           commit: request.commit,
@@ -77,13 +77,17 @@ async function loadCompareSide(
           progress: 100,
           files: deserializeFileRecords(buffer),
         };
-      } catch {
-        const details = extractErrorMessage(
-          error,
-          "Received an invalid or truncated binary file response."
+      } catch (fileRecordsError: unknown) {
+        const headerDetails = extractErrorMessage(
+          jobResponseError,
+          "Unable to decode job files payload."
+        );
+        const fileDetails = extractErrorMessage(
+          fileRecordsError,
+          "Unable to decode bare file records payload."
         );
         throw new Error(
-          `Unable to load ${side} files for commit ${request.commit}: ${details}`
+          `Unable to load ${side} files for commit ${request.commit}: ${headerDetails} ${fileDetails}`
         );
       }
     }
