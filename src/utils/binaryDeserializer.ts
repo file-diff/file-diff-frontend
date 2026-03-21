@@ -10,7 +10,7 @@ const BYTE_TO_STATUS: Record<number, JobStatus> = {
 };
 
 const NUMERIC_FILE_TYPE_ORDER: FileType[] = ["d", "t", "b", "x", "s"];
-const ASCII_FILE_TYPE_SET = new Set<FileType>(NUMERIC_FILE_TYPE_ORDER);
+const VALID_FILE_TYPE_SET = new Set<FileType>(NUMERIC_FILE_TYPE_ORDER);
 
 /** Convert 4 bytes at the given offset to an 8-character lowercase hex string. */
 function bytes4ToHexPrefix(view: DataView, offset: number): string {
@@ -23,13 +23,12 @@ function bytes4ToHexPrefix(view: DataView, offset: number): string {
 
 function decodeFileTypeByte(typeByte: number, context: string): FileType {
   const asciiType = String.fromCharCode(typeByte) as FileType;
-  if (ASCII_FILE_TYPE_SET.has(asciiType)) {
+  if (VALID_FILE_TYPE_SET.has(asciiType)) {
     return asciiType;
   }
 
-  const numericType = NUMERIC_FILE_TYPE_ORDER[typeByte];
-  if (numericType) {
-    return numericType;
+  if (typeByte >= 0 && typeByte < NUMERIC_FILE_TYPE_ORDER.length) {
+    return NUMERIC_FILE_TYPE_ORDER[typeByte];
   }
 
   throw new Error(
