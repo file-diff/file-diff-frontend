@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import TreeDiffView from "../components/TreeDiffView";
 import { buildCommitFilesUrl, buildJobFileDownloadUrl } from "../config/api";
-import { deserializeJobFilesResponse } from "../utils/binaryDeserializer";
+import {
+  deserializeFileRecords,
+  deserializeJobFilesResponse,
+} from "../utils/binaryDeserializer";
 import { diffCsv, jobFilesResponseToCsv, parseCsv } from "../utils/csvParser";
 import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
 import "./TreeComparePage.css";
@@ -65,21 +68,35 @@ async function loadCompareSide(
     const buffer = await response.arrayBuffer();
     try {
       filesData = deserializeJobFilesResponse(buffer);
-    } catch (error: unknown) {
-      const details = extractErrorMessage(
-        error,
-        "Received an invalid or truncated binary file response."
-      );
-      throw new Error(
-        `Unable to load ${side} files for commit ${request.commit}: ${details}`
-      );
+    } catch (jobResponseError: unknown) {
+      try {
+        filesData = {
+          commit: request.commit,
+          commitShort: request.commit.slice(0, 7),
+          status: "completed",
+          progress: 100,
+          files: deserializeFileRecords(buffer),
+        };
+      } catch (fileRecordsError: unknown) {
+        const headerDetails = extractErrorMessage(
+          jobResponseError,
+          "Unable to decode job files payload."
+        );
+        const fileDetails = extractErrorMessage(
+          fileRecordsError,
+          "Unable to decode bare file records payload."
+        );
+        throw new Error(
+          `Unable to load ${side} files for commit ${request.commit}: ${headerDetails} ${fileDetails}`
+        );
+      }
     }
   } else {
     filesData = (await response.json()) as JobFilesResponse;
   }
 
   const commit = filesData.commit?.trim() || request.commit;
-  const jobId = filesData.jobId?.trim() || filesData.job_id?.trim() || commit;
+  const jobId = filesData.jobId?.trim() || filesData.job_id?.trim() || "";
   const commitLabel = commit ? commit.slice(0, 12) : "unknown";
 
   return {
