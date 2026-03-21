@@ -18,6 +18,10 @@ const fileTypeIcon: Record<string, string> = {
   s: "🔗",
 };
 
+function isComparableFileType(fileType: DiffEntry["fileType"]): boolean {
+  return fileType !== "d" && fileType !== "b";
+}
+
 function formatSize(size: number): string {
   if (size === 0) return "";
   if (size < 1024) return `${size} B`;
@@ -85,7 +89,12 @@ function buildFileCompareUrl(
   getLeftDownloadUrl?: (entry: DiffEntry) => string,
   getRightDownloadUrl?: (entry: DiffEntry) => string,
 ): string | null {
-  if (leftEntry.fileType !== "t" || rightEntry.fileType !== "t") return null;
+  if (
+    !isComparableFileType(leftEntry.fileType) ||
+    !isComparableFileType(rightEntry.fileType)
+  ) {
+    return null;
+  }
 
   const leftUrl = getLeftDownloadUrl?.(leftEntry) ?? "";
   const rightUrl = getRightDownloadUrl?.(rightEntry) ?? "";
