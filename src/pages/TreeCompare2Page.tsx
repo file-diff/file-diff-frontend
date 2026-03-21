@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import TreeDiffView from "../components/TreeDiffView";
 import { buildCommitFilesUrl, buildJobFileDownloadUrl } from "../config/api";
+import { deserializeJobFilesResponse } from "../utils/binaryDeserializer";
 import { diffCsv, jobFilesResponseToCsv, parseCsv } from "../utils/csvParser";
 import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
 import "./TreeComparePage.css";
@@ -38,7 +39,9 @@ async function loadCompareSide(
   request: JobRequest,
   signal: AbortSignal
 ): Promise<LoadedCompareSide> {
-  const response = await fetch(buildCommitFilesUrl(request.commit), { signal });
+  const response = await fetch(buildCommitFilesUrl(request.commit, "binary"), {
+    signal,
+  });
 
   if (!response.ok) {
     let message = `Unable to load ${side} files for commit ${request.commit}.`;
@@ -55,7 +58,16 @@ async function loadCompareSide(
     throw new Error(message);
   }
 
-  const filesData = (await response.json()) as JobFilesResponse;
+  let filesData: JobFilesResponse;
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/octet-stream")) {
+    const buffer = await response.arrayBuffer();
+    filesData = deserializeJobFilesResponse(buffer);
+  } else {
+    filesData = (await response.json()) as JobFilesResponse;
+  }
+
   const commit = filesData.commit?.trim() || request.commit;
   const jobId = filesData.jobId?.trim() || filesData.job_id?.trim() || commit;
   const commitLabel = commit ? commit.slice(0, 12) : "unknown";
