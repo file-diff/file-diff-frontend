@@ -272,10 +272,11 @@ async function loadCompareSide(
 
 export default function TreeCompare2Page() {
   const [searchParams] = useSearchParams();
-  const leftRepo = searchParams.get("leftRepo")?.trim() ?? "";
-  const leftCommit = searchParams.get("leftCommit")?.trim() ?? "";
-  const rightRepo = searchParams.get("rightRepo")?.trim() ?? "";
-  const rightCommit = searchParams.get("rightCommit")?.trim() ?? "";
+  const bothRepo = searchParams.get("b")?.trim() ?? "";
+  const leftRepo = searchParams.get("lr")?.trim() ?? "";
+  const leftCommit = searchParams.get("lc")?.trim() ?? "";
+  const rightRepo = searchParams.get("rr")?.trim() ?? "";
+  const rightCommit = searchParams.get("rc")?.trim() ?? "";
   const [compareData, setCompareData] = useState<LoadedCompareData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -283,7 +284,18 @@ export default function TreeCompare2Page() {
   useEffect(() => {
     const controller = new AbortController();
     async function loadComparison(): Promise<void> {
-      if (!leftRepo || !leftCommit || !rightRepo || !rightCommit) {
+      let lr = leftRepo;
+      const lc = leftCommit;
+      let rr = rightRepo;
+      const rc = rightCommit;
+
+      if (bothRepo) {
+        lr = bothRepo;
+        rr = bothRepo;
+      }
+
+
+      if (!lr || !lc || !rr || !rc) {
         setCompareData(null);
         setIsLoading(false);
         setApiError(
@@ -300,12 +312,12 @@ export default function TreeCompare2Page() {
         const [left, right] = await Promise.all([
           loadCompareSide(
             "left",
-            { repo: leftRepo, commit: leftCommit },
+            { repo: lr, commit: lc },
             controller.signal
           ),
           loadCompareSide(
             "right",
-            { repo: rightRepo, commit: rightCommit },
+            { repo: rr, commit: rc },
             controller.signal
           ),
         ]);
@@ -328,7 +340,7 @@ export default function TreeCompare2Page() {
     void loadComparison();
 
     return () => controller.abort();
-  }, [leftCommit, leftRepo, rightCommit, rightRepo]);
+  }, [bothRepo, leftCommit, leftRepo, rightCommit, rightRepo]);
 
   const diff = useMemo(() => {
     if (!compareData) {

@@ -855,7 +855,7 @@ export default function FileComparePage() {
       <div className="page-header">
         <h1>📄 File Comparison</h1>
         {filePath && <p className="page-subtitle">{filePath}</p>}
-        <Link to="/" className="back-link">
+        <Link to="/tree-compare-2" className="back-link">
           ← Back to Tree Comparison
         </Link>
       </div>
