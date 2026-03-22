@@ -30,6 +30,10 @@ export function buildJobFileDownloadUrl(jobId: string, hash: string): string {
   )}/files/hash/${encodeURIComponent(hash)}/download`;
 }
 
+export function buildHashFileDownloadUrl(hash: string): string {
+  return `${JOBS_API_URL}/files/hash/${encodeURIComponent(hash)}/download`;
+}
+
 export function buildJobFileDiffUrl(leftHash: string, rightHash: string): string {
   return `${JOBS_API_URL}/files/hash/${encodeURIComponent(
     leftHash

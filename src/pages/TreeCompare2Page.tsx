@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import TreeDiffView from "../components/TreeDiffView";
-import { buildCommitFilesUrl, buildJobFileDownloadUrl } from "../config/api";
+import {
+  buildCommitFilesUrl,
+  buildHashFileDownloadUrl,
+  buildJobFileDownloadUrl,
+} from "../config/api";
 import {
   deserializeFileRecords,
   deserializeJobFilesResponse,
@@ -247,11 +251,15 @@ export default function TreeCompare2Page() {
   const rightSummaryCommit = compareData?.right.commit ?? rightCommit;
 
   const buildDownloadUrl = (jobId: string, entry: DiffEntry): string => {
-    if (!jobId || entry.fileType === "d" || !entry.hash || entry.hash === "N/A") {
+    if (entry.fileType === "d" || !entry.hash || entry.hash === "N/A") {
       return "";
     }
 
-    return buildJobFileDownloadUrl(jobId, entry.hash);
+    if (jobId) {
+      return buildJobFileDownloadUrl(jobId, entry.hash);
+    }
+
+    return buildHashFileDownloadUrl(entry.hash);
   };
 
   return (
