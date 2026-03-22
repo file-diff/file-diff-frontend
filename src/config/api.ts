@@ -32,6 +32,10 @@ export function buildHashFileDownloadUrl(hash: string): string {
   return buildFileDownloadUrl(`files/hash/${encodeURIComponent(hash)}`);
 }
 
+/**
+ * @deprecated Use buildHashFileDownloadUrl instead. File downloads are now
+ * resolved by blob hash only.
+ */
 export function buildJobFileDownloadUrl(_jobId: string, hash: string): string {
   return buildHashFileDownloadUrl(hash);
 }
