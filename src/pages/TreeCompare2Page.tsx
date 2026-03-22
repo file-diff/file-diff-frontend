@@ -243,7 +243,7 @@ export default function TreeCompare2Page() {
   const rightRepo = searchParams.get("rr")?.trim() ?? "";
   const rightCommit = searchParams.get("rc")?.trim() ?? "";
   const [compareData, setCompareData] = useState<LoadedCompareData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
 
   useEffect(() => {
@@ -352,6 +352,12 @@ export default function TreeCompare2Page() {
 
     return buildHashFileDownloadUrl(entry.hash);
   };
+  console.log(`Render ${isLoading}`);
+  let i;
+  let j = 0;
+  for (i = 0; i < 1000000000; i++) {
+    j += 1;
+  }
 
   return (
     <div className="tree-compare-page tree-compare2-page">
