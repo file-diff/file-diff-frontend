@@ -72,8 +72,9 @@ function buildGitHubCommitUrl(repo: string, commit: string): string {
 
 function firstNonEmptyString(...values: Array<string | null | undefined>): string {
   for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value;
+    const trimmedValue = typeof value === "string" ? value.trim() : "";
+    if (trimmedValue) {
+      return trimmedValue;
     }
   }
 
