@@ -46,7 +46,7 @@ function buildFileTypeSamples(
 ): Array<{ path: string; type: string; size: number; hash: string }> {
   return (files ?? []).slice(0, limit).map((file) => ({
     path: file.path,
-    type: file.t,
+    type: file.t || "unknown",
     size: file.s,
     hash: file.hash,
   }));
