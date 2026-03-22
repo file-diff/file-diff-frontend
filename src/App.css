@@ -5,6 +5,7 @@
   padding: 12px 24px;
   background: #161616;
   border-bottom: 1px solid #333;
+  min-width: 900px;
 }
 
 .nav-brand {
