@@ -70,7 +70,7 @@ function AppShell() {
       <main>
         <Routes>
           <Route path="/" element={<TreeComparePage />} />
-          <Route path="/tree-compare-2" element={<TreeCompare2Page />} />
+          <Route path="/tree" element={<TreeCompare2Page />} />
           <Route path="/files" element={<FileComparePage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/tokenize" element={<TokenizePage />} />
