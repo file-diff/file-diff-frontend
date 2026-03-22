@@ -327,7 +327,7 @@ export async function clearAllStoredData(): Promise<void> {
     return;
   }
 
-  if (typeof window === "undefined" || typeof window.caches === "undefined") {
+  if (typeof window === "undefined" || !window.caches) {
     return;
   }
 
