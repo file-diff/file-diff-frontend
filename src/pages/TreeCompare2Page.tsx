@@ -80,7 +80,7 @@ async function openTreeCompareFilesCache(): Promise<Cache | null> {
   try {
     return await window.caches.open(TREE_COMPARE2_FILES_CACHE);
   } catch (error: unknown) {
-    console.log("[TreeCompare2Page] failed to open Cache API", {
+    console.warn("[TreeCompare2Page] failed to open Cache API", {
       error: extractErrorMessage(error, "Unable to open browser cache."),
     });
     return null;
@@ -213,20 +213,26 @@ async function loadCompareSide(
           };
         }
 
-        await cache.delete(requestUrl);
-        console.log(`${logLabel} removed non-completed cached response`, {
-          status: filesData.status ?? "unknown",
-        });
+        try {
+          await cache.delete(requestUrl);
+          console.log(`${logLabel} removed non-completed cached response`, {
+            status: filesData.status ?? "unknown",
+          });
+        } catch (error: unknown) {
+          console.warn(`${logLabel} failed to remove non-completed cached response`, {
+            error: extractErrorMessage(error, "Unable to remove cached response."),
+            status: filesData.status ?? "unknown",
+          });
+        }
       }
     } catch (error: unknown) {
-      console.log(`${logLabel} cache lookup failed`, {
+      console.warn(`${logLabel} cache lookup failed`, {
         error: extractErrorMessage(error, "Unable to read cached response."),
       });
     }
   }
 
   const response = await fetch(requestUrl, { signal });
-  const responseForCache = cache && response.ok ? response.clone() : null;
   const { filesData, decodeMode } = await decodeCompareFilesResponse(
     side,
     request,
@@ -248,14 +254,14 @@ async function loadCompareSide(
     fileTypeSamples: buildFileTypeSamples(filesData.files),
   });
 
-  if (cache && responseForCache && isCompletedJobStatus(filesData.status)) {
+  if (cache && isCompletedJobStatus(filesData.status)) {
     try {
-      await cache.put(requestUrl, responseForCache);
+      await cache.put(requestUrl, response.clone());
       console.log(`${logLabel} cached completed response`, {
         status: filesData.status,
       });
     } catch (error: unknown) {
-      console.log(`${logLabel} failed to cache completed response`, {
+      console.warn(`${logLabel} failed to cache completed response`, {
         error: extractErrorMessage(error, "Unable to store cached response."),
       });
     }
