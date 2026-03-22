@@ -25,8 +25,8 @@ function AppShell() {
     .filter(Boolean)
     .join(" ");
 
-  const handleClearAll = () => {
-    clearAllStoredData();
+  const handleClearAll = async () => {
+    await clearAllStoredData();
     applyFont(DEFAULT_FONT_ID);
     window.location.replace(
       location.pathname === "/" ? "/?clear=1" : location.pathname
