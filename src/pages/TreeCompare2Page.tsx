@@ -14,7 +14,7 @@ import "./TreeComparePage.css";
 import "./TreeCompare2Page.css";
 
 const TREE_COMPARE2_FILES_CACHE = "tree-compare2-files-v1";
-const GITHUB_REPO_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/;
+const GITHUB_REPO_SEGMENT_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 const GITHUB_COMMIT_PATTERN = /^[0-9a-fA-F]{7,40}$/;
 
 interface JobRequest {
@@ -48,7 +48,7 @@ function buildGitHubRepoUrl(repo: string): string {
     .map((segment) => segment.trim())
     .filter(Boolean);
 
-  if (segments.length < 2) {
+  if (segments.length !== 2) {
     return "";
   }
 
