@@ -15,6 +15,8 @@ import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
 import "./TreeComparePage.css";
 import "./TreeCompare2Page.css";
 
+const TREE_COMPARE2_FILES_CACHE = "tree-compare2-files-v1";
+
 interface JobRequest {
   repo: string;
   commit: string;
@@ -32,6 +34,8 @@ interface LoadedCompareData {
   left: LoadedCompareSide;
   right: LoadedCompareSide;
 }
+
+type FilesDecodeMode = "json" | "jobFilesResponseBinary" | "bareFileRecordsBinary";
 
 function buildFileTypeSummary(files: JobFilesResponse["files"]): Record<string, number> {
   const summary: Record<string, number> = {};
@@ -64,16 +68,32 @@ function extractErrorMessage(value: unknown, fallback: string): string {
   return fallback;
 }
 
-async function loadCompareSide(
+function isCompletedJobStatus(status?: string): boolean {
+  return status?.trim().toLowerCase() === "completed";
+}
+
+async function openTreeCompareFilesCache(): Promise<Cache | null> {
+  if (typeof window === "undefined" || typeof window.caches === "undefined") {
+    return null;
+  }
+
+  try {
+    return await window.caches.open(TREE_COMPARE2_FILES_CACHE);
+  } catch (error: unknown) {
+    console.log("[TreeCompare2Page] failed to open Cache API", {
+      error: extractErrorMessage(error, "Unable to open browser cache."),
+    });
+    return null;
+  }
+}
+
+async function decodeCompareFilesResponse(
   side: "left" | "right",
   request: JobRequest,
-  signal: AbortSignal
-): Promise<LoadedCompareSide> {
-  const response = await fetch(buildCommitFilesUrl(request.commit, "binary"), {
-    signal,
-  });
+  response: Response,
+  logLabel: string
+): Promise<{ filesData: JobFilesResponse; decodeMode: FilesDecodeMode }> {
   const contentType = response.headers.get("content-type") ?? "";
-  const logLabel = `[TreeCompare2Page] ${side} ${request.commit.slice(0, 12)}`;
 
   console.log(`${logLabel} fetch response`, {
     url: response.url,
@@ -100,7 +120,7 @@ async function loadCompareSide(
   }
 
   let filesData: JobFilesResponse;
-  let decodeMode: "json" | "jobFilesResponseBinary" | "bareFileRecordsBinary" = "json";
+  let decodeMode: FilesDecodeMode = "json";
 
   if (contentType.includes("application/octet-stream")) {
     const buffer = await response.arrayBuffer();
@@ -145,11 +165,81 @@ async function loadCompareSide(
     filesData = (await response.json()) as JobFilesResponse;
   }
 
+  return { filesData, decodeMode };
+}
+
+async function loadCompareSide(
+  side: "left" | "right",
+  request: JobRequest,
+  signal: AbortSignal
+): Promise<LoadedCompareSide> {
+  const requestUrl = buildCommitFilesUrl(request.commit, "binary");
+  const logLabel = `[TreeCompare2Page] ${side} ${request.commit.slice(0, 12)}`;
+  const cache = await openTreeCompareFilesCache();
+
+  if (cache) {
+    try {
+      const cachedResponse = await cache.match(requestUrl);
+
+      if (cachedResponse) {
+        const { filesData, decodeMode } = await decodeCompareFilesResponse(
+          side,
+          request,
+          cachedResponse,
+          `${logLabel} [cache]`
+        );
+
+        if (isCompletedJobStatus(filesData.status)) {
+          const commit = filesData.commit?.trim() || request.commit;
+          const jobId = filesData.jobId?.trim() || filesData.job_id?.trim() || "";
+          const commitLabel = commit ? commit.slice(0, 12) : "unknown";
+
+          console.log(`${logLabel} decoded files`, {
+            source: "cache",
+            decodeMode,
+            resolvedCommit: commit,
+            jobId,
+            fileCount: filesData.files?.length ?? 0,
+            fileTypeSummary: buildFileTypeSummary(filesData.files),
+            fileTypeSamples: buildFileTypeSamples(filesData.files),
+          });
+
+          return {
+            repo: request.repo,
+            commit,
+            csv: jobFilesResponseToCsv(filesData),
+            jobId,
+            label: `${side === "left" ? "Left" : "Right"} (${commitLabel})`,
+          };
+        }
+
+        await cache.delete(requestUrl);
+        console.log(`${logLabel} removed non-completed cached response`, {
+          status: filesData.status ?? "unknown",
+        });
+      }
+    } catch (error: unknown) {
+      console.log(`${logLabel} cache lookup failed`, {
+        error: extractErrorMessage(error, "Unable to read cached response."),
+      });
+    }
+  }
+
+  const response = await fetch(requestUrl, { signal });
+  const responseForCache = cache && response.ok ? response.clone() : null;
+  const { filesData, decodeMode } = await decodeCompareFilesResponse(
+    side,
+    request,
+    response,
+    logLabel
+  );
+
   const commit = filesData.commit?.trim() || request.commit;
   const jobId = filesData.jobId?.trim() || filesData.job_id?.trim() || "";
   const commitLabel = commit ? commit.slice(0, 12) : "unknown";
 
   console.log(`${logLabel} decoded files`, {
+    source: "network",
     decodeMode,
     resolvedCommit: commit,
     jobId,
@@ -157,6 +247,19 @@ async function loadCompareSide(
     fileTypeSummary: buildFileTypeSummary(filesData.files),
     fileTypeSamples: buildFileTypeSamples(filesData.files),
   });
+
+  if (cache && responseForCache && isCompletedJobStatus(filesData.status)) {
+    try {
+      await cache.put(requestUrl, responseForCache);
+      console.log(`${logLabel} cached completed response`, {
+        status: filesData.status,
+      });
+    } catch (error: unknown) {
+      console.log(`${logLabel} failed to cache completed response`, {
+        error: extractErrorMessage(error, "Unable to store cached response."),
+      });
+    }
+  }
 
   return {
     repo: request.repo,
