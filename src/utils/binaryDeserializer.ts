@@ -9,6 +9,9 @@ const BYTE_TO_STATUS: Record<number, JobStatus> = {
   3: "failed",
 };
 
+const NUMERIC_FILE_TYPE_ORDER: FileType[] = ["d", "t", "b", "x", "s"];
+const VALID_FILE_TYPE_SET = new Set<FileType>(NUMERIC_FILE_TYPE_ORDER);
+
 /** Convert 4 bytes at the given offset to an 8-character lowercase hex string. */
 function bytes4ToHexPrefix(view: DataView, offset: number): string {
   let hex = "";
@@ -16,6 +19,21 @@ function bytes4ToHexPrefix(view: DataView, offset: number): string {
     hex += view.getUint8(offset + i).toString(16).padStart(2, "0");
   }
   return hex;
+}
+
+function decodeFileTypeByte(typeByte: number, context: string): FileType {
+  const asciiType = String.fromCharCode(typeByte) as FileType;
+  if (VALID_FILE_TYPE_SET.has(asciiType)) {
+    return asciiType;
+  }
+
+  if (typeByte >= 0 && typeByte < NUMERIC_FILE_TYPE_ORDER.length) {
+    return NUMERIC_FILE_TYPE_ORDER[typeByte];
+  }
+
+  throw new Error(
+    `Invalid binary file response: unsupported file type byte ${typeByte} while reading ${context}.`
+  );
 }
 
 /**
@@ -33,7 +51,7 @@ function bytes4ToHexPrefix(view: DataView, offset: number): string {
  *   4 bytes  – progress (float32 BE)
  *   4 bytes  – file count (uint32 BE)
  *   Per-file records:
- *     1 byte  – file type char code
+ *     1 byte  – file type code (ASCII char code or numeric enum index)
  *     2 bytes – name length (uint16 BE)
  *     N bytes – name (UTF-8)
  *     4 bytes – update timestamp (uint32 BE, unix seconds)
@@ -141,7 +159,7 @@ export function deserializeJobFilesResponse(
     const hashHex = readHexPrefix(`${fileLabel} hash prefix`);
 
     files.push({
-      t: String.fromCharCode(typeByte) as FileType,
+      t: decodeFileTypeByte(typeByte, `${fileLabel} type`),
       path,
       s,
       update: new Date(updateTs * 1000).toISOString(),
@@ -224,7 +242,7 @@ export function deserializeFileRecords(
     const hashHex = readHexPrefix(`${fileLabel} hash prefix`);
 
     files.push({
-      t: String.fromCharCode(typeByte) as FileType,
+      t: decodeFileTypeByte(typeByte, `${fileLabel} type`),
       path,
       s,
       update: new Date(updateTs * 1000).toISOString(),
