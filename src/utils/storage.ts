@@ -1,6 +1,7 @@
 const LAST_PARAMS_STORAGE_KEY = "last-selected-params";
 const INDEXING_HISTORY_STORAGE_KEY = "indexing-parameter-history";
 const FONT_PREFERENCE_STORAGE_KEY = "code-font-preference";
+const TREE_COMPARE2_FILES_CACHE = "tree-compare2-files-v1";
 
 export interface LastSelectedParams {
   leftRepo: string;
@@ -317,11 +318,21 @@ export function clearIndexingHistory(): void {
   }
 }
 
-export function clearAllStoredData(): void {
+export async function clearAllStoredData(): Promise<void> {
   try {
     window.localStorage.removeItem(LAST_PARAMS_STORAGE_KEY);
     window.localStorage.removeItem(INDEXING_HISTORY_STORAGE_KEY);
     window.localStorage.removeItem(FONT_PREFERENCE_STORAGE_KEY);
+  } catch {
+    return;
+  }
+
+  if (!window.caches) {
+    return;
+  }
+
+  try {
+    await window.caches.delete(TREE_COMPARE2_FILES_CACHE);
   } catch {
     return;
   }
