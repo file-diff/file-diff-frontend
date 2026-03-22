@@ -224,10 +224,28 @@
   white-space: nowrap;
 }
 
+.compare-summary__link {
+  text-decoration: none;
+}
+
+.compare-summary__link:hover {
+  text-decoration: underline;
+}
+
+.compare-summary__link:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .compare-summary__commit {
   color: #7ee787;
   flex-shrink: 0;
   font-size: 0.85rem;
+}
+
+.compare-summary__commit code {
+  color: inherit;
 }
 
 .indexing-job-status {

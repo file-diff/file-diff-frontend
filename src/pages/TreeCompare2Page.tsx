@@ -35,6 +35,35 @@ interface LoadedCompareData {
 
 type FilesDecodeMode = "json" | "jobFilesResponseBinary" | "bareFileRecordsBinary";
 
+function buildGitHubRepoUrl(repo: string): string {
+  const trimmedRepo = repo.trim();
+  if (!trimmedRepo) {
+    return "";
+  }
+
+  const segments = trimmedRepo
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  if (segments.length < 2) {
+    return "";
+  }
+
+  return `https://github.com/${segments.map(encodeURIComponent).join("/")}`;
+}
+
+function buildGitHubCommitUrl(repo: string, commit: string): string {
+  const repoUrl = buildGitHubRepoUrl(repo);
+  const trimmedCommit = commit.trim();
+
+  if (!repoUrl || !trimmedCommit) {
+    return "";
+  }
+
+  return `${repoUrl}/commit/${encodeURIComponent(trimmedCommit)}`;
+}
+
 function extractErrorMessage(value: unknown, fallback: string): string {
   if (value instanceof Error && value.message.trim()) {
     return value.message.trim();
@@ -279,10 +308,17 @@ export default function TreeCompare2Page() {
     }
   }, [compareData]);
 
-  const leftSummaryRepo = compareData?.left.repo ?? leftRepo;
+  const leftSummaryRepo = compareData?.left.repo || leftRepo || bothRepo;
   const leftSummaryCommit = compareData?.left.commit ?? leftCommit;
-  const rightSummaryRepo = compareData?.right.repo ?? rightRepo;
+  const rightSummaryRepo = compareData?.right.repo || rightRepo || bothRepo;
   const rightSummaryCommit = compareData?.right.commit ?? rightCommit;
+  const leftRepoUrl = buildGitHubRepoUrl(leftSummaryRepo);
+  const leftCommitUrl = buildGitHubCommitUrl(leftSummaryRepo, leftSummaryCommit);
+  const rightRepoUrl = buildGitHubRepoUrl(rightSummaryRepo);
+  const rightCommitUrl = buildGitHubCommitUrl(
+    rightSummaryRepo,
+    rightSummaryCommit
+  );
 
   const buildDownloadUrl = (entry: DiffEntry): string => {
     if (entry.fileType === "d" || !entry.hash || entry.hash === "N/A") {
@@ -297,17 +333,61 @@ export default function TreeCompare2Page() {
       <div className="compare-summary">
         <div className="compare-summary__side">
           <span className="compare-summary__label">Left</span>
-          <span className="compare-summary__repo">{leftSummaryRepo || "—"}</span>
-          <code className="compare-summary__commit">
-            {leftSummaryCommit ? leftSummaryCommit.slice(0, 12) : "—"}
-          </code>
+          {leftRepoUrl ? (
+            <a
+              className="compare-summary__repo compare-summary__link"
+              href={leftRepoUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {leftSummaryRepo}
+            </a>
+          ) : (
+            <span className="compare-summary__repo">{leftSummaryRepo || "—"}</span>
+          )}
+          {leftCommitUrl ? (
+            <a
+              className="compare-summary__commit compare-summary__link"
+              href={leftCommitUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <code>{leftSummaryCommit.slice(0, 12)}</code>
+            </a>
+          ) : (
+            <code className="compare-summary__commit">
+              {leftSummaryCommit ? leftSummaryCommit.slice(0, 12) : "—"}
+            </code>
+          )}
         </div>
         <div className="compare-summary__side">
           <span className="compare-summary__label">Right</span>
-          <span className="compare-summary__repo">{rightSummaryRepo || "—"}</span>
-          <code className="compare-summary__commit">
-            {rightSummaryCommit ? rightSummaryCommit.slice(0, 12) : "—"}
-          </code>
+          {rightRepoUrl ? (
+            <a
+              className="compare-summary__repo compare-summary__link"
+              href={rightRepoUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {rightSummaryRepo}
+            </a>
+          ) : (
+            <span className="compare-summary__repo">{rightSummaryRepo || "—"}</span>
+          )}
+          {rightCommitUrl ? (
+            <a
+              className="compare-summary__commit compare-summary__link"
+              href={rightCommitUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <code>{rightSummaryCommit.slice(0, 12)}</code>
+            </a>
+          ) : (
+            <code className="compare-summary__commit">
+              {rightSummaryCommit ? rightSummaryCommit.slice(0, 12) : "—"}
+            </code>
+          )}
         </div>
       </div>
 
