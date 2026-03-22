@@ -28,14 +28,12 @@ function buildFileDownloadUrl(fileLocatorPath: string): string {
   return `${JOBS_API_URL}/${fileLocatorPath}/download`;
 }
 
-export function buildJobFileDownloadUrl(jobId: string, hash: string): string {
-  return buildFileDownloadUrl(
-    `${encodeURIComponent(jobId)}/files/hash/${encodeURIComponent(hash)}`
-  );
-}
-
 export function buildHashFileDownloadUrl(hash: string): string {
   return buildFileDownloadUrl(`files/hash/${encodeURIComponent(hash)}`);
+}
+
+export function buildJobFileDownloadUrl(_jobId: string, hash: string): string {
+  return buildHashFileDownloadUrl(hash);
 }
 
 export function buildJobFileDiffUrl(leftHash: string, rightHash: string): string {
