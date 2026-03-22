@@ -4,7 +4,6 @@ import TreeDiffView from "../components/TreeDiffView";
 import {
   buildCommitFilesUrl,
   buildHashFileDownloadUrl,
-  buildJobFileDownloadUrl,
 } from "../config/api";
 import {
   deserializeFileRecords,
@@ -250,13 +249,9 @@ export default function TreeCompare2Page() {
   const rightSummaryRepo = compareData?.right.repo ?? rightRepo;
   const rightSummaryCommit = compareData?.right.commit ?? rightCommit;
 
-  const buildDownloadUrl = (jobId: string, entry: DiffEntry): string => {
+  const buildDownloadUrl = (entry: DiffEntry): string => {
     if (entry.fileType === "d" || !entry.hash || entry.hash === "N/A") {
       return "";
-    }
-
-    if (jobId) {
-      return buildJobFileDownloadUrl(jobId, entry.hash);
     }
 
     return buildHashFileDownloadUrl(entry.hash);
@@ -301,12 +296,8 @@ export default function TreeCompare2Page() {
             slots={diff}
             leftLabel={compareData.left.label}
             rightLabel={compareData.right.label}
-            getLeftDownloadUrl={(entry) =>
-              buildDownloadUrl(compareData.left.jobId, entry)
-            }
-            getRightDownloadUrl={(entry) =>
-              buildDownloadUrl(compareData.right.jobId, entry)
-            }
+            getLeftDownloadUrl={buildDownloadUrl}
+            getRightDownloadUrl={buildDownloadUrl}
           />
         </div>
       )}

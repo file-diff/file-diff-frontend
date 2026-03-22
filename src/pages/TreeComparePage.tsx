@@ -13,7 +13,7 @@ import {
 } from "../utils/repositorySelection";
 import TreeDiffView from "../components/TreeDiffView";
 import { sampleCsvLeft, sampleCsvRight } from "../data/sampleData";
-import { buildJobFileDownloadUrl, JOBS_API_URL } from "../config/api";
+import { buildHashFileDownloadUrl, JOBS_API_URL } from "../config/api";
 import {
   buildComparePermalink,
   readLastSelectedParams,
@@ -108,14 +108,6 @@ interface IndexingJobState extends IndexingJobStatusResponse {
 
 function buildJobFilesUrl(jobId: string): string {
   return `${JOBS_BASE_URL}/${jobId}/files`;
-}
-
-function extractJobIdFromFilesUrl(filesUrl: string): string {
-  const match = filesUrl
-    .trim()
-    .match(/\/jobs\/([^/]+)\/files(?:[/?#]|$)/);
-
-  return match?.[1] ? decodeURIComponent(match[1]) : "";
 }
 
 function isTerminalJobStatus(status?: string): boolean {
@@ -428,9 +420,6 @@ export default function TreeComparePage() {
     leftJob?.resolvedCommit || leftPinnedCommit || leftResolvedCommitState.commit;
   const rightCurrentCommit =
     rightJob?.resolvedCommit || rightPinnedCommit || rightResolvedCommitState.commit;
-  const leftDownloadJobId = leftJob?.id || extractJobIdFromFilesUrl(leftEndpoint);
-  const rightDownloadJobId =
-    rightJob?.id || extractJobIdFromFilesUrl(rightEndpoint);
   const activeLeftRoot = useDifferentRoots ? leftRoot : DEFAULT_LEFT_ROOT;
   const activeRightRoot = useDifferentRoots ? rightRoot : DEFAULT_RIGHT_ROOT;
 
@@ -860,12 +849,12 @@ export default function TreeComparePage() {
   }, [handleStartIndexing, pendingPullRequestSelection]);
 
   const buildDownloadUrl = useCallback(
-    (jobId: string, entry: DiffEntry): string => {
-      if (!jobId || entry.fileType === "d" || !entry.hash || entry.hash === "N/A") {
+    (entry: DiffEntry): string => {
+      if (entry.fileType === "d" || !entry.hash || entry.hash === "N/A") {
         return "";
       }
 
-      return buildJobFileDownloadUrl(jobId, entry.hash);
+      return buildHashFileDownloadUrl(entry.hash);
     },
     []
   );
@@ -1094,10 +1083,8 @@ export default function TreeComparePage() {
             slots={diff}
             leftLabel={leftLabel}
             rightLabel={rightLabel}
-            getLeftDownloadUrl={(entry) => buildDownloadUrl(leftDownloadJobId, entry)}
-            getRightDownloadUrl={(entry) =>
-              buildDownloadUrl(rightDownloadJobId, entry)
-            }
+            getLeftDownloadUrl={buildDownloadUrl}
+            getRightDownloadUrl={buildDownloadUrl}
           />
         </div>
       )}
