@@ -29,6 +29,29 @@ interface LoadedCompareData {
   right: LoadedCompareSide;
 }
 
+function buildFileTypeSummary(files: JobFilesResponse["files"]): Record<string, number> {
+  const summary: Record<string, number> = {};
+
+  for (const file of files ?? []) {
+    const fileType = file.t || "unknown";
+    summary[fileType] = (summary[fileType] ?? 0) + 1;
+  }
+
+  return summary;
+}
+
+function buildFileTypeSamples(
+  files: JobFilesResponse["files"],
+  limit = 10
+): Array<{ path: string; type: string; size: number; hash: string }> {
+  return (files ?? []).slice(0, limit).map((file) => ({
+    path: file.path,
+    type: file.t || "unknown",
+    size: file.s,
+    hash: file.hash,
+  }));
+}
+
 function extractErrorMessage(value: unknown, fallback: string): string {
   if (value instanceof Error && value.message.trim()) {
     return value.message.trim();
@@ -45,6 +68,16 @@ async function loadCompareSide(
   const response = await fetch(buildCommitFilesUrl(request.commit, "binary"), {
     signal,
   });
+  const contentType = response.headers.get("content-type") ?? "";
+  const logLabel = `[TreeCompare2Page] ${side} ${request.commit.slice(0, 12)}`;
+
+  console.log(`${logLabel} fetch response`, {
+    url: response.url,
+    status: response.status,
+    ok: response.ok,
+    contentType,
+    contentLength: response.headers.get("content-length"),
+  });
 
   if (!response.ok) {
     let message = `Unable to load ${side} files for commit ${request.commit}.`;
@@ -58,17 +91,29 @@ async function loadCompareSide(
       // Ignore response parsing failures and fall back to the generic message.
     }
 
+    console.log(`${logLabel} fetch failed`, { message });
     throw new Error(message);
   }
 
   let filesData: JobFilesResponse;
-  const contentType = response.headers.get("content-type") ?? "";
+  let decodeMode: "json" | "jobFilesResponseBinary" | "bareFileRecordsBinary" = "json";
 
   if (contentType.includes("application/octet-stream")) {
     const buffer = await response.arrayBuffer();
+    console.log(`${logLabel} received binary payload`, {
+      byteLength: buffer.byteLength,
+    });
+
     try {
       filesData = deserializeJobFilesResponse(buffer);
+      decodeMode = "jobFilesResponseBinary";
     } catch (jobResponseError: unknown) {
+      console.log(`${logLabel} failed to decode job payload, trying bare file records`, {
+        error: extractErrorMessage(
+          jobResponseError,
+          "Unable to decode job files payload."
+        ),
+      });
       try {
         filesData = {
           commit: request.commit,
@@ -77,6 +122,7 @@ async function loadCompareSide(
           progress: 100,
           files: deserializeFileRecords(buffer),
         };
+        decodeMode = "bareFileRecordsBinary";
       } catch (fileRecordsError: unknown) {
         const headerDetails = extractErrorMessage(
           jobResponseError,
@@ -98,6 +144,15 @@ async function loadCompareSide(
   const commit = filesData.commit?.trim() || request.commit;
   const jobId = filesData.jobId?.trim() || filesData.job_id?.trim() || "";
   const commitLabel = commit ? commit.slice(0, 12) : "unknown";
+
+  console.log(`${logLabel} decoded files`, {
+    decodeMode,
+    resolvedCommit: commit,
+    jobId,
+    fileCount: filesData.files?.length ?? 0,
+    fileTypeSummary: buildFileTypeSummary(filesData.files),
+    fileTypeSamples: buildFileTypeSamples(filesData.files),
+  });
 
   return {
     repo: request.repo,
