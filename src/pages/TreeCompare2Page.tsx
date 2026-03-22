@@ -14,6 +14,8 @@ import "./TreeComparePage.css";
 import "./TreeCompare2Page.css";
 
 const TREE_COMPARE2_FILES_CACHE = "tree-compare2-files-v1";
+const GITHUB_REPO_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/;
+const GITHUB_COMMIT_PATTERN = /^[0-9a-fA-F]{7,40}$/;
 
 interface JobRequest {
   repo: string;
@@ -50,6 +52,10 @@ function buildGitHubRepoUrl(repo: string): string {
     return "";
   }
 
+  if (!segments.every((segment) => GITHUB_REPO_SEGMENT_PATTERN.test(segment))) {
+    return "";
+  }
+
   return `https://github.com/${segments.map(encodeURIComponent).join("/")}`;
 }
 
@@ -57,11 +63,21 @@ function buildGitHubCommitUrl(repo: string, commit: string): string {
   const repoUrl = buildGitHubRepoUrl(repo);
   const trimmedCommit = commit.trim();
 
-  if (!repoUrl || !trimmedCommit) {
+  if (!repoUrl || !GITHUB_COMMIT_PATTERN.test(trimmedCommit)) {
     return "";
   }
 
   return `${repoUrl}/commit/${encodeURIComponent(trimmedCommit)}`;
+}
+
+function firstNonEmptyString(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+
+  return "";
 }
 
 function extractErrorMessage(value: unknown, fallback: string): string {
@@ -308,9 +324,17 @@ export default function TreeCompare2Page() {
     }
   }, [compareData]);
 
-  const leftSummaryRepo = compareData?.left.repo || leftRepo || bothRepo;
+  const leftSummaryRepo = firstNonEmptyString(
+    compareData?.left.repo,
+    leftRepo,
+    bothRepo
+  );
   const leftSummaryCommit = compareData?.left.commit ?? leftCommit;
-  const rightSummaryRepo = compareData?.right.repo || rightRepo || bothRepo;
+  const rightSummaryRepo = firstNonEmptyString(
+    compareData?.right.repo,
+    rightRepo,
+    bothRepo
+  );
   const rightSummaryCommit = compareData?.right.commit ?? rightCommit;
   const leftRepoUrl = buildGitHubRepoUrl(leftSummaryRepo);
   const leftCommitUrl = buildGitHubCommitUrl(leftSummaryRepo, leftSummaryCommit);
