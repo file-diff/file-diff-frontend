@@ -1,4 +1,4 @@
-import type { FileType, JobFilesResponse } from "./csvParser";
+import type { FileType, JobFilesResponse } from "./fileDiffParser.ts";
 
 type JobStatus = "waiting" | "active" | "completed" | "failed";
 

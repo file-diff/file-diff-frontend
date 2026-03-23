@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import type { ComparisonSlot, DiffEntry } from "../utils/csvParser";
+import type { ComparisonSlot, DiffEntry } from "../utils/fileDiffParser.ts";
 import "./TreeDiffView.css";
 
 interface TreeDiffViewProps {

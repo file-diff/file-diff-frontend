@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
+import type { DiffEntry, JobFilesResponse } from "../utils/fileDiffParser.ts";
 import RepositoryCommitSelector from "../components/RepositoryCommitSelector";
 import OrganizationBrowserPopup from "../components/OrganizationBrowserPopup";
 import type { OrganizationBrowserResult } from "../components/OrganizationBrowserPopup";

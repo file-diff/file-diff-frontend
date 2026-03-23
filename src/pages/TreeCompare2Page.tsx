@@ -8,8 +8,8 @@ import {
 import {
   deserializeJobFilesResponse,
 } from "../utils/binaryDeserializer";
-import { diffCsv, parseJobFilesResponse } from "../utils/csvParser";
-import type { CsvEntry, DiffEntry, JobFilesResponse } from "../utils/csvParser";
+import { diffCsv, parseJobFilesResponse } from "../utils/fileDiffParser.ts";
+import type { CsvEntry, DiffEntry, JobFilesResponse } from "../utils/fileDiffParser.ts";
 import {
   readTreeCompare2ShowUnchanged,
   writeTreeCompare2ShowUnchanged,
