@@ -625,13 +625,17 @@ export default function FileComparePage() {
   const requestedBackUrl = searchParams.get("back") ?? "";
   const initialTheme = searchParams.get("theme") ?? DEFAULT_SHIKI_THEME;
   const backUrl = (() => {
-    const origin =
-      typeof window === "undefined" ? "http://localhost" : window.location.origin;
+    if (typeof window === "undefined") {
+      return "/tree";
+    }
 
     try {
-      const parsedBackUrl = new URL(requestedBackUrl, origin);
+      const parsedBackUrl = new URL(requestedBackUrl, window.location.origin);
 
-      if (parsedBackUrl.origin !== origin || parsedBackUrl.pathname !== "/tree") {
+      if (
+        parsedBackUrl.origin !== window.location.origin ||
+        parsedBackUrl.pathname !== "/tree"
+      ) {
         return "/tree";
       }
 
