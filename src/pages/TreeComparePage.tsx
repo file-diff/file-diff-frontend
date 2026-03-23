@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import {
+  diffCsv,
+  parseJobFilesResponse,
+} from "../utils/fileDiffParser.ts";
 import type { DiffEntry, JobFilesResponse } from "../utils/fileDiffParser.ts";
 import RepositoryCommitSelector from "../components/RepositoryCommitSelector";
 import OrganizationBrowserPopup from "../components/OrganizationBrowserPopup";
@@ -97,6 +101,7 @@ interface IndexingJobStatusResponse {
 }
 
 interface IndexingJobState extends IndexingJobStatusResponse {
+  filesData?: JobFilesResponse;
   filesLoaded: number;
   filesUrl: string;
   historyEntryId: string;
@@ -458,10 +463,22 @@ export default function TreeComparePage() {
   const treeComparisonHref = treeComparisonQuery ? `/tree?${treeComparisonQuery}` : "";
 
   const diff = useMemo(() => {
-    try { /* fix here */ } catch {
+    try {
+      if (!leftJob?.filesData || !rightJob?.filesData) {
+        return null;
+      }
+
+      return diffCsv(
+        parseJobFilesResponse(leftJob.filesData, useNaturalSort),
+        parseJobFilesResponse(rightJob.filesData, useNaturalSort),
+        activeLeftRoot,
+        activeRightRoot,
+        useNaturalSort
+      );
+    } catch {
       return null;
     }
-  }, [activeLeftRoot, activeRightRoot, useNaturalSort]);
+  }, [activeLeftRoot, activeRightRoot, leftJob, rightJob, useNaturalSort]);
 
   useEffect(() => {
     const nextParams = new URLSearchParams(currentSearch);
@@ -548,14 +565,13 @@ export default function TreeComparePage() {
           (await statusResult.value.json()) as IndexingJobStatusResponse;
 
         let filesLoaded = currentJob.filesLoaded;
+        let filesData = currentJob.filesData;
         if (
           filesResult.status === "fulfilled" &&
           filesResult.value.ok
         ) {
-          const filesData = (await filesResult.value.json()) as JobFilesResponse;
-          filesLoaded = applyFilesResponse(
-            filesData,
-          );
+          filesData = (await filesResult.value.json()) as JobFilesResponse;
+          filesLoaded = applyFilesResponse(filesData);
         }
 
         const nextJob: IndexingJobState = {
@@ -571,6 +587,7 @@ export default function TreeComparePage() {
           created_at: getCreatedAt(statusData) ?? getCreatedAt(currentJob),
           updated_at: getUpdatedAt(statusData) ?? getUpdatedAt(currentJob),
           error: statusData.error ?? currentJob.error,
+          filesData,
           historyEntryId: currentJob.historyEntryId,
           inputRefName: currentJob.inputRefName,
           resolvedCommit:
