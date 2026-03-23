@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { ComparisonSlot, DiffEntry } from "../utils/fileDiffParser.ts";
 import "./TreeDiffView.css";
 
@@ -83,6 +83,7 @@ function EntryRow({
 function buildFileCompareUrl(
   leftEntry: DiffEntry,
   rightEntry: DiffEntry,
+  backUrl?: string,
   getLeftDownloadUrl?: (entry: DiffEntry) => string,
   getRightDownloadUrl?: (entry: DiffEntry) => string,
 ): string | null {
@@ -96,6 +97,9 @@ function buildFileCompareUrl(
   params.set("leftUrl", leftUrl);
   params.set("rightUrl", rightUrl);
   params.set("path", leftEntry.path);
+  if (backUrl) {
+    params.set("back", backUrl);
+  }
   if (leftEntry.hash && leftEntry.hash !== "N/A") {
     params.set("leftHash", leftEntry.hash);
   }
@@ -112,6 +116,7 @@ export default function TreeDiffView({
   selectedPath,
   onSelectSlot,
 }: TreeDiffViewProps) {
+  const location = useLocation();
   const selectedRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -126,11 +131,19 @@ export default function TreeDiffView({
         {slots.map((slot, i) => {
           const slotPath = slot.left?.path ?? slot.right?.path ?? "";
           const isSelected = selectedPath != null && slotPath === selectedPath;
+          const backParams = new URLSearchParams(location.search);
+          if (slotPath) {
+            backParams.set("selectedPath", slotPath);
+          } else {
+            backParams.delete("selectedPath");
+          }
+          const backUrl = `${location.pathname}?${backParams.toString()}`;
           const compareUrl =
             slot.left && slot.right
               ? buildFileCompareUrl(
                   slot.left,
                   slot.right,
+                  backUrl,
                   getLeftDownloadUrl,
                   getRightDownloadUrl,
                 )

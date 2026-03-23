@@ -285,10 +285,13 @@ export default function TreeCompare2Page() {
   const leftCommit = searchParams.get("lc")?.trim() ?? "";
   const rightRepo = searchParams.get("rr")?.trim() ?? "";
   const rightCommit = searchParams.get("rc")?.trim() ?? "";
+  const selectedPathFromUrl = searchParams.get("selectedPath")?.trim() ?? "";
   const [compareData, setCompareData] = useState<LoadedCompareData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [selectedPath, setSelectedPath] = useState<string | null>(
+    () => selectedPathFromUrl || null
+  );
   const [showUnchanged, setShowUnchanged] = useState(
     () => readTreeCompare2ShowUnchanged() ?? true
   );
