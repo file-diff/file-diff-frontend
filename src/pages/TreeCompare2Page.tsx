@@ -8,8 +8,8 @@ import {
 import {
   deserializeJobFilesResponse,
 } from "../utils/binaryDeserializer";
-import { diffCsv, jobFilesResponseToCsv, parseCsv } from "../utils/csvParser";
-import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
+import { diffCsv, parseJobFilesResponse } from "../utils/csvParser";
+import type { CsvEntry, DiffEntry, JobFilesResponse } from "../utils/csvParser";
 import {
   readTreeCompare2ShowUnchanged,
   writeTreeCompare2ShowUnchanged,
@@ -29,7 +29,7 @@ interface JobRequest {
 interface LoadedCompareSide {
   repo: string;
   commit: string;
-  csv: string;
+  entries: CsvEntry[];
   jobId: string;
   label: string;
 }
@@ -224,7 +224,7 @@ async function loadCompareSide(
           return {
             repo: request.repo,
             commit,
-            csv: jobFilesResponseToCsv(r.filesData),
+            entries: parseJobFilesResponse(r.filesData, true),
             jobId,
             label: `${side === "left" ? "Left" : "Right"} (${commitLabel})`,
           };
@@ -272,7 +272,7 @@ async function loadCompareSide(
   return {
     repo: request.repo,
     commit,
-    csv: jobFilesResponseToCsv(r.filesData),
+    entries: parseJobFilesResponse(r.filesData, true),
     jobId,
     label: `${side === "left" ? "Left" : "Right"} (${commitLabel})`,
   };
@@ -288,6 +288,7 @@ export default function TreeCompare2Page() {
   const [compareData, setCompareData] = useState<LoadedCompareData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [showUnchanged, setShowUnchanged] = useState(
     () => readTreeCompare2ShowUnchanged() ?? true
   );
@@ -360,8 +361,8 @@ export default function TreeCompare2Page() {
 
     try {
       return diffCsv(
-        parseCsv(compareData.left.csv, true),
-        parseCsv(compareData.right.csv, true),
+        compareData.left.entries,
+        compareData.right.entries,
         "/",
         "/",
         true
@@ -500,6 +501,8 @@ export default function TreeCompare2Page() {
               getRightDownloadUrl={(entry) =>
                 buildDownloadUrl(entry)
               }
+              selectedPath={selectedPath}
+              onSelectSlot={setSelectedPath}
             />
           </div>
         </div>

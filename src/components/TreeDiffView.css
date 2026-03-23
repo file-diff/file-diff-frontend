@@ -32,6 +32,12 @@
 
 .tree-diff__slot {
   display: flex;
+  cursor: pointer;
+}
+
+.tree-diff__slot--selected {
+  outline: 2px solid #58a6ff;
+  outline-offset: -2px;
 }
 
 .tree-diff__column {

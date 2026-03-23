@@ -238,6 +238,73 @@ export function jobFilesResponseToCsv(response: JobFilesResponse): string {
 }
 
 /**
+ * Convert a JobFilesResponse directly into a sorted list of CsvEntry objects,
+ * bypassing the intermediate CSV string representation.
+ */
+export function parseJobFilesResponse(
+  response: JobFilesResponse,
+  useNaturalSort = false
+): CsvEntry[] {
+  if (!Array.isArray(response.files)) {
+    throw new Error("Invalid files response");
+  }
+
+  const entries: CsvEntry[] = response.files.map((entry) => {
+    const path = normalizePath(entry.path);
+    const segments = path.split("/");
+    const name = segments[segments.length - 1];
+    const depth = segments.length - 1;
+
+    return {
+      fileType: entry.t,
+      path,
+      name,
+      size: Number.isFinite(entry.s) ? entry.s : 0,
+      lastModified: parseApiTimestamp(entry.update),
+      hash: entry.hash ?? "",
+      depth,
+    };
+  });
+
+  // Collect all explicit paths
+  const explicitPaths = new Set(entries.map((e) => e.path));
+
+  // Infer missing parent directories from file paths
+  const inferred: CsvEntry[] = [];
+  for (const entry of entries) {
+    const segments = entry.path.split("/");
+    for (let i = 1; i < segments.length; i++) {
+      const parentPath = segments.slice(0, i).join("/");
+      if (!explicitPaths.has(parentPath)) {
+        explicitPaths.add(parentPath);
+        inferred.push({
+          fileType: "d",
+          path: parentPath,
+          name: segments[i - 1],
+          size: 0,
+          lastModified: 0,
+          hash: "N/A",
+          depth: i - 1,
+        });
+      }
+    }
+  }
+
+  const all = [...entries, ...inferred];
+
+  // Sort in tree order: by path segments, directories first at each level
+  const dirPaths = new Set(
+    all.filter((e) => e.fileType === "d").map((e) => e.path)
+  );
+
+  all.sort((a, b) =>
+    comparePathsInTreeOrder(a.path, b.path, dirPaths, useNaturalSort)
+  );
+
+  return all;
+}
+
+/**
  * Compare two CSV entry lists and produce aligned diff entry slots.
  * Detects modifications by comparing hashes for entries at the same path.
  */
