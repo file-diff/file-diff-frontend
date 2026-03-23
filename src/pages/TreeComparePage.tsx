@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { parseCsv, diffCsv, jobFilesResponseToCsv } from "../utils/csvParser";
 import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
 import RepositoryCommitSelector from "../components/RepositoryCommitSelector";
 import OrganizationBrowserPopup from "../components/OrganizationBrowserPopup";
@@ -462,17 +461,7 @@ export default function TreeComparePage() {
   const treeComparisonHref = treeComparisonQuery ? `/tree?${treeComparisonQuery}` : "";
 
   const diff = useMemo(() => {
-    try {
-      const leftEntries = parseCsv(leftInput, useNaturalSort);
-      const rightEntries = parseCsv(rightInput, useNaturalSort);
-      return diffCsv(
-        leftEntries,
-        rightEntries,
-        activeLeftRoot,
-        activeRightRoot,
-        useNaturalSort
-      );
-    } catch {
+    try { /* fix here */ } catch {
       return null;
     }
   }, [activeLeftRoot, activeRightRoot, leftInput, rightInput, useNaturalSort]);
@@ -538,16 +527,8 @@ export default function TreeComparePage() {
 
   const applyFilesResponse = useCallback(
     (
-      side: CompareSide,
       data: JobFilesResponse,
     ): number => {
-      const csv = jobFilesResponseToCsv(data);
-
-      if (side === "left") {
-        setLeftInput(csv);
-      } else {
-        setRightInput(csv);
-      }
 
       return Array.isArray(data.files) ? data.files.length : 0;
     },
@@ -576,7 +557,6 @@ export default function TreeComparePage() {
         ) {
           const filesData = (await filesResult.value.json()) as JobFilesResponse;
           filesLoaded = applyFilesResponse(
-            side,
             filesData,
           );
         }
