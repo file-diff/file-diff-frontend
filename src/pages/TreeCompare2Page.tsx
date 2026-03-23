@@ -10,6 +10,10 @@ import {
 } from "../utils/binaryDeserializer";
 import { diffCsv, jobFilesResponseToCsv, parseCsv } from "../utils/csvParser";
 import type { DiffEntry, JobFilesResponse } from "../utils/csvParser";
+import {
+  readTreeCompare2ShowUnchanged,
+  writeTreeCompare2ShowUnchanged,
+} from "../utils/storage";
 import "./TreeComparePage.css";
 import "./TreeCompare2Page.css";
 
@@ -36,6 +40,45 @@ interface LoadedCompareData {
 }
 
 type FilesDecodeMode = "json" | "jobFilesResponseBinary" | "bareFileRecordsBinary";
+
+function isDirectoryPath(path: string, directoryPath: string): boolean {
+  return path === directoryPath || path.startsWith(`${directoryPath}/`);
+}
+
+function filterUnchangedSlots(
+  slots: ReturnType<typeof diffCsv>,
+  showUnchanged: boolean
+): ReturnType<typeof diffCsv> {
+  if (showUnchanged) {
+    return slots;
+  }
+
+  const changedPaths = slots.flatMap((slot) => {
+    const entry = slot.left ?? slot.right;
+    if (!entry || entry.status === "same") {
+      return [];
+    }
+
+    return [entry.path];
+  });
+
+  return slots.filter((slot) => {
+    const entry = slot.left ?? slot.right;
+    if (!entry) {
+      return false;
+    }
+
+    if (entry.status !== "same") {
+      return true;
+    }
+
+    if (entry.fileType !== "d") {
+      return false;
+    }
+
+    return changedPaths.some((path) => isDirectoryPath(path, entry.path));
+  });
+}
 
 function buildGitHubRepoUrl(repo: string): string {
   const trimmedRepo = repo.trim();
@@ -245,6 +288,9 @@ export default function TreeCompare2Page() {
   const [compareData, setCompareData] = useState<LoadedCompareData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
+  const [showUnchanged, setShowUnchanged] = useState(
+    () => readTreeCompare2ShowUnchanged() ?? true
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -324,6 +370,14 @@ export default function TreeCompare2Page() {
       return null;
     }
   }, [compareData]);
+  const visibleDiff = useMemo(
+    () => (diff ? filterUnchangedSlots(diff, showUnchanged) : null),
+    [diff, showUnchanged]
+  );
+
+  useEffect(() => {
+    writeTreeCompare2ShowUnchanged(showUnchanged);
+  }, [showUnchanged]);
 
   const leftSummaryRepo = firstNonEmptyString(
     compareData?.left.repo,
@@ -352,12 +406,6 @@ export default function TreeCompare2Page() {
 
     return buildHashFileDownloadUrl(entry.hash);
   };
-  console.log(`Render ${isLoading}`);
-  let i;
-  let j = 0;
-  for (i = 0; i < 1000000000; i++) {
-    j += 1;
-  }
 
   return (
     <div className="tree-compare-page tree-compare2-page">
@@ -432,6 +480,15 @@ export default function TreeCompare2Page() {
 
       {!isLoading && compareData && diff && (
         <div className="diff-result">
+          <label className="sort-option tree-compare2-option" htmlFor="show-unchanged">
+            <input
+              id="show-unchanged"
+              type="checkbox"
+              checked={showUnchanged}
+              onChange={(e) => setShowUnchanged(e.target.checked)}
+            />
+            Show unchanged files
+          </label>
           <div className="diff-legend">
             <span className="legend-item legend-item--same">● Same</span>
             <span className="legend-item legend-item--added">● Added</span>
@@ -439,7 +496,7 @@ export default function TreeCompare2Page() {
             <span className="legend-item legend-item--modified">● Modified</span>
           </div>
           <TreeDiffView
-            slots={diff}
+            slots={visibleDiff ?? diff}
             leftLabel={compareData.left.label}
             rightLabel={compareData.right.label}
             getLeftDownloadUrl={(entry) =>
