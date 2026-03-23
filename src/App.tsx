@@ -21,6 +21,7 @@ function AppShell() {
   const buildVersion = import.meta.env.VITE_BUILD_VERSION?.trim();
   const gitCommit = import.meta.env.VITE_GIT_COMMIT?.trim();
   const location = useLocation();
+  const isTreeCompare2Route = location.pathname === "/tree";
   const buildLabel = [buildVersion, gitCommit && `(${gitCommit})`]
     .filter(Boolean)
     .join(" ");
@@ -34,40 +35,42 @@ function AppShell() {
   };
 
   return (
-    <>
-      <nav className="app-nav">
-        <div className="nav-brand-group">
-          <div className="nav-brand">Git Diff Online</div>
-          {buildLabel && (
-            <div className="nav-build-version">Build version: {buildLabel}</div>
-          )}
-        </div>
-        <div className="nav-links">
-          <Link to="/" className="nav-link">
-            📂 Directory Compare
-          </Link>
-          <Link to="/files" className="nav-link">
-            📄 File Compare
-          </Link>
-          <Link to="/history" className="nav-link">
-            📜 History
-          </Link>
-          <Link to="/tokenize" className="nav-link">
-            🎨 Tokenize
-          </Link>
-          <Link to="/health" className="nav-link">
-            🩺 Backend Check
-          </Link>
-          <a href="/ssr-health" className="nav-link">
-            🖥️ SSR Health
-          </a>
-          <button type="button" className="nav-clear-button" onClick={handleClearAll}>
-            Clear all
-          </button>
-          <FontSelector />
-        </div>
-      </nav>
-      <main>
+    <div className={`app-shell${isTreeCompare2Route ? " app-shell--tree-compare2" : ""}`}>
+      {!isTreeCompare2Route && (
+        <nav className="app-nav">
+          <div className="nav-brand-group">
+            <div className="nav-brand">Git Diff Online</div>
+            {buildLabel && (
+              <div className="nav-build-version">Build version: {buildLabel}</div>
+            )}
+          </div>
+          <div className="nav-links">
+            <Link to="/" className="nav-link">
+              📂 Directory Compare
+            </Link>
+            <Link to="/files" className="nav-link">
+              📄 File Compare
+            </Link>
+            <Link to="/history" className="nav-link">
+              📜 History
+            </Link>
+            <Link to="/tokenize" className="nav-link">
+              🎨 Tokenize
+            </Link>
+            <Link to="/health" className="nav-link">
+              🩺 Backend Check
+            </Link>
+            <a href="/ssr-health" className="nav-link">
+              🖥️ SSR Health
+            </a>
+            <button type="button" className="nav-clear-button" onClick={handleClearAll}>
+              Clear all
+            </button>
+            <FontSelector />
+          </div>
+        </nav>
+      )}
+      <main className={`app-main${isTreeCompare2Route ? " app-main--tree-compare2" : ""}`}>
         <Routes>
           <Route path="/" element={<TreeComparePage />} />
           <Route path="/tree" element={<TreeCompare2Page />} />
@@ -77,7 +80,7 @@ function AppShell() {
           <Route path="/health" element={<HealthCheckPage />} />
         </Routes>
       </main>
-    </>
+    </div>
   );
 }
 
