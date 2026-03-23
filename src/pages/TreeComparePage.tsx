@@ -11,7 +11,6 @@ import {
   useResolvedCommit,
 } from "../utils/repositorySelection";
 import TreeDiffView from "../components/TreeDiffView";
-import { sampleCsvLeft, sampleCsvRight } from "../data/sampleData";
 import { buildJobFileDownloadUrl, JOBS_API_URL } from "../config/api";
 import {
   buildComparePermalink,
@@ -299,8 +298,6 @@ export default function TreeComparePage() {
     searchParams.get("rightRoot")?.trim() ||
     savedParams.current?.rightRoot ||
     DEFAULT_RIGHT_ROOT;
-  const [leftInput, setLeftInput] = useState(isClearRequest ? "" : sampleCsvLeft);
-  const [rightInput, setRightInput] = useState(isClearRequest ? "" : sampleCsvRight);
   const [leftEndpoint, setLeftEndpoint] = useState("");
   const [rightEndpoint, setRightEndpoint] = useState("");
   const [leftRepo, setLeftRepo] = useState(
@@ -464,7 +461,7 @@ export default function TreeComparePage() {
     try { /* fix here */ } catch {
       return null;
     }
-  }, [activeLeftRoot, activeRightRoot, leftInput, rightInput, useNaturalSort]);
+  }, [activeLeftRoot, activeRightRoot, useNaturalSort]);
 
   useEffect(() => {
     const nextParams = new URLSearchParams(currentSearch);
@@ -735,11 +732,9 @@ export default function TreeComparePage() {
 
         if (side === "left") {
           setLeftEndpoint(nextJob.filesUrl);
-          setLeftInput("");
           setLeftJob(nextJob);
         } else {
           setRightEndpoint(nextJob.filesUrl);
-          setRightInput("");
           setRightJob(nextJob);
         }
 
@@ -910,8 +905,6 @@ export default function TreeComparePage() {
     setRightEndpoint("");
     setLeftJob(null);
     setRightJob(null);
-    setLeftInput("");
-    setRightInput("");
     setPendingPullRequestSelection(result);
   };
 
@@ -1024,13 +1017,6 @@ export default function TreeComparePage() {
                 spellCheck={false}
               />
               <label htmlFor="left-csv">Left</label>
-              <textarea
-                id="left-csv"
-                value={leftInput}
-                onChange={(e) => setLeftInput(e.target.value)}
-                placeholder="Paste CSV data here..."
-                spellCheck={false}
-              />
             </div>
             <div className="input-panel">
               <RepositoryCommitSelector
@@ -1048,13 +1034,6 @@ export default function TreeComparePage() {
                 spellCheck={false}
               />
               <label htmlFor="right-csv">Right</label>
-              <textarea
-                id="right-csv"
-                value={rightInput}
-                onChange={(e) => setRightInput(e.target.value)}
-                placeholder="Paste CSV data here..."
-                spellCheck={false}
-              />
             </div>
           </div>
         </>
