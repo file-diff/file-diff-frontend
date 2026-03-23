@@ -1,9 +1,8 @@
 .tree-compare2-page {
-  width: 100%;
-  max-width: none;
+  max-width: 1250px;
+  margin: auto;
   min-height: 100%;
   height: 100%;
-  margin: 0;
   padding: 16px 24px;
   display: flex;
   flex-direction: column;
@@ -43,10 +42,5 @@
   min-height: 0;
   margin-bottom: 0;
   overflow: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
-.tree-compare2-diff-result::-webkit-scrollbar {
-  display: none;
-}
