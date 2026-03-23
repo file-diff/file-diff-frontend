@@ -150,7 +150,7 @@ export default function TreeDiffView({
                   ⇔
                 </Link>
               ) : (
-                <span className="tree-diff__compare-link tree-diff__compare-link--disabled" />
+                <span className="tree-diff__compare-link tree-diff__compare-link--disabled" ></span>
               )}
               <div className="tree-diff__column">
                 <EntryRow
