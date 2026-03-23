@@ -126,6 +126,8 @@ export default function TreeDiffView({
               className="tree-diff__slot"
               key={slot.left?.path ?? slot.right?.path ?? `slot-${i}`}
             >
+              <span>{slot.no}</span>
+
               <div className="tree-diff__column">
                 <EntryRow entry={slot.left} getDownloadUrl={getLeftDownloadUrl} />
               </div>

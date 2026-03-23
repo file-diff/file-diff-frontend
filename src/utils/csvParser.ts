@@ -43,6 +43,7 @@ export interface DiffEntry {
 }
 
 export interface ComparisonSlot {
+  no: number;
   left: DiffEntry | null;
   right: DiffEntry | null;
 }
@@ -320,18 +321,21 @@ export function diffCsv(
       const status: DiffStatus =
         le.hash !== re.hash && le.fileType !== "d" ? "modified" : "same";
       slots.push({
+        no: slots.length + 1,
         left: { ...le, status },
         right: { ...re, status },
       });
     } else if (inLeft && !inRight) {
       const le = leftMap.get(p)!;
       slots.push({
+        no: slots.length + 1,
         left: { ...le, status: "removed" },
         right: null,
       });
     } else {
       const re = rightMap.get(p)!;
       slots.push({
+        no: slots.length + 1,
         left: null,
         right: { ...re, status: "added" },
       });
