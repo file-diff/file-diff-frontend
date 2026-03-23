@@ -409,66 +409,7 @@ export default function TreeCompare2Page() {
 
   return (
     <div className="tree-compare-page tree-compare2-page">
-      <div className="compare-summary">
-        <div className="compare-summary__side">
-          <span className="compare-summary__label">Left</span>
-          {leftRepoUrl ? (
-            <a
-              className="compare-summary__repo compare-summary__link"
-              href={leftRepoUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {leftSummaryRepo}
-            </a>
-          ) : (
-            <span className="compare-summary__repo">{leftSummaryRepo || "—"}</span>
-          )}
-          {leftCommitUrl ? (
-            <a
-              className="compare-summary__commit compare-summary__link"
-              href={leftCommitUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <code>{leftSummaryCommit.slice(0, 12)}</code>
-            </a>
-          ) : (
-            <code className="compare-summary__commit">
-              {leftSummaryCommit ? leftSummaryCommit.slice(0, 12) : "—"}
-            </code>
-          )}
-        </div>
-        <div className="compare-summary__side">
-          <span className="compare-summary__label">Right</span>
-          {rightRepoUrl ? (
-            <a
-              className="compare-summary__repo compare-summary__link"
-              href={rightRepoUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {rightSummaryRepo}
-            </a>
-          ) : (
-            <span className="compare-summary__repo">{rightSummaryRepo || "—"}</span>
-          )}
-          {rightCommitUrl ? (
-            <a
-              className="compare-summary__commit compare-summary__link"
-              href={rightCommitUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <code>{rightSummaryCommit.slice(0, 12)}</code>
-            </a>
-          ) : (
-            <code className="compare-summary__commit">
-              {rightSummaryCommit ? rightSummaryCommit.slice(0, 12) : "—"}
-            </code>
-          )}
-        </div>
-      </div>
+
 
       {apiError && <div className="api-error">{apiError}</div>}
 
@@ -479,7 +420,7 @@ export default function TreeCompare2Page() {
       )}
 
       {!isLoading && compareData && diff && (
-        <div className="diff-result">
+        <>
           <label className="sort-option tree-compare2-option" htmlFor="show-unchanged">
             <input
               id="show-unchanged"
@@ -489,16 +430,70 @@ export default function TreeCompare2Page() {
             />
             Show unchanged files
           </label>
-          <div className="diff-legend">
-            <span className="legend-item legend-item--same">● Same</span>
-            <span className="legend-item legend-item--added">● Added</span>
-            <span className="legend-item legend-item--removed">● Removed</span>
-            <span className="legend-item legend-item--modified">● Modified</span>
+
+        <div className="compare-summary">
+          <div className="compare-summary__side">
+            <span className="compare-summary__label">Left</span>
+            {leftRepoUrl ? (
+              <a
+                className="compare-summary__repo compare-summary__link"
+                href={leftRepoUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {leftSummaryRepo}
+              </a>
+            ) : (
+              <span className="compare-summary__repo">{leftSummaryRepo || "—"}</span>
+            )}
+            {leftCommitUrl ? (
+              <a
+                className="compare-summary__commit compare-summary__link"
+                href={leftCommitUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <code>{leftSummaryCommit.slice(0, 12)}</code>
+              </a>
+            ) : (
+              <code className="compare-summary__commit">
+                {leftSummaryCommit ? leftSummaryCommit.slice(0, 12) : "—"}
+              </code>
+            )}
           </div>
+          <div className="compare-summary__side">
+            <span className="compare-summary__label">Right</span>
+            {rightRepoUrl ? (
+              <a
+                className="compare-summary__repo compare-summary__link"
+                href={rightRepoUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {rightSummaryRepo}
+              </a>
+            ) : (
+              <span className="compare-summary__repo">{rightSummaryRepo || "—"}</span>
+            )}
+            {rightCommitUrl ? (
+              <a
+                className="compare-summary__commit compare-summary__link"
+                href={rightCommitUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <code>{rightSummaryCommit.slice(0, 12)}</code>
+              </a>
+            ) : (
+              <code className="compare-summary__commit">
+                {rightSummaryCommit ? rightSummaryCommit.slice(0, 12) : "—"}
+              </code>
+            )}
+          </div>
+        </div>
+        <div className="diff-result">
           <TreeDiffView
             slots={visibleDiff ?? diff}
-            leftLabel={compareData.left.label}
-            rightLabel={compareData.right.label}
             getLeftDownloadUrl={(entry) =>
               buildDownloadUrl(entry)
             }
@@ -507,6 +502,7 @@ export default function TreeCompare2Page() {
             }
           />
         </div>
+        </>
       )}
     </div>
   );

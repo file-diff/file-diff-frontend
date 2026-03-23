@@ -334,8 +334,6 @@ export default function TreeComparePage() {
   );
   const [leftRoot, setLeftRoot] = useState(() => initialLeftRoot);
   const [rightRoot, setRightRoot] = useState(() => initialRightRoot);
-  const [leftLabel, setLeftLabel] = useState("Left");
-  const [rightLabel, setRightLabel] = useState("Right");
   const [leftPinnedCommit, setLeftPinnedCommit] = useState(
     () => searchParams.get("leftCommit")?.trim() || ""
   );
@@ -542,17 +540,13 @@ export default function TreeComparePage() {
     (
       side: CompareSide,
       data: JobFilesResponse,
-      fallbackJobId?: string
     ): number => {
       const csv = jobFilesResponseToCsv(data);
-      const label = data.jobId ?? data.job_id ?? fallbackJobId;
 
       if (side === "left") {
         setLeftInput(csv);
-        setLeftLabel(label ? `Left (${label})` : "Left");
       } else {
         setRightInput(csv);
-        setRightLabel(label ? `Right (${label})` : "Right");
       }
 
       return Array.isArray(data.files) ? data.files.length : 0;
@@ -584,7 +578,6 @@ export default function TreeComparePage() {
           filesLoaded = applyFilesResponse(
             side,
             filesData,
-            statusData.id ?? currentJob.id
           );
         }
 
@@ -763,12 +756,10 @@ export default function TreeComparePage() {
         if (side === "left") {
           setLeftEndpoint(nextJob.filesUrl);
           setLeftInput("");
-          setLeftLabel(`Left (${data.id})`);
           setLeftJob(nextJob);
         } else {
           setRightEndpoint(nextJob.filesUrl);
           setRightInput("");
-          setRightLabel(`Right (${data.id})`);
           setRightJob(nextJob);
         }
 
@@ -941,8 +932,6 @@ export default function TreeComparePage() {
     setRightJob(null);
     setLeftInput("");
     setRightInput("");
-    setLeftLabel(`Left (${result.targetCommitShort})`);
-    setRightLabel(`Right (${result.sourceCommitShort})`);
     setPendingPullRequestSelection(result);
   };
 
@@ -1129,8 +1118,6 @@ export default function TreeComparePage() {
           </div>
           <TreeDiffView
             slots={diff}
-            leftLabel={leftLabel}
-            rightLabel={rightLabel}
             getLeftDownloadUrl={(entry) => buildDownloadUrl(leftDownloadJobId, entry)}
             getRightDownloadUrl={(entry) =>
               buildDownloadUrl(rightDownloadJobId, entry)

@@ -4,8 +4,6 @@ import "./TreeDiffView.css";
 
 interface TreeDiffViewProps {
   slots: ComparisonSlot[];
-  leftLabel: string;
-  rightLabel: string;
   getLeftDownloadUrl?: (entry: DiffEntry) => string;
   getRightDownloadUrl?: (entry: DiffEntry) => string;
 }
@@ -106,21 +104,11 @@ function buildFileCompareUrl(
 
 export default function TreeDiffView({
   slots,
-  leftLabel,
-  rightLabel,
   getLeftDownloadUrl,
   getRightDownloadUrl,
 }: TreeDiffViewProps) {
   return (
     <div className="tree-diff">
-      <div className="tree-diff__header">
-        <div className="tree-diff__label tree-diff__label--left">
-          {leftLabel}
-        </div>
-        <div className="tree-diff__label tree-diff__label--right">
-          {rightLabel}
-        </div>
-      </div>
       <div className="tree-diff__body">
         {slots.map((slot, i) => {
           const compareUrl =
