@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import type { ComparisonSlot, DiffEntry } from "../utils/csvParser";
 import "./TreeDiffView.css";
@@ -6,6 +7,8 @@ interface TreeDiffViewProps {
   slots: ComparisonSlot[];
   getLeftDownloadUrl?: (entry: DiffEntry) => string;
   getRightDownloadUrl?: (entry: DiffEntry) => string;
+  selectedPath?: string | null;
+  onSelectSlot?: (path: string) => void;
 }
 
 const fileTypeIcon: Record<string, string> = {
@@ -106,11 +109,23 @@ export default function TreeDiffView({
   slots,
   getLeftDownloadUrl,
   getRightDownloadUrl,
+  selectedPath,
+  onSelectSlot,
 }: TreeDiffViewProps) {
+  const selectedRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (selectedPath && selectedRef.current) {
+      selectedRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [selectedPath, slots]);
+
   return (
     <div className="tree-diff">
       <div className="tree-diff__body">
         {slots.map((slot, i) => {
+          const slotPath = slot.left?.path ?? slot.right?.path ?? "";
+          const isSelected = selectedPath != null && slotPath === selectedPath;
           const compareUrl =
             slot.left && slot.right
               ? buildFileCompareUrl(
@@ -123,8 +138,10 @@ export default function TreeDiffView({
 
           return (
             <div
-              className="tree-diff__slot"
-              key={slot.left?.path ?? slot.right?.path ?? `slot-${i}`}
+              className={`tree-diff__slot${isSelected ? " tree-diff__slot--selected" : ""}`}
+              key={slotPath || `slot-${i}`}
+              ref={isSelected ? selectedRef : undefined}
+              onClick={() => onSelectSlot?.(slotPath)}
             >
               <span>{slot.no}</span>
 
