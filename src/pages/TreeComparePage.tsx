@@ -16,6 +16,7 @@ import { sampleCsvLeft, sampleCsvRight } from "../data/sampleData";
 import { buildJobFileDownloadUrl, JOBS_API_URL } from "../config/api";
 import {
   buildComparePermalink,
+  buildTreeComparisonLink,
   readLastSelectedParams,
   writeLastSelectedParams,
   readIndexingHistory,
@@ -433,6 +434,34 @@ export default function TreeComparePage() {
     rightJob?.id || extractJobIdFromFilesUrl(rightEndpoint);
   const activeLeftRoot = useDifferentRoots ? leftRoot : DEFAULT_LEFT_ROOT;
   const activeRightRoot = useDifferentRoots ? rightRoot : DEFAULT_RIGHT_ROOT;
+  const treeComparisonQuery = useMemo(
+    () =>
+      buildTreeComparisonLink(
+        {
+          repo: leftRepo,
+          inputRefName: leftRef,
+          resolvedCommit: leftCurrentCommit,
+          root: activeLeftRoot,
+        },
+        {
+          repo: rightRepo,
+          inputRefName: rightRef,
+          resolvedCommit: rightCurrentCommit,
+          root: activeRightRoot,
+        }
+      ),
+    [
+      activeLeftRoot,
+      activeRightRoot,
+      leftCurrentCommit,
+      leftRef,
+      leftRepo,
+      rightCurrentCommit,
+      rightRef,
+      rightRepo,
+    ]
+  );
+  const treeComparisonHref = treeComparisonQuery ? `/tree?${treeComparisonQuery}` : "";
 
   const diff = useMemo(() => {
     try {
@@ -955,6 +984,14 @@ export default function TreeComparePage() {
             {rightCurrentCommit ? rightCurrentCommit.slice(0, 12) : "—"}
           </code>
         </div>
+        {treeComparisonHref && (
+          <a
+            className="compare-summary__tree-link compare-summary__link"
+            href={treeComparisonHref}
+          >
+            Open tree comparison
+          </a>
+        )}
       </div>
 
 

@@ -169,17 +169,34 @@ export function buildTreeComparisonLink(
   left: ComparePermalinkSide,
   right: ComparePermalinkSide,
 ): string {
-  let repoParam = "";
-  if (left.repo == right.repo) {
-    repoParam += "b=" + left.repo;
+  const params = new URLSearchParams();
+  const leftRepo = left.repo.trim();
+  const rightRepo = right.repo.trim();
+
+  if (leftRepo && leftRepo === rightRepo) {
+    params.set("b", leftRepo);
   } else {
-    repoParam +=
-      "l=" + left.repo + "&r=" + right.repo;
+    if (leftRepo) {
+      params.set("lr", leftRepo);
+    }
+    if (rightRepo) {
+      params.set("rr", rightRepo);
+    }
   }
-  const lc = left.inputRefName;
-  const rc = right.inputRefName;
-  repoParam += "&lc=" + lc + "&rc=" + rc;
-  return repoParam;
+
+  const leftCommit =
+    (left.resolvedCommit ?? "").trim() || (left.inputRefName ?? "").trim();
+  const rightCommit =
+    (right.resolvedCommit ?? "").trim() || (right.inputRefName ?? "").trim();
+
+  if (leftCommit) {
+    params.set("lc", leftCommit);
+  }
+  if (rightCommit) {
+    params.set("rc", rightCommit);
+  }
+
+  return params.toString();
 }
 
 export function buildHistoryEntryPermalink(

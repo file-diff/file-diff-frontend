@@ -249,6 +249,14 @@
   color: inherit;
 }
 
+.compare-summary__tree-link {
+  align-self: center;
+  flex-shrink: 0;
+  color: #58a6ff;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .indexing-job-status {
   margin-bottom: 12px;
   padding: 12px;
