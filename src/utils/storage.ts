@@ -165,6 +165,23 @@ export function buildComparePermalink(
   return query ? `/?${query}` : "/";
 }
 
+export function buildTreeComparisonLink(
+  left: ComparePermalinkSide,
+  right: ComparePermalinkSide,
+): string {
+  let repoParam = "";
+  if (left.repo == right.repo) {
+    repoParam += "b=" + left.repo;
+  } else {
+    repoParam +=
+      "l=" + left.repo + "&r=" + right.repo;
+  }
+  const lc = left.inputRefName;
+  const rc = right.inputRefName;
+  repoParam += "&lc=" + lc + "&rc=" + rc;
+  return repoParam;
+}
+
 export function buildHistoryEntryPermalink(
   entry: IndexingHistoryEntry
 ): string {
