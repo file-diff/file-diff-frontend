@@ -622,7 +622,28 @@ export default function FileComparePage() {
   const leftHash = searchParams.get("leftHash") ?? "";
   const rightHash = searchParams.get("rightHash") ?? "";
   const filePath = searchParams.get("path") ?? "";
+  const requestedBackUrl = searchParams.get("back") ?? "";
   const initialTheme = searchParams.get("theme") ?? DEFAULT_SHIKI_THEME;
+  const backUrl = (() => {
+    if (typeof window === "undefined") {
+      return "/tree";
+    }
+
+    try {
+      const parsedBackUrl = new URL(requestedBackUrl, window.location.origin);
+
+      if (
+        parsedBackUrl.origin !== window.location.origin ||
+        parsedBackUrl.pathname !== "/tree"
+      ) {
+        return "/tree";
+      }
+
+      return `${parsedBackUrl.pathname}${parsedBackUrl.search}${parsedBackUrl.hash}`;
+    } catch {
+      return "/tree";
+    }
+  })();
 
   const [leftLines, setLeftLines] = useState<string[] | null>(null);
   const [rightLines, setRightLines] = useState<string[] | null>(null);
@@ -855,7 +876,7 @@ export default function FileComparePage() {
       <div className="page-header">
         <h1>📄 File Comparison</h1>
         {filePath && <p className="page-subtitle">{filePath}</p>}
-        <Link to="/tree" className="back-link">
+        <Link to={backUrl} className="back-link">
           ← Back to Tree Comparison
         </Link>
       </div>
