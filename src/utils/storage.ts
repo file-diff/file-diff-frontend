@@ -2,6 +2,8 @@ const LAST_PARAMS_STORAGE_KEY = "last-selected-params";
 const INDEXING_HISTORY_STORAGE_KEY = "indexing-parameter-history";
 const FONT_PREFERENCE_STORAGE_KEY = "code-font-preference";
 const TREE_COMPARE2_FILES_CACHE = "tree-compare2-files-v1";
+const TREE_COMPARE2_SHOW_UNCHANGED_STORAGE_KEY =
+  "tree-compare2-show-unchanged";
 
 export interface LastSelectedParams {
   leftRepo: string;
@@ -323,6 +325,7 @@ export async function clearAllStoredData(): Promise<void> {
     window.localStorage.removeItem(LAST_PARAMS_STORAGE_KEY);
     window.localStorage.removeItem(INDEXING_HISTORY_STORAGE_KEY);
     window.localStorage.removeItem(FONT_PREFERENCE_STORAGE_KEY);
+    window.localStorage.removeItem(TREE_COMPARE2_SHOW_UNCHANGED_STORAGE_KEY);
   } catch {
     return;
   }
@@ -349,6 +352,36 @@ export function readFontPreference(): string | null {
 export function writeFontPreference(fontId: string): void {
   try {
     window.localStorage.setItem(FONT_PREFERENCE_STORAGE_KEY, fontId);
+  } catch {
+    return;
+  }
+}
+
+export function readTreeCompare2ShowUnchanged(): boolean | null {
+  try {
+    const raw = window.localStorage.getItem(
+      TREE_COMPARE2_SHOW_UNCHANGED_STORAGE_KEY
+    );
+
+    if (raw === "true") {
+      return true;
+    }
+    if (raw === "false") {
+      return false;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeTreeCompare2ShowUnchanged(value: boolean): void {
+  try {
+    window.localStorage.setItem(
+      TREE_COMPARE2_SHOW_UNCHANGED_STORAGE_KEY,
+      String(value)
+    );
   } catch {
     return;
   }

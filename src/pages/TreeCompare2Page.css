@@ -10,3 +10,8 @@
   background: rgba(88, 166, 255, 0.08);
   color: #d4d4d4;
 }
+
+.tree-compare2-option {
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
