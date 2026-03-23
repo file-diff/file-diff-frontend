@@ -1,3 +1,23 @@
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell--tree-compare2 {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;
+}
+
+.app-main--tree-compare2 {
+  overflow: hidden;
+}
+
 .app-nav {
   display: flex;
   align-items: center;

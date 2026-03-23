@@ -1,9 +1,16 @@
 .tree-compare2-page {
-  min-height: 320px;
+  width: 100%;
+  max-width: none;
+  min-height: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .tree-compare2-loading {
-  margin-top: 16px;
   padding: 16px 18px;
   border: 1px solid #3b4a5a;
   border-radius: 6px;
@@ -11,7 +18,35 @@
   color: #d4d4d4;
 }
 
+.tree-compare2-page__layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tree-compare2-page__header {
+  flex-shrink: 0;
+}
+
 .tree-compare2-option {
   justify-content: flex-start;
   margin-bottom: 12px;
+}
+
+.tree-compare2-summary {
+  margin-bottom: 12px;
+}
+
+.tree-compare2-diff-result {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
+  overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tree-compare2-diff-result::-webkit-scrollbar {
+  display: none;
 }
