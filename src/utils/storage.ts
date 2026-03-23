@@ -184,8 +184,10 @@ export function buildTreeComparisonLink(
     }
   }
 
-  const leftCommit = left.resolvedCommit.trim() || left.inputRefName.trim();
-  const rightCommit = right.resolvedCommit.trim() || right.inputRefName.trim();
+  const leftCommit =
+    (left.resolvedCommit ?? "").trim() || (left.inputRefName ?? "").trim();
+  const rightCommit =
+    (right.resolvedCommit ?? "").trim() || (right.inputRefName ?? "").trim();
 
   if (leftCommit) {
     params.set("lc", leftCommit);
