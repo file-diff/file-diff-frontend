@@ -504,6 +504,18 @@ export default function TreeCompare2Page() {
               getRightDownloadUrl={(entry) =>
                 buildDownloadUrl(entry)
               }
+              leftSource={{
+                label: "Left",
+                repo: leftSummaryRepo,
+                revision: leftSummaryCommit,
+                rootPath: "/",
+              }}
+              rightSource={{
+                label: "Right",
+                repo: rightSummaryRepo,
+                revision: rightSummaryCommit,
+                rootPath: "/",
+              }}
               selectedPath={selectedPath}
               onSelectSlot={setSelectedPath}
             />
