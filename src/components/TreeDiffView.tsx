@@ -47,7 +47,7 @@ function formatSize(size: number): string {
 }
 
 function normalizeGitPath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+  return path.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\/+|\/+$/g, "");
 }
 
 function encodeGitPath(path: string): string {
@@ -375,7 +375,7 @@ export default function TreeDiffView({
                   className="tree-actions-modal__link"
                   href={activeActions.fileUrl}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                 >
                   Open file on GitHub
                 </a>
@@ -389,7 +389,7 @@ export default function TreeDiffView({
                   className="tree-actions-modal__link"
                   href={activeActions.historyUrl}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                 >
                   View file history
                 </a>
