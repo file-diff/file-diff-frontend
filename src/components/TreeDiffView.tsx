@@ -26,10 +26,16 @@ function formatSize(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function downloadSlot(i: number) {
+  return `slot-${i}`;
+}
+
 function EntryRow({
+  slotNo,
   entry,
   getDownloadUrl,
 }: {
+  slotNo: number;
   entry: DiffEntry | null;
   getDownloadUrl?: (entry: DiffEntry) => string;
 }) {
@@ -47,24 +53,18 @@ function EntryRow({
 
   return (
     <div className={`tree-row ${statusClass}`} title={entry.path}>
-      <span className="tree-entry" style={{ paddingLeft: `${indent}px` }}>
+      <span className="tree-entry" style={{paddingLeft: `${indent}px`}}>
         <span className="tree-icon">{icon}</span>
         <span className="tree-name">{entry.name}</span>
       </span>
+      <div style={{display: "flex", flex: 1}}></div>
       <span className="tree-meta">
         {sizeStr && <span className="tree-size">{sizeStr}</span>}
         {hashStr && <span className="tree-hash">{hashStr.slice(0, 8)}</span>}
         {entry.fileType !== "d" && (
           downloadUrl ? (
-            <a
-              className="tree-download"
-              href={downloadUrl}
-              download={entry.name}
-              aria-label={`Download ${entry.path}`}
-              title={`Download ${entry.path}`}
-            >
-              ⭳
-            </a>
+            <button onClick={ () => downloadSlot(slotNo)}>D</button>
+
           ) : (
             <span
               className="tree-download tree-download--disabled"
@@ -151,15 +151,18 @@ export default function TreeDiffView({
 
           return (
             <div
-              className={`tree-diff__slot${isSelected ? " tree-diff__slot--selected" : ""}`}
+              className={"tree-diff__slot"}
               key={slotPath || `slot-${i}`}
               ref={isSelected ? selectedRef : undefined}
               onClick={() => onSelectSlot?.(slotPath)}
             >
-              <span>{slot.no}</span>
+
+              <div className="tree-diff__number">
+                {slot.no}
+              </div>
 
               <div className="tree-diff__column">
-                <EntryRow entry={slot.left} getDownloadUrl={getLeftDownloadUrl} />
+                <EntryRow slotNo={slot.no} entry={slot.left} getDownloadUrl={getLeftDownloadUrl} />
               </div>
               {compareUrl ? (
                 <Link
@@ -174,6 +177,7 @@ export default function TreeDiffView({
               )}
               <div className="tree-diff__column">
                 <EntryRow
+                  slotNo={slot.no}
                   entry={slot.right}
                   getDownloadUrl={getRightDownloadUrl}
                 />

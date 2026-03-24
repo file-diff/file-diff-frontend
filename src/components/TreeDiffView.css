@@ -33,16 +33,21 @@
 .tree-diff__slot {
   display: flex;
   cursor: pointer;
-}
-
-.tree-diff__slot--selected {
-  outline: 2px solid #58a6ff;
-  outline-offset: -2px;
+  position: relative;
 }
 
 .tree-diff__column {
   flex: 1;
   min-width: 0;
+}
+.tree-diff__number {
+  width: 40px;
+  border-right: 1px solid #333;
+  text-align: right;
+  align-content: center;
+  padding-right: 3px;
+  color: #888;
+  font-size: 12px;
 }
 
 .tree-diff__slot .tree-diff__column:first-child {
@@ -90,6 +95,13 @@
   margin-right: 6px;
   font-size: 14px;
   width: 18px;
+}
+.tree-number {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  width: 10px;
+  border-right: 1px solid #333;
 }
 
 .tree-entry {
