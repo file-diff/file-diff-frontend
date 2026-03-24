@@ -1098,6 +1098,18 @@ export default function TreeComparePage() {
             getRightDownloadUrl={(entry) =>
               buildDownloadUrl(rightDownloadJobId, entry)
             }
+            leftSource={{
+              label: "Left",
+              repo: leftRepo,
+              revision: leftCurrentCommit,
+              rootPath: activeLeftRoot,
+            }}
+            rightSource={{
+              label: "Right",
+              repo: rightRepo,
+              revision: rightCurrentCommit,
+              rootPath: activeRightRoot,
+            }}
           />
         </div>
       )}
