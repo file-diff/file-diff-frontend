@@ -246,20 +246,29 @@ function buildFileCompareUrl(
   if (backUrl) {
     params.set("back", backUrl);
   }
-  if (leftEntry.hash && leftEntry.hash !== "N/A") {
+  if (isValidHash(leftEntry.hash)) {
     params.set("leftHash", leftEntry.hash);
   }
-  if (rightEntry.hash && rightEntry.hash !== "N/A") {
+  if (isValidHash(rightEntry.hash)) {
     params.set("rightHash", rightEntry.hash);
   }
   return `/files?${params.toString()}`;
 }
 
-function isTextComparisonSelection(
-  entry: DiffEntry,
-  downloadUrl: string
-): boolean {
+function isValidHash(hash: string): boolean {
+  return Boolean(hash) && hash !== "N/A";
+}
+
+function canCompareTextFile(entry: DiffEntry, downloadUrl: string): boolean {
   return entry.fileType === "t" && Boolean(downloadUrl);
+}
+
+function isSelectedCompareEntry(
+  selectedEntry: TreeCompareSelection | null,
+  side: TreeDiffSide,
+  path: string | undefined
+): boolean {
+  return selectedEntry?.side === side && selectedEntry.path === path;
 }
 
 function buildSelectedFileCompareUrl(
@@ -291,10 +300,10 @@ function buildSelectedFileCompareUrl(
   if (backUrl) {
     params.set("back", backUrl);
   }
-  if (leftFile.hash && leftFile.hash !== "N/A") {
+  if (isValidHash(leftFile.hash)) {
     params.set("leftHash", leftFile.hash);
   }
-  if (rightFile.hash && rightFile.hash !== "N/A") {
+  if (isValidHash(rightFile.hash)) {
     params.set("rightHash", rightFile.hash);
   }
 
@@ -309,7 +318,7 @@ function buildTreeCompareSelection(
 ): TreeCompareSelection | null {
   const downloadUrl = getDownloadUrl?.(entry) ?? "";
 
-  if (!isTextComparisonSelection(entry, downloadUrl)) {
+  if (!canCompareTextFile(entry, downloadUrl)) {
     return null;
   }
 
@@ -452,10 +461,11 @@ export default function TreeDiffView({
                   getDownloadUrl={getLeftDownloadUrl}
                   source={leftSource}
                   side="left"
-                  isCompareSelected={
-                    selectedCompareEntry?.side === "left" &&
-                    selectedCompareEntry.path === slot.left?.path
-                    }
+                  isCompareSelected={isSelectedCompareEntry(
+                    selectedCompareEntry,
+                    "left",
+                    slot.left?.path
+                  )}
                     onOpenActions={setActiveActions}
                   />
                 </div>
@@ -476,10 +486,11 @@ export default function TreeDiffView({
                   getDownloadUrl={getRightDownloadUrl}
                   source={rightSource}
                   side="right"
-                  isCompareSelected={
-                    selectedCompareEntry?.side === "right" &&
-                    selectedCompareEntry.path === slot.right?.path
-                    }
+                  isCompareSelected={isSelectedCompareEntry(
+                    selectedCompareEntry,
+                    "right",
+                    slot.right?.path
+                  )}
                     onOpenActions={setActiveActions}
                   />
                 </div>
