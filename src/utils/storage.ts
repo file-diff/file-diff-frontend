@@ -461,7 +461,9 @@ export function writeTreeCompare2FileNameFilterEnabled(value: boolean): void {
 
 export function readTreeCompare2FileNameFilterValue(): string | null {
   try {
-    return window.localStorage.getItem(TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY);
+    return window.localStorage.getItem(
+      TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY
+    );
   } catch {
     return null;
   }
@@ -469,7 +471,10 @@ export function readTreeCompare2FileNameFilterValue(): string | null {
 
 export function writeTreeCompare2FileNameFilterValue(value: string): void {
   try {
-    window.localStorage.setItem(TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY, value);
+    window.localStorage.setItem(
+      TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY,
+      value
+    );
   } catch {
     return;
   }

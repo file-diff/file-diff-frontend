@@ -30,6 +30,9 @@ import "./TreeCompare2Page.css";
 const TREE_COMPARE2_FILES_CACHE = "tree-compare2-files-v1";
 const GITHUB_REPO_SEGMENT_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 const GITHUB_COMMIT_PATTERN = /^[0-9a-fA-F]{7,40}$/;
+// Keep fuzzy matches reasonably strict so short filename queries narrow the tree
+// without pulling in unrelated paths.
+const FILE_NAME_FILTER_FUSE_THRESHOLD = 0.35;
 
 interface JobRequest {
   repo: string;
@@ -90,19 +93,24 @@ function filterUnchangedSlots(
   });
 }
 
-function collectAncestorPaths(path: string): string[] {
+function collectVisibleFilterPaths(path: string): string[] {
   const segments = path.split("/").filter(Boolean);
-  const ancestors: string[] = [];
+  const visiblePaths: string[] = [];
 
   for (let i = 1; i <= segments.length; i += 1) {
-    ancestors.push(segments.slice(0, i).join("/"));
+    visiblePaths.push(segments.slice(0, i).join("/"));
   }
 
-  return ancestors;
+  return visiblePaths;
 }
 
 function filterSlotsByFileName(
   slots: ComparisonSlot[],
+  fileNameFilterFuse: Fuse<{
+    entry: DiffEntry | null;
+    name: string;
+    path: string;
+  }> | null,
   fileNameFilterEnabled: boolean,
   fileNameFilterValue: string
 ): ComparisonSlot[] {
@@ -115,29 +123,13 @@ function filterSlotsByFileName(
     return slots;
   }
 
-  const fuse = new Fuse(
-    slots.map((slot) => {
-      const entry = slot.left ?? slot.right;
-
-      return {
-        entry,
-        name: entry?.name ?? "",
-        path: entry?.path ?? "",
-      };
-    }),
-    {
-      includeScore: true,
-      keys: [
-        { name: "name", weight: 0.8 },
-        { name: "path", weight: 0.2 },
-      ],
-      threshold: 0.35,
-    }
-  );
+  if (!fileNameFilterFuse) {
+    return slots;
+  }
 
   const includedPaths = new Set(
-    fuse.search(query).flatMap(({ item }) =>
-      item.entry ? collectAncestorPaths(item.entry.path) : []
+    fileNameFilterFuse.search(query).flatMap(({ item }) =>
+      item.entry ? collectVisibleFilterPaths(item.entry.path) : []
     )
   );
 
@@ -456,13 +448,44 @@ export default function TreeCompare2Page() {
       return null;
     }
 
-    const unchangedFilteredDiff = filterUnchangedSlots(diff, showUnchanged);
+    return filterUnchangedSlots(diff, showUnchanged);
+  }, [diff, showUnchanged]);
+  const fileNameFilterFuse = useMemo(() => {
+    if (!visibleDiff) {
+      return null;
+    }
+
+    return new Fuse(
+      visibleDiff.map((slot) => {
+        const entry = slot.left ?? slot.right;
+
+        return {
+          entry,
+          name: entry?.name ?? "",
+          path: entry?.path ?? "",
+        };
+      }),
+      {
+        keys: [
+          { name: "name", weight: 0.8 },
+          { name: "path", weight: 0.2 },
+        ],
+        threshold: FILE_NAME_FILTER_FUSE_THRESHOLD,
+      }
+    );
+  }, [visibleDiff]);
+  const filteredDiff = useMemo(() => {
+    if (!visibleDiff) {
+      return null;
+    }
+
     return filterSlotsByFileName(
-      unchangedFilteredDiff,
+      visibleDiff,
+      fileNameFilterFuse,
       fileNameFilterEnabled,
       fileNameFilterValue
     );
-  }, [diff, fileNameFilterEnabled, fileNameFilterValue, showUnchanged]);
+  }, [fileNameFilterEnabled, fileNameFilterFuse, fileNameFilterValue, visibleDiff]);
 
   useEffect(() => {
     writeTreeCompare2ShowUnchanged(showUnchanged);
@@ -620,7 +643,7 @@ export default function TreeCompare2Page() {
           </div>
           <div className="diff-result tree-compare2-diff-result">
             <TreeDiffView
-              slots={visibleDiff ?? diff}
+              slots={filteredDiff ?? visibleDiff ?? diff}
               getLeftDownloadUrl={(entry) =>
                 buildDownloadUrl(entry)
               }
