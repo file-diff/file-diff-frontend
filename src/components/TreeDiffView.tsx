@@ -23,12 +23,21 @@ interface TreeDiffSource {
   rootPath?: string;
 }
 
-interface TreeEntryActionsState {
+type TreeDiffSide = "left" | "right";
+
+interface TreeCompareSelection {
+  side: TreeDiffSide;
+  path: string;
   sourceLabel: string;
   displayPath: string;
+  hash: string;
+  downloadUrl: string;
+}
+
+interface TreeEntryActionsState extends TreeCompareSelection {
+  fileType: DiffEntry["fileType"];
   fileUrl: string;
   historyUrl: string;
-  downloadUrl: string;
 }
 
 const fileTypeIcon: Record<string, string> = {
@@ -124,11 +133,15 @@ function EntryRow({
   entry,
   getDownloadUrl,
   source,
+  side,
+  isCompareSelected,
   onOpenActions,
 }: {
   entry: DiffEntry | null;
   getDownloadUrl?: (entry: DiffEntry) => string;
   source?: TreeDiffSource;
+  side: TreeDiffSide;
+  isCompareSelected?: boolean;
   onOpenActions?: (actions: TreeEntryActionsState) => void;
 }) {
   if (!entry) {
@@ -162,7 +175,10 @@ function EntryRow({
   const hasActions = Boolean(fileUrl || historyUrl || downloadUrl);
 
   return (
-    <div className={`tree-row ${statusClass}`} title={entry.path}>
+    <div
+      className={`tree-row ${statusClass}${isCompareSelected ? " tree-row--compare-selected" : ""}`}
+      title={entry.path}
+    >
       <span className="tree-entry" style={{paddingLeft: `${indent}px`}}>
         <span className="tree-icon">{icon}</span>
         <span className="tree-name">{entry.name}</span>
@@ -179,8 +195,12 @@ function EntryRow({
               onClick={(event) => {
                 event.stopPropagation();
                 onOpenActions?.({
+                  side,
+                  path: entry.path,
                   sourceLabel: source?.label ?? "File",
                   displayPath: displayPath || entry.path,
+                  hash: entry.hash,
+                  fileType: entry.fileType,
                   fileUrl,
                   historyUrl,
                   downloadUrl,
@@ -226,13 +246,123 @@ function buildFileCompareUrl(
   if (backUrl) {
     params.set("back", backUrl);
   }
-  if (leftEntry.hash && leftEntry.hash !== "N/A") {
+  if (isValidHash(leftEntry.hash)) {
     params.set("leftHash", leftEntry.hash);
   }
-  if (rightEntry.hash && rightEntry.hash !== "N/A") {
+  if (isValidHash(rightEntry.hash)) {
     params.set("rightHash", rightEntry.hash);
   }
   return `/files?${params.toString()}`;
+}
+
+function isValidHash(hash: string): boolean {
+  return Boolean(hash) && hash !== "N/A";
+}
+
+function canCompareTextFile(entry: DiffEntry, downloadUrl: string): boolean {
+  return entry.fileType === "t" && Boolean(downloadUrl);
+}
+
+function isSelectedCompareEntry(
+  selectedEntry: TreeCompareSelection | null,
+  side: TreeDiffSide,
+  path: string | undefined
+): boolean {
+  return selectedEntry?.side === side && selectedEntry.path === path;
+}
+
+function buildSelectedFileCompareUrl(
+  selectedEntry: TreeCompareSelection,
+  currentEntry: TreeCompareSelection,
+  backUrl?: string
+): string | null {
+  if (!selectedEntry.downloadUrl || !currentEntry.downloadUrl) {
+    return null;
+  }
+
+  let leftFile = selectedEntry;
+  let rightFile = currentEntry;
+
+  if (selectedEntry.side !== currentEntry.side) {
+    leftFile = selectedEntry.side === "left" ? selectedEntry : currentEntry;
+    rightFile = selectedEntry.side === "right" ? selectedEntry : currentEntry;
+  }
+
+  const params = new URLSearchParams();
+  params.set("leftUrl", leftFile.downloadUrl);
+  params.set("rightUrl", rightFile.downloadUrl);
+  params.set(
+    "path",
+    leftFile.displayPath === rightFile.displayPath
+      ? leftFile.displayPath
+      : `${leftFile.displayPath} ↔ ${rightFile.displayPath}`
+  );
+  if (backUrl) {
+    params.set("back", backUrl);
+  }
+  if (isValidHash(leftFile.hash)) {
+    params.set("leftHash", leftFile.hash);
+  }
+  if (isValidHash(rightFile.hash)) {
+    params.set("rightHash", rightFile.hash);
+  }
+
+  return `/files?${params.toString()}`;
+}
+
+function buildTreeCompareSelection(
+  side: TreeDiffSide,
+  entry: DiffEntry,
+  source: TreeDiffSource | undefined,
+  getDownloadUrl: ((entry: DiffEntry) => string) | undefined
+): TreeCompareSelection | null {
+  const downloadUrl = getDownloadUrl?.(entry) ?? "";
+
+  if (!canCompareTextFile(entry, downloadUrl)) {
+    return null;
+  }
+
+  return {
+    side,
+    path: entry.path,
+    sourceLabel: source?.label ?? (side === "left" ? "Left" : "Right"),
+    displayPath: buildRepositoryFilePath(source?.rootPath, entry.path) || entry.path,
+    hash: entry.hash,
+    downloadUrl,
+  };
+}
+
+function restoreTreeCompareSelection(
+  search: string,
+  slots: ComparisonSlot[],
+  leftSource: TreeDiffSource | undefined,
+  rightSource: TreeDiffSource | undefined,
+  getLeftDownloadUrl: ((entry: DiffEntry) => string) | undefined,
+  getRightDownloadUrl: ((entry: DiffEntry) => string) | undefined
+): TreeCompareSelection | null {
+  const params = new URLSearchParams(search);
+  const side = params.get("compareSelectedSide");
+  const path = params.get("compareSelectedPath")?.trim() ?? "";
+
+  if ((side !== "left" && side !== "right") || !path) {
+    return null;
+  }
+
+  for (const slot of slots) {
+    const entry = side === "left" ? slot.left : slot.right;
+    if (!entry || entry.path !== path) {
+      continue;
+    }
+
+    return buildTreeCompareSelection(
+      side,
+      entry,
+      side === "left" ? leftSource : rightSource,
+      side === "left" ? getLeftDownloadUrl : getRightDownloadUrl
+    );
+  }
+
+  return null;
 }
 
 export default function TreeDiffView({
@@ -246,6 +376,17 @@ export default function TreeDiffView({
 }: TreeDiffViewProps) {
   const location = useLocation();
   const selectedRef = useRef<HTMLDivElement | null>(null);
+  const [selectedCompareEntry, setSelectedCompareEntry] =
+    useState<TreeCompareSelection | null>(() =>
+      restoreTreeCompareSelection(
+        location.search,
+        slots,
+        leftSource,
+        rightSource,
+        getLeftDownloadUrl,
+        getRightDownloadUrl
+      )
+    );
   const [activeActions, setActiveActions] = useState<TreeEntryActionsState | null>(
     null
   );
@@ -284,6 +425,13 @@ export default function TreeDiffView({
             } else {
               backParams.delete("selectedPath");
             }
+            if (selectedCompareEntry) {
+              backParams.set("compareSelectedSide", selectedCompareEntry.side);
+              backParams.set("compareSelectedPath", selectedCompareEntry.path);
+            } else {
+              backParams.delete("compareSelectedSide");
+              backParams.delete("compareSelectedPath");
+            }
             const backUrl = `${location.pathname}?${backParams.toString()}`;
             const compareUrl =
               slot.left && slot.right
@@ -307,11 +455,17 @@ export default function TreeDiffView({
                   {slot.no}
                 </div>
 
-                <div className="tree-diff__column">
-                  <EntryRow
-                    entry={slot.left}
-                    getDownloadUrl={getLeftDownloadUrl}
-                    source={leftSource}
+              <div className="tree-diff__column">
+                <EntryRow
+                  entry={slot.left}
+                  getDownloadUrl={getLeftDownloadUrl}
+                  source={leftSource}
+                  side="left"
+                  isCompareSelected={isSelectedCompareEntry(
+                    selectedCompareEntry,
+                    "left",
+                    slot.left?.path
+                  )}
                     onOpenActions={setActiveActions}
                   />
                 </div>
@@ -326,11 +480,17 @@ export default function TreeDiffView({
                 ) : (
                   <span className="tree-diff__compare-link tree-diff__compare-link--disabled" />
                 )}
-                <div className="tree-diff__column">
-                  <EntryRow
-                    entry={slot.right}
-                    getDownloadUrl={getRightDownloadUrl}
-                    source={rightSource}
+              <div className="tree-diff__column">
+                <EntryRow
+                  entry={slot.right}
+                  getDownloadUrl={getRightDownloadUrl}
+                  source={rightSource}
+                  side="right"
+                  isCompareSelected={isSelectedCompareEntry(
+                    selectedCompareEntry,
+                    "right",
+                    slot.right?.path
+                  )}
                     onOpenActions={setActiveActions}
                   />
                 </div>
@@ -340,6 +500,34 @@ export default function TreeDiffView({
         </div>
       </div>
       {activeActions && (
+        (() => {
+          const isCurrentSelected =
+            selectedCompareEntry?.side === activeActions.side &&
+            selectedCompareEntry.path === activeActions.path;
+          const canSelectCurrentEntry =
+            activeActions.fileType === "t" && Boolean(activeActions.downloadUrl);
+          const compareBackParams = new URLSearchParams(location.search);
+          compareBackParams.set("selectedPath", activeActions.path);
+          if (selectedCompareEntry) {
+            compareBackParams.set("compareSelectedSide", selectedCompareEntry.side);
+            compareBackParams.set("compareSelectedPath", selectedCompareEntry.path);
+          } else {
+            compareBackParams.delete("compareSelectedSide");
+            compareBackParams.delete("compareSelectedPath");
+          }
+          const compareWithSelectedUrl =
+            selectedCompareEntry && canSelectCurrentEntry && !isCurrentSelected
+              ? buildSelectedFileCompareUrl(
+                  selectedCompareEntry,
+                  activeActions,
+                  `${location.pathname}?${compareBackParams.toString()}`
+                )
+              : null;
+          const selectedCompareLabel = selectedCompareEntry
+            ? `${selectedCompareEntry.sourceLabel}: ${selectedCompareEntry.displayPath}`
+            : "";
+
+          return (
         <div
           className="tree-actions-modal"
           role="presentation"
@@ -410,9 +598,57 @@ export default function TreeDiffView({
                   Download unavailable
                 </span>
               )}
+              {canSelectCurrentEntry ? (
+                <button
+                  type="button"
+                  className="tree-actions-modal__link tree-actions-modal__button"
+                  onClick={() => {
+                    setSelectedCompareEntry(activeActions);
+                    setActiveActions(null);
+                  }}
+                >
+                  {selectedCompareEntry?.side === activeActions.side &&
+                  selectedCompareEntry.path === activeActions.path
+                    ? "Selected for comparison"
+                    : "Select for comparison"}
+                </button>
+              ) : (
+                <span className="tree-actions-modal__link tree-actions-modal__link--disabled">
+                  Selection unavailable
+                </span>
+              )}
+              {compareWithSelectedUrl ? (
+                <Link
+                  className="tree-actions-modal__link"
+                  to={compareWithSelectedUrl}
+                  onClick={() => setActiveActions(null)}
+                >
+                  Compare with selected
+                  <span className="tree-actions-modal__link-detail">
+                    {selectedCompareLabel}
+                  </span>
+                </Link>
+              ) : selectedCompareEntry ? (
+                <button
+                  type="button"
+                  className="tree-actions-modal__link tree-actions-modal__button"
+                  onClick={() => {
+                    setSelectedCompareEntry(null);
+                    setActiveActions(null);
+                  }}
+                >
+                  Clear selected file
+                </button>
+              ) : (
+                <span className="tree-actions-modal__link tree-actions-modal__link--disabled">
+                  Select another text file to compare
+                </span>
+              )}
             </div>
           </div>
         </div>
+          );
+        })()
       )}
     </>
   );
