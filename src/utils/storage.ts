@@ -4,6 +4,10 @@ const FONT_PREFERENCE_STORAGE_KEY = "code-font-preference";
 const TREE_COMPARE2_FILES_CACHE = "tree-compare2-files-v1";
 const TREE_COMPARE2_SHOW_UNCHANGED_STORAGE_KEY =
   "tree-compare2-show-unchanged";
+const TREE_COMPARE2_FILE_NAME_FILTER_ENABLED_STORAGE_KEY =
+  "tree-compare2-file-name-filter-enabled";
+const TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY =
+  "tree-compare2-file-name-filter-value";
 
 export interface LastSelectedParams {
   leftRepo: string;
@@ -360,6 +364,10 @@ export async function clearAllStoredData(): Promise<void> {
     window.localStorage.removeItem(INDEXING_HISTORY_STORAGE_KEY);
     window.localStorage.removeItem(FONT_PREFERENCE_STORAGE_KEY);
     window.localStorage.removeItem(TREE_COMPARE2_SHOW_UNCHANGED_STORAGE_KEY);
+    window.localStorage.removeItem(
+      TREE_COMPARE2_FILE_NAME_FILTER_ENABLED_STORAGE_KEY
+    );
+    window.localStorage.removeItem(TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY);
   } catch {
     return;
   }
@@ -416,6 +424,52 @@ export function writeTreeCompare2ShowUnchanged(value: boolean): void {
       TREE_COMPARE2_SHOW_UNCHANGED_STORAGE_KEY,
       String(value)
     );
+  } catch {
+    return;
+  }
+}
+
+export function readTreeCompare2FileNameFilterEnabled(): boolean | null {
+  try {
+    const raw = window.localStorage.getItem(
+      TREE_COMPARE2_FILE_NAME_FILTER_ENABLED_STORAGE_KEY
+    );
+
+    if (raw === "true") {
+      return true;
+    }
+    if (raw === "false") {
+      return false;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeTreeCompare2FileNameFilterEnabled(value: boolean): void {
+  try {
+    window.localStorage.setItem(
+      TREE_COMPARE2_FILE_NAME_FILTER_ENABLED_STORAGE_KEY,
+      String(value)
+    );
+  } catch {
+    return;
+  }
+}
+
+export function readTreeCompare2FileNameFilterValue(): string | null {
+  try {
+    return window.localStorage.getItem(TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeTreeCompare2FileNameFilterValue(value: string): void {
+  try {
+    window.localStorage.setItem(TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY, value);
   } catch {
     return;
   }

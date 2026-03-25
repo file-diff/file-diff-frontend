@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Fuse from "fuse.js";
 import { useSearchParams } from "react-router-dom";
 import TreeDiffView from "../components/TreeDiffView";
 import {
@@ -9,9 +10,18 @@ import {
   deserializeJobFilesResponse,
 } from "../utils/binaryDeserializer";
 import { diffCsv, parseJobFilesResponse } from "../utils/fileDiffParser.ts";
-import type { CsvEntry, DiffEntry, JobFilesResponse } from "../utils/fileDiffParser.ts";
+import type {
+  ComparisonSlot,
+  CsvEntry,
+  DiffEntry,
+  JobFilesResponse,
+} from "../utils/fileDiffParser.ts";
 import {
+  readTreeCompare2FileNameFilterEnabled,
+  readTreeCompare2FileNameFilterValue,
   readTreeCompare2ShowUnchanged,
+  writeTreeCompare2FileNameFilterEnabled,
+  writeTreeCompare2FileNameFilterValue,
   writeTreeCompare2ShowUnchanged,
 } from "../utils/storage";
 import "./TreeComparePage.css";
@@ -46,9 +56,9 @@ function isDirectoryPath(path: string, directoryPath: string): boolean {
 }
 
 function filterUnchangedSlots(
-  slots: ReturnType<typeof diffCsv>,
+  slots: ComparisonSlot[],
   showUnchanged: boolean
-): ReturnType<typeof diffCsv> {
+): ComparisonSlot[] {
   if (showUnchanged) {
     return slots;
   }
@@ -77,6 +87,67 @@ function filterUnchangedSlots(
     }
 
     return changedPaths.some((path) => isDirectoryPath(path, entry.path));
+  });
+}
+
+function collectAncestorPaths(path: string): string[] {
+  const segments = path.split("/").filter(Boolean);
+  const ancestors: string[] = [];
+
+  for (let i = 1; i <= segments.length; i += 1) {
+    ancestors.push(segments.slice(0, i).join("/"));
+  }
+
+  return ancestors;
+}
+
+function filterSlotsByFileName(
+  slots: ComparisonSlot[],
+  fileNameFilterEnabled: boolean,
+  fileNameFilterValue: string
+): ComparisonSlot[] {
+  if (!fileNameFilterEnabled) {
+    return slots;
+  }
+
+  const query = fileNameFilterValue.trim();
+  if (!query) {
+    return slots;
+  }
+
+  const fuse = new Fuse(
+    slots.map((slot) => {
+      const entry = slot.left ?? slot.right;
+
+      return {
+        entry,
+        name: entry?.name ?? "",
+        path: entry?.path ?? "",
+      };
+    }),
+    {
+      includeScore: true,
+      keys: [
+        { name: "name", weight: 0.8 },
+        { name: "path", weight: 0.2 },
+      ],
+      threshold: 0.35,
+    }
+  );
+
+  const includedPaths = new Set(
+    fuse.search(query).flatMap(({ item }) =>
+      item.entry ? collectAncestorPaths(item.entry.path) : []
+    )
+  );
+
+  return slots.filter((slot) => {
+    const entry = slot.left ?? slot.right;
+    if (!entry) {
+      return false;
+    }
+
+    return includedPaths.has(entry.path);
   });
 }
 
@@ -295,6 +366,12 @@ export default function TreeCompare2Page() {
   const [showUnchanged, setShowUnchanged] = useState(
     () => readTreeCompare2ShowUnchanged() ?? true
   );
+  const [fileNameFilterEnabled, setFileNameFilterEnabled] = useState(
+    () => readTreeCompare2FileNameFilterEnabled() ?? false
+  );
+  const [fileNameFilterValue, setFileNameFilterValue] = useState(
+    () => readTreeCompare2FileNameFilterValue() ?? ""
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -374,14 +451,30 @@ export default function TreeCompare2Page() {
       return null;
     }
   }, [compareData]);
-  const visibleDiff = useMemo(
-    () => (diff ? filterUnchangedSlots(diff, showUnchanged) : null),
-    [diff, showUnchanged]
-  );
+  const visibleDiff = useMemo(() => {
+    if (!diff) {
+      return null;
+    }
+
+    const unchangedFilteredDiff = filterUnchangedSlots(diff, showUnchanged);
+    return filterSlotsByFileName(
+      unchangedFilteredDiff,
+      fileNameFilterEnabled,
+      fileNameFilterValue
+    );
+  }, [diff, fileNameFilterEnabled, fileNameFilterValue, showUnchanged]);
 
   useEffect(() => {
     writeTreeCompare2ShowUnchanged(showUnchanged);
   }, [showUnchanged]);
+
+  useEffect(() => {
+    writeTreeCompare2FileNameFilterEnabled(fileNameFilterEnabled);
+  }, [fileNameFilterEnabled]);
+
+  useEffect(() => {
+    writeTreeCompare2FileNameFilterValue(fileNameFilterValue);
+  }, [fileNameFilterValue]);
 
   const leftSummaryRepo = firstNonEmptyString(
     compareData?.left.repo,
@@ -424,15 +517,45 @@ export default function TreeCompare2Page() {
       {!isLoading && compareData && diff && (
         <div className="tree-compare2-page__layout">
           <div className="tree-compare2-page__header">
-          <label className="sort-option tree-compare2-option" htmlFor="show-unchanged">
-            <input
-              id="show-unchanged"
-              type="checkbox"
-              checked={showUnchanged}
-              onChange={(e) => setShowUnchanged(e.target.checked)}
-            />
-            Show unchanged files
-          </label>
+            <div className="tree-compare2-controls">
+              <label
+                className="sort-option tree-compare2-option"
+                htmlFor="show-unchanged"
+              >
+                <input
+                  id="show-unchanged"
+                  type="checkbox"
+                  checked={showUnchanged}
+                  onChange={(e) => setShowUnchanged(e.target.checked)}
+                />
+                Show unchanged files
+              </label>
+
+              <div className="tree-compare2-file-filter">
+                <label
+                  className="sort-option tree-compare2-option"
+                  htmlFor="file-name-filter-enabled"
+                >
+                  <input
+                    id="file-name-filter-enabled"
+                    type="checkbox"
+                    checked={fileNameFilterEnabled}
+                    onChange={(e) => setFileNameFilterEnabled(e.target.checked)}
+                  />
+                  Filter file name
+                </label>
+                <input
+                  id="file-name-filter-input"
+                  className="tree-compare2-file-filter__input"
+                  type="text"
+                  value={fileNameFilterValue}
+                  onChange={(e) => setFileNameFilterValue(e.target.value)}
+                  placeholder="package.json"
+                  spellCheck={false}
+                  disabled={!fileNameFilterEnabled}
+                />
+              </div>
+            </div>
 
             <div className="compare-summary tree-compare2-summary">
               <div className="compare-summary__side">
