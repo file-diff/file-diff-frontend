@@ -343,6 +343,27 @@ export default function RepositoryBrowserPage() {
                         {formatCommitDate(entry.date)}
                       </span>
                     </div>
+                    {entry.parents.length > 0 && (
+                      <div className="repo-browser__commit-parents">
+                        <span className="repo-browser__commit-parents-label">
+                          Parent{entry.parents.length !== 1 ? "s" : ""}
+                        </span>
+                        <div className="repo-browser__commit-parents-list">
+                          {entry.parents.map((parent) => (
+                            <a
+                              key={parent}
+                              href={buildGitHubCommitUrl(loadedRepo, parent)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="repo-browser__commit-parent"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {parent.slice(0, 7)}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="repo-browser__commit-badges">
                     {entry.branch && (
