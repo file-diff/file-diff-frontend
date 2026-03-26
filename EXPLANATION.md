@@ -6,7 +6,7 @@ repository and call out the lack of Python automation here.
 
 ## Python scripts
 
-- No `*.py` files are present in `/home/runner/work/file-diff-frontend/file-diff-frontend`.
+- No `*.py` files are present in this repository.
 - If you were expecting Python helpers from the main `file-diff` project, they
   are not part of this frontend repository clone.
 
