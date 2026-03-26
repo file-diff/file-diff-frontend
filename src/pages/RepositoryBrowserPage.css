@@ -265,6 +265,35 @@
   font-size: 0.8rem;
 }
 
+.repo-browser__commit-parents {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.78rem;
+}
+
+.repo-browser__commit-parents-label {
+  color: #8b949e;
+}
+
+.repo-browser__commit-parents-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.repo-browser__commit-parent {
+  color: #7ee787;
+  text-decoration: none;
+  font-family: var(--code-font-family);
+}
+
+.repo-browser__commit-parent:hover {
+  text-decoration: underline;
+}
+
 .repo-browser__commit-sha {
   color: #7ee787;
   text-decoration: none;
