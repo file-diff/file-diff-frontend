@@ -110,14 +110,14 @@ export default function RepositoryBrowserPage() {
 
   useEffect(() => {
     const repo = resolveRepoInput(queryRepo);
-    if (!repo || autoLoadedRepoRef.current === repo || loadedRepo === repo) {
+    if (!repo || autoLoadedRepoRef.current === repo) {
       return;
     }
 
     autoLoadedRepoRef.current = repo;
     setRepoInput(repo);
     void loadCommitsForRepo(repo);
-  }, [loadCommitsForRepo, loadedRepo, queryRepo, resolveRepoInput]);
+  }, [loadCommitsForRepo, queryRepo, resolveRepoInput]);
 
   useEffect(() => {
     return () => {
