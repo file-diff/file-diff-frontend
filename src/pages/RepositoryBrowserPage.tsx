@@ -39,6 +39,7 @@ export default function RepositoryBrowserPage() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoLoadedRepoRef = useRef<string>("");
+  const currentSearchRef = useRef(searchParams.toString());
 
   const resolveRepoInput = useCallback((input: string): string => {
     const trimmed = input.trim();
@@ -75,7 +76,7 @@ export default function RepositoryBrowserPage() {
       setCommits(result);
       setLoadedRepo(repo);
 
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(currentSearchRef.current);
       params.set("repo", repo);
       setSearchParams(params, { replace: true });
     } catch (err) {
@@ -92,6 +93,10 @@ export default function RepositoryBrowserPage() {
     }
   }, [setSearchParams]);
 
+  useEffect(() => {
+    currentSearchRef.current = searchParams.toString();
+  }, [searchParams]);
+
   const handleLoadCommits = useCallback(async () => {
     const repo = resolveRepoInput(repoInput);
     if (!repo) {
@@ -105,14 +110,14 @@ export default function RepositoryBrowserPage() {
 
   useEffect(() => {
     const repo = resolveRepoInput(queryRepo);
-    if (!repo || autoLoadedRepoRef.current === repo) {
+    if (!repo || autoLoadedRepoRef.current === repo || loadedRepo === repo) {
       return;
     }
 
     autoLoadedRepoRef.current = repo;
     setRepoInput(repo);
     void loadCommitsForRepo(repo);
-  }, [loadCommitsForRepo, queryRepo, resolveRepoInput]);
+  }, [loadCommitsForRepo, loadedRepo, queryRepo, resolveRepoInput]);
 
   useEffect(() => {
     return () => {
