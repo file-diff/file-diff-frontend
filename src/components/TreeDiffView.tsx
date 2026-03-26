@@ -470,6 +470,36 @@ export default function TreeDiffView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeActions]);
 
+  const handleCompareEntrySelect = (
+    event: MouseEvent<HTMLButtonElement>,
+    currentEntry: TreeCompareSelection,
+    backUrl: string
+  ): void => {
+    const isCurrentSelected =
+      selectedCompareEntry?.side === currentEntry.side &&
+      selectedCompareEntry.path === currentEntry.path;
+
+    if (isCurrentSelected) {
+      setSelectedCompareEntry(null);
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && selectedCompareEntry) {
+      const compareWithSelectedUrl = buildSelectedFileCompareUrl(
+        selectedCompareEntry,
+        currentEntry,
+        backUrl
+      );
+
+      if (compareWithSelectedUrl) {
+        navigate(compareWithSelectedUrl);
+        return;
+      }
+    }
+
+    setSelectedCompareEntry(currentEntry);
+  };
+
   return (
     <>
       <div className="tree-diff">
@@ -517,31 +547,9 @@ export default function TreeDiffView({
                     slot.left?.path
                   )}
                   onOpenActions={setActiveActions}
-                  onSelectCompareEntry={(event, currentEntry) => {
-                    const isCurrentSelected =
-                      selectedCompareEntry?.side === currentEntry.side &&
-                      selectedCompareEntry.path === currentEntry.path;
-
-                    if (isCurrentSelected) {
-                      setSelectedCompareEntry(null);
-                      return;
-                    }
-
-                    if ((event.ctrlKey || event.metaKey) && selectedCompareEntry) {
-                      const compareWithSelectedUrl = buildSelectedFileCompareUrl(
-                        selectedCompareEntry,
-                        currentEntry,
-                        backUrl
-                      );
-
-                      if (compareWithSelectedUrl) {
-                        navigate(compareWithSelectedUrl);
-                        return;
-                      }
-                    }
-
-                    setSelectedCompareEntry(currentEntry);
-                  }}
+                  onSelectCompareEntry={(event, currentEntry) =>
+                    handleCompareEntrySelect(event, currentEntry, backUrl)
+                  }
                 />
                 </div>
                 {compareUrl ? (
@@ -567,31 +575,9 @@ export default function TreeDiffView({
                     slot.right?.path
                   )}
                   onOpenActions={setActiveActions}
-                  onSelectCompareEntry={(event, currentEntry) => {
-                    const isCurrentSelected =
-                      selectedCompareEntry?.side === currentEntry.side &&
-                      selectedCompareEntry.path === currentEntry.path;
-
-                    if (isCurrentSelected) {
-                      setSelectedCompareEntry(null);
-                      return;
-                    }
-
-                    if ((event.ctrlKey || event.metaKey) && selectedCompareEntry) {
-                      const compareWithSelectedUrl = buildSelectedFileCompareUrl(
-                        selectedCompareEntry,
-                        currentEntry,
-                        backUrl
-                      );
-
-                      if (compareWithSelectedUrl) {
-                        navigate(compareWithSelectedUrl);
-                        return;
-                      }
-                    }
-
-                    setSelectedCompareEntry(currentEntry);
-                  }}
+                  onSelectCompareEntry={(event, currentEntry) =>
+                    handleCompareEntrySelect(event, currentEntry, backUrl)
+                  }
                 />
                 </div>
               </div>
