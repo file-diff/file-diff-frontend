@@ -116,6 +116,29 @@
   overflow: hidden;
 }
 
+.tree-entry--button {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding-top: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+}
+
+.tree-entry--button:hover .tree-name {
+  text-decoration: underline;
+}
+
+.tree-entry--button:focus-visible {
+  outline: 1px solid #58a6ff;
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
 .tree-name {
   user-select: text;
   overflow: hidden;

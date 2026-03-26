@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { type MouseEvent, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { ComparisonSlot, DiffEntry } from "../utils/fileDiffParser.ts";
 import "./TreeDiffView.css";
 
@@ -136,6 +136,7 @@ function EntryRow({
   side,
   isCompareSelected,
   onOpenActions,
+  onSelectCompareEntry,
 }: {
   entry: DiffEntry | null;
   getDownloadUrl?: (entry: DiffEntry) => string;
@@ -143,6 +144,10 @@ function EntryRow({
   side: TreeDiffSide;
   isCompareSelected?: boolean;
   onOpenActions?: (actions: TreeEntryActionsState) => void;
+  onSelectCompareEntry?: (
+    event: MouseEvent<HTMLButtonElement>,
+    entry: TreeCompareSelection
+  ) => void;
 }) {
   if (!entry) {
     return <div className="tree-row tree-row--empty" />;
@@ -173,16 +178,42 @@ function EntryRow({
       )
     : "";
   const hasActions = Boolean(fileUrl || historyUrl || downloadUrl);
+  const compareSelection = buildTreeCompareSelection(
+    side,
+    entry,
+    source,
+    getDownloadUrl
+  );
+  const entryContent = (
+    <>
+      <span className="tree-icon">{icon}</span>
+      <span className="tree-name">{entry.name}</span>
+    </>
+  );
 
   return (
     <div
       className={`tree-row ${statusClass}${isCompareSelected ? " tree-row--compare-selected" : ""}`}
       title={entry.path}
     >
-      <span className="tree-entry" style={{paddingLeft: `${indent}px`}}>
-        <span className="tree-icon">{icon}</span>
-        <span className="tree-name">{entry.name}</span>
-      </span>
+      {compareSelection ? (
+        <button
+          type="button"
+          className="tree-entry tree-entry--button"
+          style={{paddingLeft: `${indent}px`}}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelectCompareEntry?.(event, compareSelection);
+          }}
+          title={`Click to select ${entry.path} for comparison. Ctrl+click (Cmd+click on Mac) compares with the current selection.`}
+        >
+          {entryContent}
+        </button>
+      ) : (
+        <span className="tree-entry" style={{paddingLeft: `${indent}px`}}>
+          {entryContent}
+        </span>
+      )}
       <div style={{display: "flex", flex: 1}}></div>
       <span className="tree-meta">
         {sizeStr && <span className="tree-size">{sizeStr}</span>}
@@ -261,6 +292,32 @@ function isValidHash(hash: string): boolean {
 
 function canCompareTextFile(entry: DiffEntry, downloadUrl: string): boolean {
   return entry.fileType === "t" && Boolean(downloadUrl);
+}
+
+function buildTreeBackUrl(
+  pathname: string,
+  search: string,
+  selectedPath: string,
+  selectedCompareEntry: TreeCompareSelection | null
+): string {
+  const backParams = new URLSearchParams(search);
+
+  if (selectedPath) {
+    backParams.set("selectedPath", selectedPath);
+  } else {
+    backParams.delete("selectedPath");
+  }
+
+  if (selectedCompareEntry) {
+    backParams.set("compareSelectedSide", selectedCompareEntry.side);
+    backParams.set("compareSelectedPath", selectedCompareEntry.path);
+  } else {
+    backParams.delete("compareSelectedSide");
+    backParams.delete("compareSelectedPath");
+  }
+
+  const query = backParams.toString();
+  return query ? `${pathname}?${query}` : pathname;
 }
 
 function isSelectedCompareEntry(
@@ -375,6 +432,7 @@ export default function TreeDiffView({
   onSelectSlot,
 }: TreeDiffViewProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const selectedRef = useRef<HTMLDivElement | null>(null);
   const [selectedCompareEntry, setSelectedCompareEntry] =
     useState<TreeCompareSelection | null>(() =>
@@ -412,6 +470,36 @@ export default function TreeDiffView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeActions]);
 
+  const handleCompareEntrySelect = (
+    event: MouseEvent<HTMLButtonElement>,
+    currentEntry: TreeCompareSelection,
+    backUrl: string
+  ): void => {
+    const isCurrentSelected =
+      selectedCompareEntry?.side === currentEntry.side &&
+      selectedCompareEntry.path === currentEntry.path;
+
+    if (isCurrentSelected) {
+      setSelectedCompareEntry(null);
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && selectedCompareEntry) {
+      const compareWithSelectedUrl = buildSelectedFileCompareUrl(
+        selectedCompareEntry,
+        currentEntry,
+        backUrl
+      );
+
+      if (compareWithSelectedUrl) {
+        navigate(compareWithSelectedUrl);
+        return;
+      }
+    }
+
+    setSelectedCompareEntry(currentEntry);
+  };
+
   return (
     <>
       <div className="tree-diff">
@@ -419,20 +507,12 @@ export default function TreeDiffView({
           {slots.map((slot, i) => {
             const slotPath = slot.left?.path ?? slot.right?.path ?? "";
             const isSelected = selectedPath != null && slotPath === selectedPath;
-            const backParams = new URLSearchParams(location.search);
-            if (slotPath) {
-              backParams.set("selectedPath", slotPath);
-            } else {
-              backParams.delete("selectedPath");
-            }
-            if (selectedCompareEntry) {
-              backParams.set("compareSelectedSide", selectedCompareEntry.side);
-              backParams.set("compareSelectedPath", selectedCompareEntry.path);
-            } else {
-              backParams.delete("compareSelectedSide");
-              backParams.delete("compareSelectedPath");
-            }
-            const backUrl = `${location.pathname}?${backParams.toString()}`;
+            const backUrl = buildTreeBackUrl(
+              location.pathname,
+              location.search,
+              slotPath,
+              selectedCompareEntry
+            );
             const compareUrl =
               slot.left && slot.right
                 ? buildFileCompareUrl(
@@ -466,8 +546,11 @@ export default function TreeDiffView({
                     "left",
                     slot.left?.path
                   )}
-                    onOpenActions={setActiveActions}
-                  />
+                  onOpenActions={setActiveActions}
+                  onSelectCompareEntry={(event, currentEntry) =>
+                    handleCompareEntrySelect(event, currentEntry, backUrl)
+                  }
+                />
                 </div>
                 {compareUrl ? (
                   <Link
@@ -491,8 +574,11 @@ export default function TreeDiffView({
                     "right",
                     slot.right?.path
                   )}
-                    onOpenActions={setActiveActions}
-                  />
+                  onOpenActions={setActiveActions}
+                  onSelectCompareEntry={(event, currentEntry) =>
+                    handleCompareEntrySelect(event, currentEntry, backUrl)
+                  }
+                />
                 </div>
               </div>
             );
@@ -506,21 +592,18 @@ export default function TreeDiffView({
             selectedCompareEntry.path === activeActions.path;
           const canSelectCurrentEntry =
             activeActions.fileType === "t" && Boolean(activeActions.downloadUrl);
-          const compareBackParams = new URLSearchParams(location.search);
-          compareBackParams.set("selectedPath", activeActions.path);
-          if (selectedCompareEntry) {
-            compareBackParams.set("compareSelectedSide", selectedCompareEntry.side);
-            compareBackParams.set("compareSelectedPath", selectedCompareEntry.path);
-          } else {
-            compareBackParams.delete("compareSelectedSide");
-            compareBackParams.delete("compareSelectedPath");
-          }
+          const compareBackUrl = buildTreeBackUrl(
+            location.pathname,
+            location.search,
+            activeActions.path,
+            selectedCompareEntry
+          );
           const compareWithSelectedUrl =
             selectedCompareEntry && canSelectCurrentEntry && !isCurrentSelected
               ? buildSelectedFileCompareUrl(
                   selectedCompareEntry,
                   activeActions,
-                  `${location.pathname}?${compareBackParams.toString()}`
+                  compareBackUrl
                 )
               : null;
           const selectedCompareLabel = selectedCompareEntry
