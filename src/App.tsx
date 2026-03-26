@@ -11,6 +11,7 @@ import FileComparePage from "./pages/FileComparePage";
 import HealthCheckPage from "./pages/HealthCheckPage";
 import HistoryPage from "./pages/HistoryPage";
 import TokenizePage from "./pages/TokenizePage";
+import RepositoryBrowserPage from "./pages/RepositoryBrowserPage";
 import FontSelector from "./components/FontSelector";
 import { DEFAULT_FONT_ID } from "./config/fonts";
 import { applyFont } from "./utils/fontInit";
@@ -54,6 +55,9 @@ function AppShell() {
             <Link to="/history" className="nav-link">
               📜 History
             </Link>
+            <Link to="/commits" className="nav-link">
+              🔀 Commits
+            </Link>
             <Link to="/tokenize" className="nav-link">
               🎨 Tokenize
             </Link>
@@ -76,6 +80,7 @@ function AppShell() {
           <Route path="/tree" element={<TreeCompare2Page />} />
           <Route path="/files" element={<FileComparePage />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/commits" element={<RepositoryBrowserPage />} />
           <Route path="/tokenize" element={<TokenizePage />} />
           <Route path="/health" element={<HealthCheckPage />} />
         </Routes>

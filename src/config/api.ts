@@ -14,6 +14,7 @@ export const JOBS_API_URL = trimTrailingSlash(
 export const HEALTH_API_URL = `${trimmedDefaultApiBaseUrl}/health`;
 export const VERSION_API_URL = `${trimmedDefaultApiBaseUrl}/version`;
 export const CACHE_API_URL = `${JOBS_API_URL}/cache`;
+export const COMMITS_API_URL = `${JOBS_API_URL}/commits`;
 export const STATS_API_URL = `${trimmedDefaultApiBaseUrl}/stats`;
 
 export function buildCommitFilesUrl(commit: string, format?: string): string {

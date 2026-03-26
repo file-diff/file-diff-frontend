@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
+import { JOBS_API_URL, COMMITS_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -450,4 +450,64 @@ export async function requestOrganizationRepositories(
 
   const data = (await response.json()) as OrganizationRepositoriesResponse;
   return Array.isArray(data.repositories) ? data.repositories : [];
+}
+
+export interface CommitPullRequest {
+  number: number;
+  title: string;
+  url: string;
+}
+
+export interface RepositoryCommit {
+  commit: string;
+  date: string;
+  author: string;
+  title: string;
+  branch: string | null;
+  parents: string[];
+  pullRequest: CommitPullRequest | null;
+  tags: string[];
+}
+
+interface ListCommitsRequest {
+  repo: string;
+  limit: number;
+}
+
+interface ListCommitsResponse {
+  repo: string;
+  commits: RepositoryCommit[];
+}
+
+export async function requestRepositoryCommits(
+  repo: string,
+  limit: number,
+  signal?: AbortSignal
+): Promise<RepositoryCommit[]> {
+  const response = await fetch(COMMITS_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ repo, limit } satisfies ListCommitsRequest),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = "Unable to list commits";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as ListCommitsResponse;
+  return Array.isArray(data.commits) ? data.commits : [];
 }
