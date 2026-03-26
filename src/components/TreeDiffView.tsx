@@ -205,7 +205,7 @@ function EntryRow({
             event.stopPropagation();
             onSelectCompareEntry?.(event, compareSelection);
           }}
-          title={`Click to select ${entry.path} for comparison. Ctrl+click compares with the current selection.`}
+          title={`Click to select ${entry.path} for comparison. Ctrl+click (Cmd+click on Mac) compares with the current selection.`}
         >
           {entryContent}
         </button>
