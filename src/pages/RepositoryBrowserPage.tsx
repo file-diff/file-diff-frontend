@@ -75,7 +75,7 @@ export default function RepositoryBrowserPage() {
       setCommits(result);
       setLoadedRepo(repo);
 
-      const params = new URLSearchParams(searchParams);
+      const params = new URLSearchParams(window.location.search);
       params.set("repo", repo);
       setSearchParams(params, { replace: true });
     } catch (err) {
@@ -90,7 +90,7 @@ export default function RepositoryBrowserPage() {
         setIsLoading(false);
       }
     }
-  }, [searchParams, setSearchParams]);
+  }, [setSearchParams]);
 
   const handleLoadCommits = useCallback(async () => {
     const repo = resolveRepoInput(repoInput);
