@@ -12,15 +12,16 @@ const DEFAULT_COMMIT_LIMIT = 50;
 const MAX_COMMIT_LIMIT = 200;
 
 function formatCommitDate(isoDate: string): string {
-  try {
-    return new Date(isoDate).toLocaleString();
-  } catch {
+  const date = new Date(isoDate);
+  if (isNaN(date.getTime())) {
     return isoDate;
   }
+  return date.toLocaleString();
 }
 
 function buildGitHubCommitUrl(repo: string, commit: string): string {
-  return `https://github.com/${encodeURIComponent(repo.split("/")[0])}/${encodeURIComponent(repo.split("/")[1])}/commit/${encodeURIComponent(commit)}`;
+  const parts = repo.split("/");
+  return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/commit/${encodeURIComponent(commit)}`;
 }
 
 export default function RepositoryBrowserPage() {
