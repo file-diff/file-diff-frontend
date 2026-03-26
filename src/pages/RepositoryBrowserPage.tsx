@@ -295,12 +295,14 @@ export default function RepositoryBrowserPage() {
               const isLeft = leftCommit === entry.commit;
               const isRight = rightCommit === entry.commit;
               const isSelected = isLeft || isRight;
+              const isBranchCommit = Boolean(entry.branch);
 
               return (
                 <div
                   key={entry.commit}
                   className={
                     "repo-browser__commit" +
+                    (isBranchCommit ? " repo-browser__commit--branch" : "") +
                     (isSelected ? " repo-browser__commit--selected" : "") +
                     (isLeft ? " repo-browser__commit--left" : "") +
                     (isRight ? " repo-browser__commit--right" : "")
