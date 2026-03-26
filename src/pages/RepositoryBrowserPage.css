@@ -195,6 +195,10 @@
   gap: 12px;
 }
 
+.repo-browser__commit--branch {
+  padding-left: 40px;
+}
+
 .repo-browser__commit:last-child {
   border-bottom: none;
 }
