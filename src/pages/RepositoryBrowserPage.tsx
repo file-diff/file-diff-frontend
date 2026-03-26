@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   parseRepositoryLocation,
@@ -26,9 +26,9 @@ function buildGitHubCommitUrl(repo: string, commit: string): string {
 
 export default function RepositoryBrowserPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialRepo = searchParams.get("repo") ?? "";
+  const queryRepo = searchParams.get("repo") ?? "";
 
-  const [repoInput, setRepoInput] = useState(initialRepo);
+  const [repoInput, setRepoInput] = useState(queryRepo);
   const [commits, setCommits] = useState<RepositoryCommit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -38,6 +38,8 @@ export default function RepositoryBrowserPage() {
   const [rightCommit, setRightCommit] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const autoLoadedRepoRef = useRef<string>("");
+  const currentSearchRef = useRef(searchParams.toString());
 
   const resolveRepoInput = useCallback((input: string): string => {
     const trimmed = input.trim();
@@ -53,13 +55,7 @@ export default function RepositoryBrowserPage() {
     return trimmed;
   }, []);
 
-  const handleLoadCommits = useCallback(async () => {
-    const repo = resolveRepoInput(repoInput);
-    if (!repo) {
-      setError("Please enter a repository in owner/repo format.");
-      return;
-    }
-
+  const loadCommitsForRepo = useCallback(async (repo: string) => {
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -80,7 +76,7 @@ export default function RepositoryBrowserPage() {
       setCommits(result);
       setLoadedRepo(repo);
 
-      const params = new URLSearchParams(searchParams);
+      const params = new URLSearchParams(currentSearchRef.current);
       params.set("repo", repo);
       setSearchParams(params, { replace: true });
     } catch (err) {
@@ -95,7 +91,39 @@ export default function RepositoryBrowserPage() {
         setIsLoading(false);
       }
     }
-  }, [repoInput, resolveRepoInput, searchParams, setSearchParams]);
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    currentSearchRef.current = searchParams.toString();
+  }, [searchParams]);
+
+  const handleLoadCommits = useCallback(async () => {
+    const repo = resolveRepoInput(repoInput);
+    if (!repo) {
+      setError("Please enter a repository in owner/repo format.");
+      return;
+    }
+
+    autoLoadedRepoRef.current = repo;
+    await loadCommitsForRepo(repo);
+  }, [loadCommitsForRepo, repoInput, resolveRepoInput]);
+
+  useEffect(() => {
+    const repo = resolveRepoInput(queryRepo);
+    if (!repo || autoLoadedRepoRef.current === repo) {
+      return;
+    }
+
+    autoLoadedRepoRef.current = repo;
+    setRepoInput(repo);
+    void loadCommitsForRepo(repo);
+  }, [loadCommitsForRepo, queryRepo, resolveRepoInput]);
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleLoadMore = useCallback(async () => {
     const repo = resolveRepoInput(repoInput);
