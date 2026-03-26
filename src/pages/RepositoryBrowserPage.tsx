@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   parseRepositoryLocation,
@@ -26,9 +26,9 @@ function buildGitHubCommitUrl(repo: string, commit: string): string {
 
 export default function RepositoryBrowserPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialRepo = searchParams.get("repo") ?? "";
+  const queryRepo = searchParams.get("repo") ?? "";
 
-  const [repoInput, setRepoInput] = useState(initialRepo);
+  const [repoInput, setRepoInput] = useState(queryRepo);
   const [commits, setCommits] = useState<RepositoryCommit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -38,6 +38,7 @@ export default function RepositoryBrowserPage() {
   const [rightCommit, setRightCommit] = useState<string | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const autoLoadedRepoRef = useRef<string>("");
 
   const resolveRepoInput = useCallback((input: string): string => {
     const trimmed = input.trim();
@@ -53,12 +54,14 @@ export default function RepositoryBrowserPage() {
     return trimmed;
   }, []);
 
-  const handleLoadCommits = useCallback(async () => {
-    const repo = resolveRepoInput(repoInput);
+  const handleLoadCommits = useCallback(async (repoCandidate = repoInput) => {
+    const repo = resolveRepoInput(repoCandidate);
     if (!repo) {
       setError("Please enter a repository in owner/repo format.");
       return;
     }
+
+    autoLoadedRepoRef.current = repo;
 
     abortControllerRef.current?.abort();
     const controller = new AbortController();
@@ -96,6 +99,22 @@ export default function RepositoryBrowserPage() {
       }
     }
   }, [repoInput, resolveRepoInput, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const repo = resolveRepoInput(queryRepo);
+    if (!repo || autoLoadedRepoRef.current === repo) {
+      return;
+    }
+
+    setRepoInput(repo);
+    void handleLoadCommits(repo);
+  }, [handleLoadCommits, queryRepo, resolveRepoInput]);
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleLoadMore = useCallback(async () => {
     const repo = resolveRepoInput(repoInput);
