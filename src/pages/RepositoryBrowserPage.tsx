@@ -23,7 +23,7 @@ function computeCommitIndentLevels(
   }
 
   const mainChain = new Set<string>();
-  const rightParents = new Set<string>();
+  const secondaryChains = new Set<string>();
 
   let current: string | undefined = commits[0].commit;
   while (current) {
@@ -32,7 +32,17 @@ function computeCommitIndentLevels(
     if (!entry || entry.parents.length === 0) break;
 
     if (entry.parents.length >= 2) {
-      rightParents.add(entry.parents[1]);
+      let secondaryCurrent: string | undefined = entry.parents[1];
+      while (
+        secondaryCurrent &&
+        !mainChain.has(secondaryCurrent) &&
+        !secondaryChains.has(secondaryCurrent)
+      ) {
+        secondaryChains.add(secondaryCurrent);
+        const secondaryEntry = commitMap.get(secondaryCurrent);
+        if (!secondaryEntry || secondaryEntry.parents.length === 0) break;
+        secondaryCurrent = secondaryEntry.parents[0];
+      }
     }
 
     current = entry.parents[0];
@@ -41,7 +51,7 @@ function computeCommitIndentLevels(
   for (const c of commits) {
     if (mainChain.has(c.commit)) {
       indentLevels.set(c.commit, 0);
-    } else if (rightParents.has(c.commit)) {
+    } else if (secondaryChains.has(c.commit)) {
       indentLevels.set(c.commit, 1);
     } else {
       indentLevels.set(c.commit, 2);
