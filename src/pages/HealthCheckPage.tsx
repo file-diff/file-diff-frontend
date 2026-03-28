@@ -14,10 +14,25 @@ interface BackendCheckResult {
   backendVersion?: string;
   checkedAt: string;
   durationMs: number;
+  github?: GitHubHealthInfo;
   healthStatus?: number;
   message: string;
   state: BackendCheckState;
   versionStatus?: number;
+}
+
+interface GitHubRateLimitInfo {
+  limit?: number;
+  remaining?: number;
+  reset?: number;
+  resource?: string;
+  used?: number;
+}
+
+interface GitHubHealthInfo {
+  configured?: boolean;
+  rateLimit?: GitHubRateLimitInfo;
+  status?: string;
 }
 
 interface CacheFolder {
@@ -44,6 +59,14 @@ function asTrimmedString(value: unknown): string | undefined {
 
   const trimmed = value.trim();
   return trimmed || undefined;
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function asFiniteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function formatVersionPayload(payload: unknown): string | undefined {
@@ -94,6 +117,100 @@ async function parseVersionResponse(response: Response): Promise<string | undefi
   } catch {
     return undefined;
   }
+}
+
+function parseHealthPayload(payload: unknown): GitHubHealthInfo | undefined {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+
+  const github = (payload as Record<string, unknown>).github;
+
+  if (!github || typeof github !== "object") {
+    return undefined;
+  }
+
+  const githubRecord = github as Record<string, unknown>;
+  const rawRateLimit = githubRecord.rateLimit;
+  let rateLimit: GitHubRateLimitInfo | undefined;
+
+  if (rawRateLimit && typeof rawRateLimit === "object") {
+    const rateLimitRecord = rawRateLimit as Record<string, unknown>;
+    const parsedRateLimit: GitHubRateLimitInfo = {
+      limit: asFiniteNumber(rateLimitRecord.limit),
+      remaining: asFiniteNumber(rateLimitRecord.remaining),
+      reset: asFiniteNumber(rateLimitRecord.reset),
+      resource: asTrimmedString(rateLimitRecord.resource),
+      used: asFiniteNumber(rateLimitRecord.used),
+    };
+
+    if (
+      typeof parsedRateLimit.limit === "number" ||
+      typeof parsedRateLimit.remaining === "number" ||
+      typeof parsedRateLimit.reset === "number" ||
+      typeof parsedRateLimit.used === "number" ||
+      parsedRateLimit.resource
+    ) {
+      rateLimit = parsedRateLimit;
+    }
+  }
+
+  const healthInfo: GitHubHealthInfo = {
+    configured: asBoolean(githubRecord.configured),
+    rateLimit,
+    status: asTrimmedString(githubRecord.status),
+  };
+
+  if (
+    healthInfo.configured === undefined &&
+    !healthInfo.status &&
+    !healthInfo.rateLimit
+  ) {
+    return undefined;
+  }
+
+  return healthInfo;
+}
+
+async function parseHealthResponse(
+  response: Response
+): Promise<GitHubHealthInfo | undefined> {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (!contentType.includes("application/json")) {
+    return undefined;
+  }
+
+  try {
+    return parseHealthPayload((await response.json()) as unknown);
+  } catch {
+    return undefined;
+  }
+}
+
+function formatRelativeTime(targetTimeMs: number): string {
+  const diffSeconds = Math.round((targetTimeMs - Date.now()) / 1000);
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const absoluteSeconds = Math.abs(diffSeconds);
+
+  if (absoluteSeconds < 60) {
+    return formatter.format(diffSeconds, "second");
+  }
+
+  if (absoluteSeconds < 60 * 60) {
+    return formatter.format(Math.round(diffSeconds / 60), "minute");
+  }
+
+  if (absoluteSeconds < 60 * 60 * 24) {
+    return formatter.format(Math.round(diffSeconds / (60 * 60)), "hour");
+  }
+
+  return formatter.format(Math.round(diffSeconds / (60 * 60 * 24)), "day");
+}
+
+function formatRateLimitReset(resetAtUnixSeconds: number): string {
+  const resetAt = new Date(resetAtUnixSeconds * 1000);
+  return `${formatRelativeTime(resetAt.getTime())} (${resetAt.toLocaleString()})`;
 }
 
 function describeSettledError(result: PromiseSettledResult<Response>): string {
@@ -154,6 +271,9 @@ export default function HealthCheckPage() {
         healthResult.status === "fulfilled" ? healthResult.value : undefined;
       const versionResponse =
         versionResult.status === "fulfilled" ? versionResult.value : undefined;
+      const github = healthResponse
+        ? await parseHealthResponse(healthResponse)
+        : undefined;
       const backendVersion = versionResponse?.ok
         ? await parseVersionResponse(versionResponse)
         : undefined;
@@ -173,6 +293,7 @@ export default function HealthCheckPage() {
         backendVersion,
         checkedAt: new Date().toLocaleString(),
         durationMs,
+        github,
         healthStatus: healthResponse?.status,
         message: isHealthy
           ? versionResponse?.ok
@@ -312,6 +433,60 @@ export default function HealthCheckPage() {
                 <div>
                   <dt>Backend version</dt>
                   <dd>{result.backendVersion}</dd>
+                </div>
+              )}
+              {result.github?.configured !== undefined && (
+                <div>
+                  <dt>GitHub configured</dt>
+                  <dd>{result.github.configured ? "Yes" : "No"}</dd>
+                </div>
+              )}
+              {result.github?.status && (
+                <div>
+                  <dt>GitHub status</dt>
+                  <dd>{result.github.status}</dd>
+                </div>
+              )}
+              {result.github?.rateLimit && (
+                <div>
+                  <dt>GitHub rate limit</dt>
+                  <dd>
+                    {typeof result.github.rateLimit.remaining === "number" &&
+                    typeof result.github.rateLimit.limit === "number"
+                      ? `${result.github.rateLimit.remaining.toLocaleString()} / ${result.github.rateLimit.limit.toLocaleString()} remaining`
+                      : "Available"}
+                    {(result.github.rateLimit.resource ||
+                      typeof result.github.rateLimit.used === "number" ||
+                      typeof result.github.rateLimit.reset === "number") && (
+                      <span className="health-check-detail-secondary">
+                        {result.github.rateLimit.resource && (
+                          <span>
+                            resource: {result.github.rateLimit.resource}
+                          </span>
+                        )}
+                        {result.github.rateLimit.resource &&
+                          typeof result.github.rateLimit.used === "number" &&
+                          " · "}
+                        {typeof result.github.rateLimit.used === "number" && (
+                          <span>
+                            used:{" "}
+                            {result.github.rateLimit.used.toLocaleString()}
+                          </span>
+                        )}
+                        {typeof result.github.rateLimit.reset === "number" && (
+                          <>
+                            {(result.github.rateLimit.resource ||
+                              typeof result.github.rateLimit.used ===
+                                "number") &&
+                              " · "}
+                            <span>
+                              resets {formatRateLimitReset(result.github.rateLimit.reset)}
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    )}
+                  </dd>
                 </div>
               )}
               <div>
