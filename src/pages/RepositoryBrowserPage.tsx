@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   parseRepositoryLocation,
@@ -10,6 +10,46 @@ import "./RepositoryBrowserPage.css";
 
 const DEFAULT_COMMIT_LIMIT = 50;
 const MAX_COMMIT_LIMIT = 200;
+
+function computeCommitIndentLevels(
+  commits: RepositoryCommit[]
+): Map<string, number> {
+  const indentLevels = new Map<string, number>();
+  if (commits.length === 0) return indentLevels;
+
+  const commitMap = new Map<string, RepositoryCommit>();
+  for (const c of commits) {
+    commitMap.set(c.commit, c);
+  }
+
+  const mainChain = new Set<string>();
+  const rightParents = new Set<string>();
+
+  let current: string | undefined = commits[0].commit;
+  while (current) {
+    mainChain.add(current);
+    const entry = commitMap.get(current);
+    if (!entry || entry.parents.length === 0) break;
+
+    if (entry.parents.length >= 2) {
+      rightParents.add(entry.parents[1]);
+    }
+
+    current = entry.parents[0];
+  }
+
+  for (const c of commits) {
+    if (mainChain.has(c.commit)) {
+      indentLevels.set(c.commit, 0);
+    } else if (rightParents.has(c.commit)) {
+      indentLevels.set(c.commit, 1);
+    } else {
+      indentLevels.set(c.commit, 2);
+    }
+  }
+
+  return indentLevels;
+}
 
 function formatCommitDate(isoDate: string): string {
   const date = new Date(isoDate);
@@ -200,6 +240,11 @@ export default function RepositoryBrowserPage() {
         )
       : null;
 
+  const commitIndentLevels = useMemo(
+    () => computeCommitIndentLevels(commits),
+    [commits]
+  );
+
   return (
     <div className="repo-browser-page">
       <div className="page-header">
@@ -295,14 +340,18 @@ export default function RepositoryBrowserPage() {
               const isLeft = leftCommit === entry.commit;
               const isRight = rightCommit === entry.commit;
               const isSelected = isLeft || isRight;
-              const isBranchCommit = Boolean(entry.branch);
+              const indentLevel = commitIndentLevels.get(entry.commit) ?? 0;
 
               return (
                 <div
                   key={entry.commit}
                   className={
                     "repo-browser__commit" +
-                    (isBranchCommit ? " repo-browser__commit--branch" : "") +
+                    (indentLevel === 1
+                      ? " repo-browser__commit--indent-1"
+                      : indentLevel === 2
+                        ? " repo-browser__commit--indent-2"
+                        : "") +
                     (isSelected ? " repo-browser__commit--selected" : "") +
                     (isLeft ? " repo-browser__commit--left" : "") +
                     (isRight ? " repo-browser__commit--right" : "")
