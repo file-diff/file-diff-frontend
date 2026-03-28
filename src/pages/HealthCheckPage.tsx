@@ -52,6 +52,10 @@ interface StatsData {
   sizeStored: number;
 }
 
+const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, {
+  numeric: "auto",
+});
+
 function asTrimmedString(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -190,22 +194,27 @@ async function parseHealthResponse(
 
 function formatRelativeTime(targetTimeMs: number): string {
   const diffSeconds = Math.round((targetTimeMs - Date.now()) / 1000);
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
   const absoluteSeconds = Math.abs(diffSeconds);
 
   if (absoluteSeconds < 60) {
-    return formatter.format(diffSeconds, "second");
+    return relativeTimeFormatter.format(diffSeconds, "second");
   }
 
   if (absoluteSeconds < 60 * 60) {
-    return formatter.format(Math.round(diffSeconds / 60), "minute");
+    return relativeTimeFormatter.format(Math.round(diffSeconds / 60), "minute");
   }
 
   if (absoluteSeconds < 60 * 60 * 24) {
-    return formatter.format(Math.round(diffSeconds / (60 * 60)), "hour");
+    return relativeTimeFormatter.format(
+      Math.round(diffSeconds / (60 * 60)),
+      "hour"
+    );
   }
 
-  return formatter.format(Math.round(diffSeconds / (60 * 60 * 24)), "day");
+  return relativeTimeFormatter.format(
+    Math.round(diffSeconds / (60 * 60 * 24)),
+    "day"
+  );
 }
 
 function formatRateLimitReset(resetAtUnixSeconds: number): string {
@@ -453,7 +462,7 @@ export default function HealthCheckPage() {
                   <dd>
                     {typeof result.github.rateLimit.remaining === "number" &&
                     typeof result.github.rateLimit.limit === "number"
-                      ? `${result.github.rateLimit.remaining.toLocaleString()} / ${result.github.rateLimit.limit.toLocaleString()} remaining`
+                      ? `${result.github.rateLimit.remaining.toLocaleString()} / ${result.github.rateLimit.limit.toLocaleString()} available`
                       : "Available"}
                     {(result.github.rateLimit.resource ||
                       typeof result.github.rateLimit.used === "number" ||
