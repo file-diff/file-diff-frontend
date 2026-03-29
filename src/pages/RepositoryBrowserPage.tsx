@@ -291,6 +291,9 @@ export default function RepositoryBrowserPage() {
     if (!highlightBranch) return set;
     for (const c of commits) {
       const indent = commitIndentLevels.get(c.commit) ?? 0;
+      // Side-chain commits (indent > 0) are always off-branch.
+      // Main-chain commits with an explicit branch label that differs from
+      // the highlighted branch are also treated as off-branch.
       if (indent > 0) {
         set.add(c.commit);
       } else if (c.branch && c.branch !== highlightBranch) {
