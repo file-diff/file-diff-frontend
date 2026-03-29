@@ -10,6 +10,7 @@ import "./RepositoryBrowserPage.css";
 
 const DEFAULT_COMMIT_LIMIT = 50;
 const MAX_COMMIT_LIMIT = 200;
+const WELL_KNOWN_DEFAULT_BRANCHES = ["main", "master"];
 
 function computeCommitIndentLevels(
   commits: RepositoryCommit[]
@@ -61,6 +62,21 @@ function computeCommitIndentLevels(
   return indentLevels;
 }
 
+function collectBranchNames(commits: RepositoryCommit[]): string[] {
+  const seen = new Set<string>();
+  for (const c of commits) {
+    if (c.branch) seen.add(c.branch);
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
+
+function detectDefaultBranch(branches: string[]): string {
+  for (const name of WELL_KNOWN_DEFAULT_BRANCHES) {
+    if (branches.includes(name)) return name;
+  }
+  return branches[0] ?? "";
+}
+
 function formatCommitDate(isoDate: string): string {
   const date = new Date(isoDate);
   if (isNaN(date.getTime())) {
@@ -86,6 +102,7 @@ export default function RepositoryBrowserPage() {
 
   const [leftCommit, setLeftCommit] = useState<string | null>(null);
   const [rightCommit, setRightCommit] = useState<string | null>(null);
+  const [highlightBranch, setHighlightBranch] = useState("");
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoLoadedRepoRef = useRef<string>("");
@@ -115,6 +132,7 @@ export default function RepositoryBrowserPage() {
     setCommits([]);
     setLeftCommit(null);
     setRightCommit(null);
+    setHighlightBranch("");
     setLoadedRepo("");
 
     try {
@@ -250,10 +268,37 @@ export default function RepositoryBrowserPage() {
         )
       : null;
 
+  const branchNames = useMemo(() => collectBranchNames(commits), [commits]);
+
+  useEffect(() => {
+    if (branchNames.length > 0) {
+      setHighlightBranch((prev) => {
+        if (prev && branchNames.includes(prev)) return prev;
+        return detectDefaultBranch(branchNames);
+      });
+    } else {
+      setHighlightBranch("");
+    }
+  }, [branchNames]);
+
   const commitIndentLevels = useMemo(
     () => computeCommitIndentLevels(commits),
     [commits]
   );
+
+  const offBranchCommits = useMemo(() => {
+    const set = new Set<string>();
+    if (!highlightBranch) return set;
+    for (const c of commits) {
+      const indent = commitIndentLevels.get(c.commit) ?? 0;
+      if (indent > 0) {
+        set.add(c.commit);
+      } else if (c.branch && c.branch !== highlightBranch) {
+        set.add(c.commit);
+      }
+    }
+    return set;
+  }, [commits, highlightBranch, commitIndentLevels]);
 
   return (
     <div className="repo-browser-page">
@@ -340,9 +385,33 @@ export default function RepositoryBrowserPage() {
                 {loadedRepo}
               </a>
             </span>
-            <span className="repo-browser__commits-count">
-              {commits.length} commit{commits.length !== 1 ? "s" : ""}
-            </span>
+            <div className="repo-browser__commits-header-right">
+              {branchNames.length > 0 && (
+                <div className="repo-browser__branch-filter">
+                  <label
+                    htmlFor="highlight-branch-select"
+                    className="repo-browser__branch-filter-label"
+                  >
+                    Highlight
+                  </label>
+                  <select
+                    id="highlight-branch-select"
+                    className="repo-browser__branch-filter-select"
+                    value={highlightBranch}
+                    onChange={(e) => setHighlightBranch(e.target.value)}
+                  >
+                    {branchNames.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <span className="repo-browser__commits-count">
+                {commits.length} commit{commits.length !== 1 ? "s" : ""}
+              </span>
+            </div>
           </div>
 
           <div className="repo-browser__commit-list">
@@ -351,6 +420,7 @@ export default function RepositoryBrowserPage() {
               const isRight = rightCommit === entry.commit;
               const isSelected = isLeft || isRight;
               const indentLevel = commitIndentLevels.get(entry.commit) ?? 0;
+              const isOffBranch = offBranchCommits.has(entry.commit);
 
               return (
                 <div
@@ -362,6 +432,7 @@ export default function RepositoryBrowserPage() {
                       : indentLevel === 2
                         ? " repo-browser__commit--indent-2"
                         : "") +
+                    (isOffBranch ? " repo-browser__commit--off-branch" : "") +
                     (isSelected ? " repo-browser__commit--selected" : "") +
                     (isLeft ? " repo-browser__commit--left" : "") +
                     (isRight ? " repo-browser__commit--right" : "")
