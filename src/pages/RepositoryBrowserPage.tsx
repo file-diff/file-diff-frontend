@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { JOBS_API_URL } from "../config/api";
 import {
   parseRepositoryLocation,
   requestRepositoryCommits,
@@ -11,6 +12,12 @@ import "./RepositoryBrowserPage.css";
 const DEFAULT_COMMIT_LIMIT = 50;
 const MAX_COMMIT_LIMIT = 200;
 const WELL_KNOWN_DEFAULT_BRANCHES = ["main", "master"];
+const INDEXING_TRIGGER_URL = JOBS_API_URL;
+
+interface JobRequest {
+  repo: string;
+  commit: string;
+}
 
 function computeCommitIndentLevels(
   commits: RepositoryCommit[]
@@ -107,6 +114,7 @@ export default function RepositoryBrowserPage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoLoadedRepoRef = useRef<string>("");
   const currentSearchRef = useRef(searchParams.toString());
+  const startedIndexingKeysRef = useRef<Set<string>>(new Set());
 
   const resolveRepoInput = useCallback((input: string): string => {
     const trimmed = input.trim();
@@ -192,6 +200,52 @@ export default function RepositoryBrowserPage() {
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    const repo = loadedRepo.trim();
+    if (!repo) {
+      return;
+    }
+
+    const selectedCommits = [leftCommit, rightCommit].filter(
+      (commit): commit is string => Boolean(commit?.trim())
+    );
+
+    if (selectedCommits.length === 0) {
+      return;
+    }
+
+    const uniqueCommits = new Set(selectedCommits);
+
+    uniqueCommits.forEach((commit) => {
+      const indexingKey = `${repo}\n${commit}`;
+      if (startedIndexingKeysRef.current.has(indexingKey)) {
+        return;
+      }
+
+      startedIndexingKeysRef.current.add(indexingKey);
+
+      const request: JobRequest = { repo, commit };
+      void fetch(INDEXING_TRIGGER_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      }).then((response) => {
+        if (!response.ok) {
+          throw new Error("Unable to start indexing job");
+        }
+      }).catch((error: unknown) => {
+        startedIndexingKeysRef.current.delete(indexingKey);
+        console.error("[RepositoryBrowserPage] failed to start indexing job", {
+          repo,
+          commit,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      });
+    });
+  }, [leftCommit, loadedRepo, rightCommit]);
 
   const handleLoadMore = useCallback(async () => {
     const repo = resolveRepoInput(repoInput);
