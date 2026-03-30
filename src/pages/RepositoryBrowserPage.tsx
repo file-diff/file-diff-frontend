@@ -5,7 +5,7 @@ import {
   requestRepositoryCommits,
 } from "../utils/repositorySelection";
 import type { RepositoryCommit } from "../utils/repositorySelection";
-import { buildComparePermalink } from "../utils/storage";
+import { buildTreeComparisonLink } from "../utils/storage";
 import "./RepositoryBrowserPage.css";
 
 const DEFAULT_COMMIT_LIMIT = 50;
@@ -250,23 +250,24 @@ export default function RepositoryBrowserPage() {
     [leftCommit, rightCommit]
   );
 
-  const compareLink =
-    leftCommit && rightCommit && loadedRepo
-      ? buildComparePermalink(
-          {
-            repo: loadedRepo,
-            inputRefName: "",
-            resolvedCommit: leftCommit,
-            root: "/",
-          },
-          {
-            repo: loadedRepo,
-            inputRefName: "",
-            resolvedCommit: rightCommit,
-            root: "/",
-          }
-        )
-      : null;
+  const compareLink = useMemo(() => {
+    if (!leftCommit || !rightCommit || !loadedRepo) return null;
+    const query = buildTreeComparisonLink(
+      {
+        repo: loadedRepo,
+        inputRefName: "",
+        resolvedCommit: leftCommit,
+        root: "/",
+      },
+      {
+        repo: loadedRepo,
+        inputRefName: "",
+        resolvedCommit: rightCommit,
+        root: "/",
+      }
+    );
+    return query ? `/tree?${query}` : null;
+  }, [leftCommit, rightCommit, loadedRepo]);
 
   const branchNames = useMemo(() => collectBranchNames(commits), [commits]);
 
@@ -501,6 +502,44 @@ export default function RepositoryBrowserPage() {
                     )}
                   </div>
                   <div className="repo-browser__commit-badges">
+                    <div className="repo-browser__commit-select-btns">
+                      <button
+                        type="button"
+                        className={
+                          "repo-browser__select-btn repo-browser__select-btn--left" +
+                          (isLeft ? " repo-browser__select-btn--active" : "")
+                        }
+                        title="Select as left commit"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isLeft) {
+                            setLeftCommit(null);
+                          } else {
+                            setLeftCommit(entry.commit);
+                          }
+                        }}
+                      >
+                        L
+                      </button>
+                      <button
+                        type="button"
+                        className={
+                          "repo-browser__select-btn repo-browser__select-btn--right" +
+                          (isRight ? " repo-browser__select-btn--active" : "")
+                        }
+                        title="Select as right commit"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isRight) {
+                            setRightCommit(null);
+                          } else {
+                            setRightCommit(entry.commit);
+                          }
+                        }}
+                      >
+                        R
+                      </button>
+                    </div>
                     {entry.branch && (
                       <span className="repo-browser__branch-badge">
                         {entry.branch}
