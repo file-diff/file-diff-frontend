@@ -413,6 +413,45 @@
   text-decoration: underline;
 }
 
+.repo-browser__commit-select-btns {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.repo-browser__select-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 1px solid #555;
+  background: transparent;
+  color: #8b949e;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.repo-browser__select-btn:hover {
+  border-color: #888;
+  color: #d4d4d4;
+}
+
+.repo-browser__select-btn--left.repo-browser__select-btn--active {
+  background: rgba(88, 166, 255, 0.2);
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+.repo-browser__select-btn--right.repo-browser__select-btn--active {
+  background: rgba(227, 179, 65, 0.2);
+  border-color: #e3b341;
+  color: #e3b341;
+}
+
 .repo-browser__load-more {
   display: flex;
   justify-content: center;
