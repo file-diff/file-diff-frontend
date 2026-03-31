@@ -10,14 +10,17 @@ import type {
 import {
   addOrganization,
   clearCachedRepositories,
+  getOrganizationColor,
   getRepositoryOrganization,
   loadCachedRepositories,
   loadCombinedCachedRepositories,
   loadLatestCachedRepositoriesFetchedAt,
+  loadOrganizationColors,
   loadSavedOrganizations,
   removeOrganization,
   saveCachedRepositories,
 } from "../utils/organizationBrowserStorage";
+import type { OrganizationColorDefinition } from "../utils/organizationBrowserStorage";
 import {
   formatAbsoluteDateTime,
   formatRelativeDateTime,
@@ -46,6 +49,9 @@ export default function OrganizationBrowserPage() {
   const [lastFetchedAt, setLastFetchedAt] = useState(() =>
     loadLatestCachedRepositoriesFetchedAt(loadSavedOrganizations())
   );
+  const [organizationColors, setOrganizationColors] = useState<
+    Record<string, OrganizationColorDefinition>
+  >(() => loadOrganizationColors(loadSavedOrganizations()));
 
   const abortRef = useRef<AbortController | null>(null);
   const organizationsRef = useRef(organizations);
@@ -200,6 +206,7 @@ export default function OrganizationBrowserPage() {
     }
 
     const nextOrganizations = addOrganization(organizations, nextOrganization);
+    setOrganizationColors(loadOrganizationColors(nextOrganizations));
     setOrganizations(nextOrganizations);
     setOrganization("");
     await handleRefreshRepositories(nextOrganizations);
@@ -214,6 +221,7 @@ export default function OrganizationBrowserPage() {
     const nextRepositories = loadCombinedCachedRepositories(nextOrganizations);
     nextRepositories.sort(sortByUpdatedAtDesc);
     clearCachedRepositories(organizationToRemove);
+    setOrganizationColors(loadOrganizationColors(nextOrganizations));
     setOrganizations(nextOrganizations);
     setRepositories(nextRepositories);
     setLastFetchedAt(loadLatestCachedRepositoriesFetchedAt(nextOrganizations));
@@ -277,7 +285,11 @@ export default function OrganizationBrowserPage() {
           {organizations.length > 0 && (
             <ul className="org-page__organization-list">
               {organizations.map((savedOrganization) => (
-                <li key={savedOrganization} className="org-page__organization-item">
+                <li
+                  key={savedOrganization}
+                  className="org-page__organization-item"
+                  style={getOrganizationColor(savedOrganization, organizationColors)}
+                >
                   <span>{savedOrganization}</span>
                   <button
                     type="button"
@@ -386,7 +398,13 @@ export default function OrganizationBrowserPage() {
               >
                 <div className="org-page__list-item-main">
                   <span className="org-page__repo-name">{repo.name}</span>
-                  <span className="org-page__repo-organization">
+                  <span
+                    className="org-page__repo-organization"
+                    style={getOrganizationColor(
+                      getRepositoryOrganization(repo.repo),
+                      organizationColors
+                    )}
+                  >
                     {getRepositoryOrganization(repo.repo)}
                   </span>
                 </div>

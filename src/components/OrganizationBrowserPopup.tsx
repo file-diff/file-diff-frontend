@@ -15,14 +15,17 @@ import type {
 import {
   addOrganization,
   clearCachedRepositories,
+  getOrganizationColor,
   getRepositoryOrganization,
   loadCachedRepositories,
   loadCombinedCachedRepositories,
   loadLatestCachedRepositoriesFetchedAt,
+  loadOrganizationColors,
   loadSavedOrganizations,
   removeOrganization,
   saveCachedRepositories,
 } from "../utils/organizationBrowserStorage";
+import type { OrganizationColorDefinition } from "../utils/organizationBrowserStorage";
 import {
   formatAbsoluteDateTime,
   formatRelativeDateTime,
@@ -67,6 +70,9 @@ export default function OrganizationBrowserPopup({
   const [error, setError] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
   const [lastFetchedAt, setLastFetchedAt] = useState("");
+  const [organizationColors, setOrganizationColors] = useState<
+    Record<string, OrganizationColorDefinition>
+  >(() => loadOrganizationColors(loadSavedOrganizations()));
 
   const abortRef = useRef<AbortController | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -207,6 +213,7 @@ export default function OrganizationBrowserPopup({
     const cachedRepositories = loadCombinedCachedRepositories(savedOrganizations);
     cachedRepositories.sort(sortByUpdatedAtDesc);
 
+    setOrganizationColors(loadOrganizationColors(savedOrganizations));
     setOrganizations(savedOrganizations);
     setRepositories(cachedRepositories);
     setLastFetchedAt(loadLatestCachedRepositoriesFetchedAt(savedOrganizations));
@@ -229,6 +236,7 @@ export default function OrganizationBrowserPopup({
     }
 
     const nextOrganizations = addOrganization(organizations, org);
+    setOrganizationColors(loadOrganizationColors(nextOrganizations));
     setOrganizations(nextOrganizations);
     setOrganization("");
     await handleRefreshRepositories(nextOrganizations);
@@ -245,6 +253,7 @@ export default function OrganizationBrowserPopup({
     clearCachedRepositories(organizationToRemove);
     const nextRepositories = loadCombinedCachedRepositories(nextOrganizations);
     nextRepositories.sort(sortByUpdatedAtDesc);
+    setOrganizationColors(loadOrganizationColors(nextOrganizations));
     setOrganizations(nextOrganizations);
     setRepositories(nextRepositories);
     setLastFetchedAt(loadLatestCachedRepositoriesFetchedAt(nextOrganizations));
@@ -382,6 +391,7 @@ export default function OrganizationBrowserPopup({
       setError("");
 
       setOrganization(parsedLocation.organization);
+      setOrganizationColors(loadOrganizationColors(nextOrganizations));
       setOrganizations(nextOrganizations);
 
       void (async () => {
@@ -529,6 +539,7 @@ export default function OrganizationBrowserPopup({
                   <li
                     key={savedOrganization}
                     className="org-browser__organization-item"
+                    style={getOrganizationColor(savedOrganization, organizationColors)}
                   >
                     <span>{savedOrganization}</span>
                     <button
@@ -643,7 +654,13 @@ export default function OrganizationBrowserPopup({
                 >
                   <div className="org-browser__list-item-main">
                     <span className="org-browser__repo-name">{repo.name}</span>
-                    <span className="org-browser__repo-organization">
+                    <span
+                      className="org-browser__repo-organization"
+                      style={getOrganizationColor(
+                        getRepositoryOrganization(repo.repo),
+                        organizationColors
+                      )}
+                    >
                       {getRepositoryOrganization(repo.repo)}
                     </span>
                   </div>
