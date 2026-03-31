@@ -11,27 +11,24 @@ import {
   addOrganization,
   clearCachedRepositories,
   getRepositoryOrganization,
+  loadCachedRepositories,
   loadCombinedCachedRepositories,
+  loadLatestCachedRepositoriesFetchedAt,
   loadSavedOrganizations,
   removeOrganization,
   saveCachedRepositories,
 } from "../utils/organizationBrowserStorage";
+import {
+  formatAbsoluteDateTime,
+  formatRelativeDateTime,
+  sortByUpdatedAtDesc,
+} from "../utils/organizationBrowserPresentation";
 import "./OrganizationBrowserPage.css";
 
-function formatUpdatedAt(isoDate: string | undefined): string {
-  if (!isoDate) return "";
-  const date = new Date(isoDate);
-  if (isNaN(date.getTime())) return isoDate;
-  return date.toLocaleString();
-}
-
-function sortByUpdatedAtDesc(
-  a: OrganizationRepository,
-  b: OrganizationRepository
-): number {
-  const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-  const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-  return dateB - dateA;
+function loadInitialRepositories(): OrganizationRepository[] {
+  const cachedRepositories = loadCombinedCachedRepositories(loadSavedOrganizations());
+  cachedRepositories.sort(sortByUpdatedAtDesc);
+  return cachedRepositories;
 }
 
 export default function OrganizationBrowserPage() {
@@ -39,31 +36,34 @@ export default function OrganizationBrowserPage() {
   const [organizations, setOrganizations] = useState<string[]>(() =>
     loadSavedOrganizations()
   );
-  const [repositories, setRepositories] = useState<OrganizationRepository[]>(
-    []
+  const [repositories, setRepositories] = useState<OrganizationRepository[]>(() =>
+    loadInitialRepositories()
   );
   const [selectedRepo, setSelectedRepo] = useState("");
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [error, setError] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
+  const [lastFetchedAt, setLastFetchedAt] = useState(() =>
+    loadLatestCachedRepositoriesFetchedAt(loadSavedOrganizations())
+  );
 
   const abortRef = useRef<AbortController | null>(null);
+  const organizationsRef = useRef(organizations);
 
   useEffect(() => {
-    const cachedRepositories = loadCombinedCachedRepositories(organizations);
-    cachedRepositories.sort(sortByUpdatedAtDesc);
-    setRepositories(cachedRepositories);
+    organizationsRef.current = organizations;
   }, [organizations]);
 
   const handleRefreshRepositories = useCallback(
-    async (organizationValues = organizations) => {
-      const nextOrganizations = organizationValues
+    async (organizationValues?: string[]) => {
+      const nextOrganizations = (organizationValues ?? organizationsRef.current)
         .map((org) => org.trim())
         .filter(Boolean);
       if (nextOrganizations.length === 0) {
         setError("Add at least one organization.");
         setRepositories([]);
         setIsLoadingRepos(false);
+        setLastFetchedAt("");
         return;
       }
 
@@ -97,11 +97,14 @@ export default function OrganizationBrowserPage() {
           return;
         }
 
-        failedOrganizations.push(nextOrganizations[index]);
+        const failedOrganization = nextOrganizations[index];
+        failedOrganizations.push(failedOrganization);
+        loadedRepositories.push(...loadCachedRepositories(failedOrganization));
       });
 
       loadedRepositories.sort(sortByUpdatedAtDesc);
       setRepositories(loadedRepositories);
+      setLastFetchedAt(loadLatestCachedRepositoriesFetchedAt(nextOrganizations));
       setSelectedRepo((currentSelectedRepo) =>
         loadedRepositories.some((repo) => repo.repo === currentSelectedRepo)
           ? currentSelectedRepo
@@ -110,7 +113,7 @@ export default function OrganizationBrowserPage() {
 
       if (failedOrganizations.length > 0) {
         setError(
-          `Unable to list repositories for: ${failedOrganizations.join(", ")}.`
+          `Unable to refresh repositories for: ${failedOrganizations.join(", ")}. Showing cached data where available.`
         );
       } else if (loadedRepositories.length === 0) {
         setError("No repositories found for the saved organizations.");
@@ -118,8 +121,24 @@ export default function OrganizationBrowserPage() {
 
       setIsLoadingRepos(false);
     },
-    [organizations]
+    []
   );
+
+  useEffect(() => {
+    if (organizationsRef.current.length === 0) {
+      return;
+    }
+
+    const refreshTimer = window.setTimeout(() => {
+      void handleRefreshRepositories();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(refreshTimer);
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, [handleRefreshRepositories]);
 
   const repoFuse = useMemo(() => {
     if (repositories.length === 0) return null;
@@ -192,8 +211,12 @@ export default function OrganizationBrowserPage() {
     setIsLoadingRepos(false);
 
     const nextOrganizations = removeOrganization(organizations, organizationToRemove);
+    const nextRepositories = loadCombinedCachedRepositories(nextOrganizations);
+    nextRepositories.sort(sortByUpdatedAtDesc);
     clearCachedRepositories(organizationToRemove);
     setOrganizations(nextOrganizations);
+    setRepositories(nextRepositories);
+    setLastFetchedAt(loadLatestCachedRepositoriesFetchedAt(nextOrganizations));
     setSelectedRepo((currentSelectedRepo) =>
       currentSelectedRepo.toLowerCase().startsWith(
         `${organizationToRemove.toLowerCase()}/`
@@ -204,13 +227,24 @@ export default function OrganizationBrowserPage() {
     setError("");
   };
 
+  const statusMessage = error
+    ? error
+    : lastFetchedAt
+      ? `Last updated ${formatRelativeDateTime(lastFetchedAt)}`
+      : organizations.length > 0
+        ? "Showing cached repositories until the next refresh finishes."
+        : "";
+  const statusTone = error ? "error" : "info";
+  const statusIcon = error ? "⚠" : isLoadingRepos ? "↻" : "ℹ";
+  const statusTitle = lastFetchedAt
+    ? `Last updated ${formatAbsoluteDateTime(lastFetchedAt)}`
+    : undefined;
+
   return (
     <div className="org-page">
       <h1 className="org-page__title">Browse Organization</h1>
 
       <div className="org-page__content">
-        {error && <div className="org-page__error">{error}</div>}
-
         <div className="org-page__step">
           <label htmlFor="org-page-name-input">
             Organizations
@@ -263,6 +297,21 @@ export default function OrganizationBrowserPage() {
           <div className="org-page__hint">
             Saved organizations are stored in local storage for this browser.
           </div>
+          {statusMessage && (
+            <div
+              className={`org-page__status org-page__status--${statusTone}`}
+              role={error ? "alert" : "status"}
+              title={statusTitle}
+            >
+              <span className="org-page__status-icon" aria-hidden="true">
+                {statusIcon}
+              </span>
+              <span>
+                {statusMessage}
+                {isLoadingRepos && !error ? " Refreshing…" : ""}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="org-page__step">
@@ -303,10 +352,6 @@ export default function OrganizationBrowserPage() {
           </div>
         )}
 
-        {isLoadingRepos && (
-          <div className="org-page__loading">Loading repositories…</div>
-        )}
-
         <div className="org-page__step">
           <label>
             Repository list
@@ -314,7 +359,7 @@ export default function OrganizationBrowserPage() {
               ? ` (${filteredRepositories.length}/${repositories.length})`
               : ""}
             {isLoadingRepos && (
-              <span className="org-page__refreshing"> ↻ refreshing…</span>
+              <span className="org-page__refreshing"> ↻ refreshing</span>
             )}
           </label>
           {repositories.length > 0 && (
@@ -354,12 +399,15 @@ export default function OrganizationBrowserPage() {
                     {getRepositoryOrganization(repo.repo)}
                   </span>
                 </div>
-                <div className="org-page__list-item-meta">
-                  {repo.updatedAt && (
-                    <span className="org-page__repo-updated">
-                      Updated: {formatUpdatedAt(repo.updatedAt)}
-                    </span>
-                  )}
+                  <div className="org-page__list-item-meta">
+                    {repo.updatedAt && (
+                      <span
+                        className="org-page__repo-updated"
+                        title={formatAbsoluteDateTime(repo.updatedAt)}
+                      >
+                        Updated {formatRelativeDateTime(repo.updatedAt)}
+                      </span>
+                    )}
                   <Link
                     to={`/commits?repo=${encodeURIComponent(repo.repo)}`}
                     className="org-page__repo-commits-link"

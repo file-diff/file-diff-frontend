@@ -16,28 +16,19 @@ import {
   addOrganization,
   clearCachedRepositories,
   getRepositoryOrganization,
+  loadCachedRepositories,
   loadCombinedCachedRepositories,
+  loadLatestCachedRepositoriesFetchedAt,
   loadSavedOrganizations,
   removeOrganization,
   saveCachedRepositories,
 } from "../utils/organizationBrowserStorage";
+import {
+  formatAbsoluteDateTime,
+  formatRelativeDateTime,
+  sortByUpdatedAtDesc,
+} from "../utils/organizationBrowserPresentation";
 import "./OrganizationBrowserPopup.css";
-
-function formatUpdatedAt(isoDate: string | undefined): string {
-  if (!isoDate) return "";
-  const date = new Date(isoDate);
-  if (isNaN(date.getTime())) return isoDate;
-  return date.toLocaleString();
-}
-
-function sortByUpdatedAtDesc(
-  a: { updatedAt?: string },
-  b: { updatedAt?: string }
-): number {
-  const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-  const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-  return dateB - dateA;
-}
 
 const REPOSITORY_OPTIONS_ID = "org-browser-repository-options";
 const REF_OPTIONS_ID = "org-browser-ref-options";
@@ -75,9 +66,20 @@ export default function OrganizationBrowserPopup({
   const [isResolvingCommit, setIsResolvingCommit] = useState(false);
   const [error, setError] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
+  const [lastFetchedAt, setLastFetchedAt] = useState("");
 
   const abortRef = useRef<AbortController | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const organizationsRef = useRef<string[]>([]);
+  const selectedRepoRef = useRef("");
+
+  useEffect(() => {
+    organizationsRef.current = organizations;
+  }, [organizations]);
+
+  useEffect(() => {
+    selectedRepoRef.current = selectedRepo;
+  }, [selectedRepo]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -112,33 +114,21 @@ export default function OrganizationBrowserPopup({
     setIsResolvingCommit(false);
     setError("");
     setFilterQuery("");
+    setLastFetchedAt("");
     abortRef.current?.abort();
     abortRef.current = null;
   }, []);
 
-  useEffect(() => {
-    if (!open) {
-      resetState();
-      return;
-    }
-
-    const savedOrganizations = loadSavedOrganizations();
-    const cachedRepositories = loadCombinedCachedRepositories(savedOrganizations);
-    cachedRepositories.sort(sortByUpdatedAtDesc);
-
-    setOrganizations(savedOrganizations);
-    setRepositories(cachedRepositories);
-  }, [open, resetState]);
-
   const handleRefreshRepositories = useCallback(
-    async (organizationValues = organizations) => {
-      const nextOrganizations = organizationValues
+    async (organizationValues?: string[]) => {
+      const nextOrganizations = (organizationValues ?? organizationsRef.current)
         .map((org) => org.trim())
         .filter(Boolean);
       if (nextOrganizations.length === 0) {
         setError("Add at least one organization.");
         setRepositories([]);
         setIsLoadingRepos(false);
+        setLastFetchedAt("");
         return;
       }
 
@@ -175,14 +165,17 @@ export default function OrganizationBrowserPopup({
           return;
         }
 
-        failedOrganizations.push(nextOrganizations[index]);
+        const failedOrganization = nextOrganizations[index];
+        failedOrganizations.push(failedOrganization);
+        loadedRepositories.push(...loadCachedRepositories(failedOrganization));
       });
 
       loadedRepositories.sort(sortByUpdatedAtDesc);
       setRepositories(loadedRepositories);
+      setLastFetchedAt(loadLatestCachedRepositoriesFetchedAt(nextOrganizations));
 
       const isSelectedRepoAvailable = loadedRepositories.some(
-        (repo) => repo.repo === selectedRepo
+        (repo) => repo.repo === selectedRepoRef.current
       );
       if (!isSelectedRepoAvailable) {
         setSelectedRepo("");
@@ -193,7 +186,7 @@ export default function OrganizationBrowserPopup({
 
       if (failedOrganizations.length > 0) {
         setError(
-          `Unable to list repositories for: ${failedOrganizations.join(", ")}.`
+          `Unable to refresh repositories for: ${failedOrganizations.join(", ")}. Showing cached data where available.`
         );
       } else if (loadedRepositories.length === 0) {
         setError("No repositories found for the saved organizations.");
@@ -201,8 +194,32 @@ export default function OrganizationBrowserPopup({
 
       setIsLoadingRepos(false);
     },
-    [organizations, selectedRepo]
+    []
   );
+
+  useEffect(() => {
+    if (!open) {
+      resetState();
+      return;
+    }
+
+    const savedOrganizations = loadSavedOrganizations();
+    const cachedRepositories = loadCombinedCachedRepositories(savedOrganizations);
+    cachedRepositories.sort(sortByUpdatedAtDesc);
+
+    setOrganizations(savedOrganizations);
+    setRepositories(cachedRepositories);
+    setLastFetchedAt(loadLatestCachedRepositoriesFetchedAt(savedOrganizations));
+    if (savedOrganizations.length > 0) {
+      const refreshTimer = window.setTimeout(() => {
+        void handleRefreshRepositories(savedOrganizations);
+      }, 0);
+
+      return () => {
+        window.clearTimeout(refreshTimer);
+      };
+    }
+  }, [handleRefreshRepositories, open, resetState]);
 
   const handleAddOrganization = async () => {
     const org = organization.trim();
@@ -226,14 +243,11 @@ export default function OrganizationBrowserPopup({
 
     const nextOrganizations = removeOrganization(organizations, organizationToRemove);
     clearCachedRepositories(organizationToRemove);
+    const nextRepositories = loadCombinedCachedRepositories(nextOrganizations);
+    nextRepositories.sort(sortByUpdatedAtDesc);
     setOrganizations(nextOrganizations);
-    setRepositories((currentRepositories) =>
-      currentRepositories.filter(
-        (repo) =>
-          getRepositoryOrganization(repo.repo).toLowerCase() !==
-          organizationToRemove.toLowerCase()
-      )
-    );
+    setRepositories(nextRepositories);
+    setLastFetchedAt(loadLatestCachedRepositoriesFetchedAt(nextOrganizations));
 
     if (
       selectedRepo
@@ -248,6 +262,19 @@ export default function OrganizationBrowserPopup({
 
     setError("");
   };
+
+  const repoStatusMessage = error
+    ? error
+    : lastFetchedAt
+      ? `Last updated ${formatRelativeDateTime(lastFetchedAt)}`
+      : organizations.length > 0
+        ? "Showing cached repositories until the next refresh finishes."
+        : "";
+  const repoStatusTone = error ? "error" : "info";
+  const repoStatusIcon = error ? "⚠" : isLoadingRepos ? "↻" : "ℹ";
+  const repoStatusTitle = lastFetchedAt
+    ? `Last updated ${formatAbsoluteDateTime(lastFetchedAt)}`
+    : undefined;
 
   const handleLoadRefs = async (repoValue = selectedRepo) => {
     const repo = repoValue.trim();
@@ -467,8 +494,6 @@ export default function OrganizationBrowserPopup({
         </div>
 
         <div className="org-browser__content">
-          {error && <div className="org-browser__error">{error}</div>}
-
           <div className="org-browser__step">
             <label htmlFor="org-name-input">
               Organizations
@@ -524,6 +549,21 @@ export default function OrganizationBrowserPopup({
             <div className="org-browser__hint">
               Saved organizations are stored in local storage for this browser.
             </div>
+            {repoStatusMessage && (
+              <div
+                className={`org-browser__status org-browser__status--${repoStatusTone}`}
+                role={error ? "alert" : "status"}
+                title={repoStatusTitle}
+              >
+                <span className="org-browser__status-icon" aria-hidden="true">
+                  {repoStatusIcon}
+                </span>
+                <span>
+                  {repoStatusMessage}
+                  {isLoadingRepos && !error ? " Refreshing…" : ""}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="org-browser__step">
@@ -576,7 +616,7 @@ export default function OrganizationBrowserPopup({
                 ? ` (${filteredRepositories.length}/${repositories.length})`
                 : ""}
               {isLoadingRepos && (
-                <span className="org-browser__refreshing"> ↻ refreshing…</span>
+                <span className="org-browser__refreshing"> ↻ refreshing</span>
               )}
             </label>
             {repositories.length > 0 && (
@@ -618,8 +658,11 @@ export default function OrganizationBrowserPopup({
                   </div>
                   <div className="org-browser__list-item-meta">
                     {repo.updatedAt && (
-                      <span className="org-browser__repo-updated">
-                        {formatUpdatedAt(repo.updatedAt)}
+                      <span
+                        className="org-browser__repo-updated"
+                        title={formatAbsoluteDateTime(repo.updatedAt)}
+                      >
+                        Updated {formatRelativeDateTime(repo.updatedAt)}
                       </span>
                     )}
                     <Link
