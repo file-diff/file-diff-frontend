@@ -441,7 +441,10 @@ export default function OrganizationBrowserPopup({
 
   const filteredRepositories = useMemo(() => {
     if (!filterQuery.trim() || !repoFuse) return repositories;
-    return repoFuse.search(filterQuery).map((result) => result.item);
+    return repoFuse
+      .search(filterQuery)
+      .map((result) => result.item)
+      .sort(sortByUpdatedAtDesc);
   }, [filterQuery, repoFuse, repositories]);
 
   const repoInputValue = selectedRepo

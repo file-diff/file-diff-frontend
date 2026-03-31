@@ -150,7 +150,10 @@ export default function OrganizationBrowserPage() {
 
   const filteredRepositories = useMemo(() => {
     if (!filterQuery.trim() || !repoFuse) return repositories;
-    return repoFuse.search(filterQuery).map((result) => result.item);
+    return repoFuse
+      .search(filterQuery)
+      .map((result) => result.item)
+      .sort(sortByUpdatedAtDesc);
   }, [filterQuery, repoFuse, repositories]);
 
   const handleSelectRepository = (repo: OrganizationRepository) => {
