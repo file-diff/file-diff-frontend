@@ -141,6 +141,40 @@
   line-height: 1.4;
 }
 
+.org-browser__organization-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.org-browser__organization-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #444;
+  border-radius: 999px;
+  background: #1d1f21;
+  color: #d4d4d4;
+  font-size: 0.8rem;
+}
+
+.org-browser__organization-item button {
+  border: none;
+  background: none;
+  color: #8b949e;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.org-browser__organization-item button:hover {
+  color: #d4d4d4;
+}
+
 .org-browser__list {
   list-style: none;
   margin: 0;
@@ -156,6 +190,7 @@
 .org-browser__list-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   padding: 8px 12px;
   cursor: pointer;
@@ -182,9 +217,27 @@
   color: #58a6ff;
 }
 
-.org-browser__repo-full {
+.org-browser__list-item-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.org-browser__list-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.org-browser__repo-organization {
   color: #8b949e;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  padding: 1px 6px;
+  border: 1px solid #444;
+  border-radius: 999px;
 }
 
 .org-browser__repo-context {
@@ -347,7 +400,6 @@
 .org-browser__repo-updated {
   color: #8b949e;
   font-size: 0.75rem;
-  margin-left: auto;
   white-space: nowrap;
 }
 

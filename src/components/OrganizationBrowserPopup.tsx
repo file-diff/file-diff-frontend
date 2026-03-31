@@ -12,28 +12,16 @@ import type {
   OrganizationRepository,
   ResolveCommitResponse,
 } from "../utils/repositorySelection";
+import {
+  addOrganization,
+  clearCachedRepositories,
+  getRepositoryOrganization,
+  loadCombinedCachedRepositories,
+  loadSavedOrganizations,
+  removeOrganization,
+  saveCachedRepositories,
+} from "../utils/organizationBrowserStorage";
 import "./OrganizationBrowserPopup.css";
-
-const ORG_REPOS_STORAGE_PREFIX = "org-repos-";
-
-function loadCachedRepositories(org: string): OrganizationRepository[] {
-  try {
-    const raw = localStorage.getItem(ORG_REPOS_STORAGE_PREFIX + org.toLowerCase());
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as OrganizationRepository[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCachedRepositories(org: string, repos: OrganizationRepository[]): void {
-  try {
-    localStorage.setItem(ORG_REPOS_STORAGE_PREFIX + org.toLowerCase(), JSON.stringify(repos));
-  } catch {
-    // Ignore storage errors (quota exceeded, etc.)
-  }
-}
 
 function formatUpdatedAt(isoDate: string | undefined): string {
   if (!isoDate) return "";
@@ -73,6 +61,7 @@ export default function OrganizationBrowserPopup({
   onSelect,
 }: OrganizationBrowserPopupProps) {
   const [organization, setOrganization] = useState("");
+  const [organizations, setOrganizations] = useState<string[]>([]);
   const [repositories, setRepositories] = useState<OrganizationRepository[]>(
     []
   );
@@ -112,6 +101,7 @@ export default function OrganizationBrowserPopup({
 
   const resetState = useCallback(() => {
     setOrganization("");
+    setOrganizations([]);
     setRepositories([]);
     setSelectedRepo("");
     setRefs([]);
@@ -129,13 +119,26 @@ export default function OrganizationBrowserPopup({
   useEffect(() => {
     if (!open) {
       resetState();
+      return;
     }
+
+    const savedOrganizations = loadSavedOrganizations();
+    const cachedRepositories = loadCombinedCachedRepositories(savedOrganizations);
+    cachedRepositories.sort(sortByUpdatedAtDesc);
+
+    setOrganizations(savedOrganizations);
+    setRepositories(cachedRepositories);
   }, [open, resetState]);
 
-  const handleLoadRepositoriesForParsedLocation = useCallback(
-    async (organizationValue: string) => {
-      const org = organizationValue.trim();
-      if (!org) {
+  const handleRefreshRepositories = useCallback(
+    async (organizationValues = organizations) => {
+      const nextOrganizations = organizationValues
+        .map((org) => org.trim())
+        .filter(Boolean);
+      if (nextOrganizations.length === 0) {
+        setError("Add at least one organization.");
+        setRepositories([]);
+        setIsLoadingRepos(false);
         return;
       }
 
@@ -146,54 +149,104 @@ export default function OrganizationBrowserPopup({
       setError("");
       setIsLoadingRefs(false);
       setIsResolvingCommit(false);
-      setFilterQuery("");
 
-      const cached = loadCachedRepositories(org);
-      if (cached.length > 0) {
-        cached.sort(sortByUpdatedAtDesc);
-        setRepositories(cached);
-      } else {
-        setRepositories([]);
-      }
+      const cachedRepositories = loadCombinedCachedRepositories(nextOrganizations);
+      cachedRepositories.sort(sortByUpdatedAtDesc);
+      setRepositories(cachedRepositories);
       setIsLoadingRepos(true);
 
-      try {
-        const repos = await requestOrganizationRepositories(org, controller.signal);
-        repos.sort(sortByUpdatedAtDesc);
-        setRepositories(repos);
-        saveCachedRepositories(org, repos);
-        if (repos.length === 0) {
-          setError("No repositories found for this organization.");
+      const results = await Promise.allSettled(
+        nextOrganizations.map(async (org) => {
+          const repos = await requestOrganizationRepositories(org, controller.signal);
+          repos.sort(sortByUpdatedAtDesc);
+          saveCachedRepositories(org, repos);
+          return repos;
+        })
+      );
+
+      if (controller.signal.aborted) return;
+
+      const loadedRepositories: OrganizationRepository[] = [];
+      const failedOrganizations: string[] = [];
+
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          loadedRepositories.push(...result.value);
+          return;
         }
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        setError(
-          err instanceof Error && err.message
-            ? err.message
-            : "Unable to list repositories."
-        );
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingRepos(false);
-        }
+
+        failedOrganizations.push(nextOrganizations[index]);
+      });
+
+      loadedRepositories.sort(sortByUpdatedAtDesc);
+      setRepositories(loadedRepositories);
+
+      const isSelectedRepoAvailable = loadedRepositories.some(
+        (repo) => repo.repo === selectedRepo
+      );
+      if (!isSelectedRepoAvailable) {
+        setSelectedRepo("");
+        setRefs([]);
+        setSelectedRef("");
+        setResolvedCommit(null);
       }
+
+      if (failedOrganizations.length > 0) {
+        setError(
+          `Unable to list repositories for: ${failedOrganizations.join(", ")}.`
+        );
+      } else if (loadedRepositories.length === 0) {
+        setError("No repositories found for the saved organizations.");
+      }
+
+      setIsLoadingRepos(false);
     },
-    []
+    [organizations, selectedRepo]
   );
 
-  const handleLoadRepositories = async () => {
+  const handleAddOrganization = async () => {
     const org = organization.trim();
     if (!org) {
       setError("Enter an organization name.");
       return;
     }
 
+    const nextOrganizations = addOrganization(organizations, org);
+    setOrganizations(nextOrganizations);
+    setOrganization("");
+    await handleRefreshRepositories(nextOrganizations);
+  };
+
+  const handleRemoveOrganization = (organizationToRemove: string) => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setIsLoadingRepos(false);
+    setIsLoadingRefs(false);
+    setIsResolvingCommit(false);
+
+    const nextOrganizations = removeOrganization(organizations, organizationToRemove);
+    clearCachedRepositories(organizationToRemove);
+    setOrganizations(nextOrganizations);
+    setRepositories((currentRepositories) =>
+      currentRepositories.filter(
+        (repo) =>
+          getRepositoryOrganization(repo.repo).toLowerCase() !==
+          organizationToRemove.toLowerCase()
+      )
+    );
+
+    if (
+      selectedRepo
+        .toLowerCase()
+        .startsWith(`${organizationToRemove.toLowerCase()}/`)
+    ) {
+      setSelectedRepo("");
+      setRefs([]);
+      setSelectedRef("");
+      setResolvedCommit(null);
+    }
+
     setError("");
-    setSelectedRepo("");
-    setRefs([]);
-    setSelectedRef("");
-    setResolvedCommit(null);
-    await handleLoadRepositoriesForParsedLocation(org);
   };
 
   const handleLoadRefs = async (repoValue = selectedRepo) => {
@@ -289,6 +342,10 @@ export default function OrganizationBrowserPopup({
 
     if (parsedLocation) {
       const nextRef = parsedLocation.ref ?? "";
+      const nextOrganizations = addOrganization(
+        organizations,
+        parsedLocation.organization
+      );
 
       abortRef.current?.abort();
       abortRef.current = null;
@@ -302,9 +359,10 @@ export default function OrganizationBrowserPopup({
       setError("");
 
       setOrganization(parsedLocation.organization);
+      setOrganizations(nextOrganizations);
 
       void (async () => {
-        await handleLoadRepositoriesForParsedLocation(parsedLocation.organization);
+        await handleRefreshRepositories(nextOrganizations);
         await handleLoadRefs(parsedLocation.repo);
 
         if (parsedLocation.ref) {
@@ -315,8 +373,16 @@ export default function OrganizationBrowserPopup({
     }
 
     const repoName = value.trim();
-    const org = organization.trim();
-    const nextRepo = org && repoName ? `${org}/${repoName}` : value;
+    const exactMatches = repositories.filter(
+      (repo) => repo.name.toLowerCase() === repoName.toLowerCase()
+    );
+    const nextRepo = repoName.includes("/")
+      ? repoName
+      : exactMatches.length === 1
+        ? exactMatches[0].repo
+        : organizations.length === 1 && repoName
+          ? `${organizations[0]}/${repoName}`
+          : value;
 
     abortRef.current?.abort();
     abortRef.current = null;
@@ -341,10 +407,7 @@ export default function OrganizationBrowserPopup({
   const repoFuse = useMemo(() => {
     if (repositories.length === 0) return null;
     return new Fuse(repositories, {
-      keys: [
-        { name: "name", weight: 0.8 },
-        { name: "repo", weight: 0.2 },
-      ],
+      keys: [{ name: "name", weight: 1 }],
       threshold: 0.4,
     });
   }, [repositories]);
@@ -353,6 +416,15 @@ export default function OrganizationBrowserPopup({
     if (!filterQuery.trim() || !repoFuse) return repositories;
     return repoFuse.search(filterQuery).map((result) => result.item);
   }, [filterQuery, repoFuse, repositories]);
+
+  const repoInputValue = selectedRepo
+    ? selectedRepo.includes("/")
+      ? organizations.length === 1 &&
+        selectedRepo.toLowerCase().startsWith(`${organizations[0].toLowerCase()}/`)
+        ? selectedRepo.split("/").slice(1).join("/")
+        : selectedRepo
+      : selectedRepo
+    : "";
 
   const handleConfirm = () => {
     if (!resolvedCommit || !selectedRepo || !selectedRef) return;
@@ -398,7 +470,10 @@ export default function OrganizationBrowserPopup({
           {error && <div className="org-browser__error">{error}</div>}
 
           <div className="org-browser__step">
-            <label htmlFor="org-name-input">Organization</label>
+            <label htmlFor="org-name-input">
+              Organizations
+              {organizations.length > 0 ? ` (${organizations.length} saved)` : ""}
+            </label>
             <div className="org-browser__input-row">
               <input
                 id="org-name-input"
@@ -406,7 +481,7 @@ export default function OrganizationBrowserPopup({
                 value={organization}
                 onChange={(e) => setOrganization(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") void handleLoadRepositories();
+                  if (e.key === "Enter") void handleAddOrganization();
                 }}
                 placeholder="e.g. facebook"
                 spellCheck={false}
@@ -414,11 +489,40 @@ export default function OrganizationBrowserPopup({
               />
               <button
                 type="button"
-                onClick={() => void handleLoadRepositories()}
+                onClick={() => void handleAddOrganization()}
                 disabled={isLoadingRepos || !organization.trim()}
               >
-                {isLoadingRepos ? "Loading…" : "List repos"}
+                Add
               </button>
+              <button
+                type="button"
+                onClick={() => void handleRefreshRepositories()}
+                disabled={isLoadingRepos || organizations.length === 0}
+              >
+                {isLoadingRepos ? "Refreshing…" : "Refresh"}
+              </button>
+            </div>
+            {organizations.length > 0 && (
+              <ul className="org-browser__organization-list">
+                {organizations.map((savedOrganization) => (
+                  <li
+                    key={savedOrganization}
+                    className="org-browser__organization-item"
+                  >
+                    <span>{savedOrganization}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveOrganization(savedOrganization)}
+                      aria-label={`Remove ${savedOrganization}`}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="org-browser__hint">
+              Saved organizations are stored in local storage for this browser.
             </div>
           </div>
 
@@ -433,17 +537,13 @@ export default function OrganizationBrowserPopup({
               <input
                 id="org-browser-repository-input"
                 type="text"
-                value={
-                  selectedRepo && selectedRepo.includes("/")
-                    ? selectedRepo.split("/").slice(1).join("/")
-                    : selectedRepo
-                }
+                value={repoInputValue}
                 list={REPOSITORY_OPTIONS_ID}
                 onChange={(e) => handleRepositoryInputChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void handleLoadRefs();
                 }}
-                placeholder="repo name"
+                placeholder="repo name or org/repo"
                 spellCheck={false}
               />
               <button
@@ -456,12 +556,16 @@ export default function OrganizationBrowserPopup({
             </div>
             <datalist id={REPOSITORY_OPTIONS_ID}>
               {repositories.map((repo) => (
-                <option key={repo.repo} value={repo.name} label={repo.name} />
+                <option
+                  key={repo.repo}
+                  value={repo.repo}
+                  label={`${repo.name} (${getRepositoryOrganization(repo.repo)})`}
+                />
               ))}
             </datalist>
             <div className="org-browser__hint">
-              Enter repository name only. Listed organization repositories are
-              available as autocomplete suggestions.
+              Search suggestions match repository names only. Use org/repo to
+              disambiguate duplicates.
             </div>
           </div>
 
@@ -506,19 +610,26 @@ export default function OrganizationBrowserPopup({
                   }
                   onClick={() => void handleSelectRepository(repo.repo)}
                 >
-                  <span className="org-browser__repo-name">{repo.name}</span>
-                  {repo.updatedAt && (
-                    <span className="org-browser__repo-updated">
-                      {formatUpdatedAt(repo.updatedAt)}
+                  <div className="org-browser__list-item-main">
+                    <span className="org-browser__repo-name">{repo.name}</span>
+                    <span className="org-browser__repo-organization">
+                      {getRepositoryOrganization(repo.repo)}
                     </span>
-                  )}
-                  <Link
-                    to={`/commits?repo=${encodeURIComponent(repo.repo)}`}
-                    className="org-browser__repo-commits-link"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Commits
-                  </Link>
+                  </div>
+                  <div className="org-browser__list-item-meta">
+                    {repo.updatedAt && (
+                      <span className="org-browser__repo-updated">
+                        {formatUpdatedAt(repo.updatedAt)}
+                      </span>
+                    )}
+                    <Link
+                      to={`/commits?repo=${encodeURIComponent(repo.repo)}`}
+                      className="org-browser__repo-commits-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Commits
+                    </Link>
+                  </div>
                 </li>
               ))}
             </ul>
