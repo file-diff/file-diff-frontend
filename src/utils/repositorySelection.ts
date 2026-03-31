@@ -338,6 +338,7 @@ export interface OrganizationRepository {
   name: string;
   repo: string;
   repositoryUrl: string;
+  updatedAt?: string;
 }
 
 export interface ParsedRepositoryLocation {

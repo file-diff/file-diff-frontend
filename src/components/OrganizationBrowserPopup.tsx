@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   parseRepositoryLocation,
   requestOrganizationRepositories,
@@ -11,6 +12,22 @@ import type {
   ResolveCommitResponse,
 } from "../utils/repositorySelection";
 import "./OrganizationBrowserPopup.css";
+
+function formatUpdatedAt(isoDate: string | undefined): string {
+  if (!isoDate) return "";
+  const date = new Date(isoDate);
+  if (isNaN(date.getTime())) return isoDate;
+  return date.toLocaleString();
+}
+
+function sortByUpdatedAtDesc(
+  a: { updatedAt?: string },
+  b: { updatedAt?: string }
+): number {
+  const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+  const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+  return dateB - dateA;
+}
 
 const REPOSITORY_OPTIONS_ID = "org-browser-repository-options";
 const REF_OPTIONS_ID = "org-browser-ref-options";
@@ -110,6 +127,7 @@ export default function OrganizationBrowserPopup({
 
       try {
         const repos = await requestOrganizationRepositories(org, controller.signal);
+        repos.sort(sortByUpdatedAtDesc);
         setRepositories(repos);
         if (repos.length === 0) {
           setError("No repositories found for this organization.");
@@ -235,34 +253,48 @@ export default function OrganizationBrowserPopup({
 
   const handleRepositoryInputChange = (value: string) => {
     const parsedLocation = parseRepositoryLocation(value);
-    const nextRepo = parsedLocation ? parsedLocation.repo : value;
-    const nextRef = parsedLocation?.ref ?? "";
+
+    if (parsedLocation) {
+      const nextRef = parsedLocation.ref ?? "";
+
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setSelectedRepo(parsedLocation.repo);
+      setRefs([]);
+      setSelectedRef(nextRef);
+      setResolvedCommit(null);
+      setIsLoadingRepos(false);
+      setIsLoadingRefs(false);
+      setIsResolvingCommit(false);
+      setError("");
+
+      setOrganization(parsedLocation.organization);
+
+      void (async () => {
+        await handleLoadRepositoriesForParsedLocation(parsedLocation.organization);
+        await handleLoadRefs(parsedLocation.repo);
+
+        if (parsedLocation.ref) {
+          await handleResolveCommit(parsedLocation.ref, parsedLocation.repo);
+        }
+      })();
+      return;
+    }
+
+    const repoName = value.trim();
+    const org = organization.trim();
+    const nextRepo = org && repoName ? `${org}/${repoName}` : value;
 
     abortRef.current?.abort();
     abortRef.current = null;
     setSelectedRepo(nextRepo);
     setRefs([]);
-    setSelectedRef(nextRef);
+    setSelectedRef("");
     setResolvedCommit(null);
     setIsLoadingRepos(false);
     setIsLoadingRefs(false);
     setIsResolvingCommit(false);
     setError("");
-
-    if (!parsedLocation) {
-      return;
-    }
-
-    setOrganization(parsedLocation.organization);
-
-    void (async () => {
-      await handleLoadRepositoriesForParsedLocation(parsedLocation.organization);
-      await handleLoadRefs(parsedLocation.repo);
-
-      if (parsedLocation.ref) {
-        await handleResolveCommit(parsedLocation.ref, parsedLocation.repo);
-      }
-    })();
   };
 
   const handleSelectRepository = async (repo: string) => {
@@ -352,13 +384,17 @@ export default function OrganizationBrowserPopup({
               <input
                 id="org-browser-repository-input"
                 type="text"
-                value={selectedRepo}
+                value={
+                  selectedRepo && selectedRepo.includes("/")
+                    ? selectedRepo.split("/").slice(1).join("/")
+                    : selectedRepo
+                }
                 list={REPOSITORY_OPTIONS_ID}
                 onChange={(e) => handleRepositoryInputChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void handleLoadRefs();
                 }}
-                placeholder="owner/repo or paste full GitHub URL"
+                placeholder="repo name"
                 spellCheck={false}
               />
               <button
@@ -371,11 +407,11 @@ export default function OrganizationBrowserPopup({
             </div>
             <datalist id={REPOSITORY_OPTIONS_ID}>
               {repositories.map((repo) => (
-                <option key={repo.repo} value={repo.repo} label={repo.name} />
+                <option key={repo.repo} value={repo.name} label={repo.name} />
               ))}
             </datalist>
             <div className="org-browser__hint">
-              Enter any repository manually. Listed organization repositories are
+              Enter repository name only. Listed organization repositories are
               available as autocomplete suggestions.
             </div>
           </div>
@@ -399,6 +435,18 @@ export default function OrganizationBrowserPopup({
                   >
                     <span className="org-browser__repo-name">{repo.name}</span>
                     <span className="org-browser__repo-full">{repo.repo}</span>
+                    {repo.updatedAt && (
+                      <span className="org-browser__repo-updated">
+                        {formatUpdatedAt(repo.updatedAt)}
+                      </span>
+                    )}
+                    <Link
+                      to={`/commits?repo=${encodeURIComponent(repo.repo)}`}
+                      className="org-browser__repo-commits-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Commits
+                    </Link>
                   </li>
                 ))}
               </ul>
