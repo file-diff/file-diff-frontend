@@ -192,8 +192,9 @@ export function loadOrganizationColors(
       return;
     }
 
-    const availableColorIndexes = ORGANIZATION_COLOR_PALETTE.map((_, index) => index)
-      .filter((index) => !usedColorIndexes.has(index));
+    const availableColorIndexes = Array.from(
+      ORGANIZATION_COLOR_PALETTE.keys()
+    ).filter((index) => !usedColorIndexes.has(index));
     const candidateColorIndexes =
       availableColorIndexes.length > 0
         ? availableColorIndexes
@@ -213,10 +214,10 @@ export function loadOrganizationColors(
   }
 
   return Object.fromEntries(
-    normalizedOrganizations.map((org) => [
-      organizationKey(org),
-      ORGANIZATION_COLOR_PALETTE[assignments[organizationKey(org)] ?? 0],
-    ])
+    normalizedOrganizations.map((org) => {
+      const colorIndex = assignments[organizationKey(org)];
+      return [organizationKey(org), ORGANIZATION_COLOR_PALETTE[colorIndex]];
+    })
   );
 }
 
