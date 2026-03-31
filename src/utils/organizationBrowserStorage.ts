@@ -1,12 +1,49 @@
 import type { OrganizationRepository } from "./repositorySelection";
 
 const ORGANIZATIONS_STORAGE_KEY = "organization-browser-organizations";
+const ORGANIZATION_COLORS_STORAGE_KEY = "organization-browser-org-colors";
 const ORG_REPOS_STORAGE_PREFIX = "org-repos-";
 
 interface CachedRepositoriesPayload {
   repositories: OrganizationRepository[];
   fetchedAt?: string;
 }
+
+export interface OrganizationColorDefinition {
+  backgroundColor: string;
+  borderColor: string;
+  color: string;
+}
+
+type OrganizationColorAssignments = Record<string, number>;
+
+const ORGANIZATION_COLOR_PALETTE: OrganizationColorDefinition[] = [
+  {
+    backgroundColor: "rgba(255, 123, 114, 0.16)",
+    borderColor: "rgba(255, 123, 114, 0.45)",
+    color: "#ffb3ad",
+  },
+  {
+    backgroundColor: "rgba(241, 194, 50, 0.16)",
+    borderColor: "rgba(241, 194, 50, 0.45)",
+    color: "#f2cc60",
+  },
+  {
+    backgroundColor: "rgba(63, 185, 80, 0.16)",
+    borderColor: "rgba(63, 185, 80, 0.45)",
+    color: "#7ee787",
+  },
+  {
+    backgroundColor: "rgba(88, 166, 255, 0.16)",
+    borderColor: "rgba(88, 166, 255, 0.45)",
+    color: "#79c0ff",
+  },
+  {
+    backgroundColor: "rgba(188, 140, 255, 0.16)",
+    borderColor: "rgba(188, 140, 255, 0.45)",
+    color: "#d2a8ff",
+  },
+];
 
 function normalizeOrganization(org: string): string {
   return org.trim();
@@ -29,6 +66,44 @@ function dedupeOrganizations(orgs: string[]): string[] {
     });
 
   return normalized;
+}
+
+function loadOrganizationColorAssignments(): OrganizationColorAssignments {
+  try {
+    const raw = localStorage.getItem(ORGANIZATION_COLORS_STORAGE_KEY);
+    if (!raw) return {};
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([key, value]) =>
+          Boolean(key) &&
+          typeof value === "number" &&
+          Number.isInteger(value) &&
+          value >= 0 &&
+          value < ORGANIZATION_COLOR_PALETTE.length
+      )
+    );
+  } catch {
+    return {};
+  }
+}
+
+function saveOrganizationColorAssignments(
+  assignments: OrganizationColorAssignments
+): void {
+  try {
+    localStorage.setItem(
+      ORGANIZATION_COLORS_STORAGE_KEY,
+      JSON.stringify(assignments)
+    );
+  } catch {
+    // Ignore storage errors (quota exceeded, etc.)
+  }
 }
 
 function parseCachedRepositoriesPayload(
@@ -92,6 +167,65 @@ export function removeOrganization(orgs: string[], org: string): string[] {
   return saveOrganizations(
     orgs.filter((candidate) => organizationKey(candidate) !== organizationKey(org))
   );
+}
+
+export function loadOrganizationColors(
+  organizations: string[]
+): Record<string, OrganizationColorDefinition> {
+  const normalizedOrganizations = dedupeOrganizations(organizations);
+  const assignments = loadOrganizationColorAssignments();
+  const usedColorIndexes = new Set<number>();
+  let changed = false;
+
+  normalizedOrganizations.forEach((org) => {
+    const colorIndex = assignments[organizationKey(org)];
+    if (typeof colorIndex === "number") {
+      usedColorIndexes.add(colorIndex);
+    }
+  });
+
+  normalizedOrganizations.forEach((org) => {
+    const key = organizationKey(org);
+    const existingColorIndex = assignments[key];
+
+    if (typeof existingColorIndex === "number") {
+      return;
+    }
+
+    const availableColorIndexes = Array.from(
+      ORGANIZATION_COLOR_PALETTE.keys()
+    ).filter((index) => !usedColorIndexes.has(index));
+    const candidateColorIndexes =
+      availableColorIndexes.length > 0
+        ? availableColorIndexes
+        : ORGANIZATION_COLOR_PALETTE.map((_, index) => index);
+    const randomColorIndex =
+      candidateColorIndexes[
+        Math.floor(Math.random() * candidateColorIndexes.length)
+      ];
+
+    assignments[key] = randomColorIndex;
+    usedColorIndexes.add(randomColorIndex);
+    changed = true;
+  });
+
+  if (changed) {
+    saveOrganizationColorAssignments(assignments);
+  }
+
+  return Object.fromEntries(
+    normalizedOrganizations.map((org) => {
+      const colorIndex = assignments[organizationKey(org)];
+      return [organizationKey(org), ORGANIZATION_COLOR_PALETTE[colorIndex]];
+    })
+  );
+}
+
+export function getOrganizationColor(
+  org: string,
+  colors: Record<string, OrganizationColorDefinition>
+): OrganizationColorDefinition | undefined {
+  return colors[organizationKey(org)];
 }
 
 export function loadCachedRepositories(org: string): OrganizationRepository[] {
