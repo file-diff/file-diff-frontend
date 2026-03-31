@@ -227,16 +227,12 @@ export default function OrganizationBrowserPage() {
     setError("");
   };
 
-  const statusMessage = error
-    ? error
+  const repositoryListStatusMessage = isLoadingRepos
+    ? "↻ refreshing"
     : lastFetchedAt
-      ? `Last updated ${formatRelativeDateTime(lastFetchedAt)}`
-      : organizations.length > 0
-        ? "Showing cached repositories until the next refresh finishes."
-        : "";
-  const statusTone = error ? "error" : "info";
-  const statusIcon = error ? "⚠" : isLoadingRepos ? "↻" : "ℹ";
-  const statusTitle = lastFetchedAt
+      ? `updated ${formatRelativeDateTime(lastFetchedAt)}`
+      : "";
+  const repositoryListStatusTitle = lastFetchedAt
     ? `Last updated ${formatAbsoluteDateTime(lastFetchedAt)}`
     : undefined;
 
@@ -297,30 +293,23 @@ export default function OrganizationBrowserPage() {
           <div className="org-page__hint">
             Saved organizations are stored in local storage for this browser.
           </div>
-          {statusMessage && (
+          {error && (
             <div
-              className={`org-page__status org-page__status--${statusTone}`}
-              role={error ? "alert" : "status"}
-              title={statusTitle}
+              className="org-page__status org-page__status--error"
+              role="alert"
             >
               <span className="org-page__status-icon" aria-hidden="true">
-                {statusIcon}
+                ⚠
               </span>
               <span>
-                {statusMessage}
-                {isLoadingRepos && !error ? " Refreshing…" : ""}
+                {error}
               </span>
             </div>
           )}
         </div>
 
         <div className="org-page__step">
-          <label htmlFor="org-page-repository-input">
-            Repository
-            {repositories.length > 0
-              ? ` (${repositories.length} found)`
-              : ""}
-          </label>
+          <label htmlFor="org-page-repository-input">Repository</label>
           <div className="org-page__input-row">
             <input
               id="org-page-repository-input"
@@ -330,10 +319,6 @@ export default function OrganizationBrowserPage() {
               placeholder="repo name or org/repo"
               spellCheck={false}
             />
-          </div>
-          <div className="org-page__hint">
-            Search suggestions match repository names only. Use org/repo to
-            disambiguate duplicates.
           </div>
         </div>
 
@@ -358,8 +343,14 @@ export default function OrganizationBrowserPage() {
             {repositories.length > 0
               ? ` (${filteredRepositories.length}/${repositories.length})`
               : ""}
-            {isLoadingRepos && (
-              <span className="org-page__refreshing"> ↻ refreshing</span>
+            {repositoryListStatusMessage && (
+              <span
+                className="org-page__refreshing"
+                title={repositoryListStatusTitle}
+              >
+                {" "}
+                — {repositoryListStatusMessage}
+              </span>
             )}
           </label>
           {repositories.length > 0 && (
