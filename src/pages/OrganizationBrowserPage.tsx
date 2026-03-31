@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Fuse from "fuse.js";
 import {
@@ -7,28 +7,16 @@ import {
 import type {
   OrganizationRepository,
 } from "../utils/repositorySelection";
+import {
+  addOrganization,
+  clearCachedRepositories,
+  getRepositoryOrganization,
+  loadCombinedCachedRepositories,
+  loadSavedOrganizations,
+  removeOrganization,
+  saveCachedRepositories,
+} from "../utils/organizationBrowserStorage";
 import "./OrganizationBrowserPage.css";
-
-const ORG_REPOS_STORAGE_PREFIX = "org-repos-";
-
-function loadCachedRepositories(org: string): OrganizationRepository[] {
-  try {
-    const raw = localStorage.getItem(ORG_REPOS_STORAGE_PREFIX + org.toLowerCase());
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as OrganizationRepository[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCachedRepositories(org: string, repos: OrganizationRepository[]): void {
-  try {
-    localStorage.setItem(ORG_REPOS_STORAGE_PREFIX + org.toLowerCase(), JSON.stringify(repos));
-  } catch {
-    // Ignore storage errors (quota exceeded, etc.)
-  }
-}
 
 function formatUpdatedAt(isoDate: string | undefined): string {
   if (!isoDate) return "";
@@ -48,6 +36,9 @@ function sortByUpdatedAtDesc(
 
 export default function OrganizationBrowserPage() {
   const [organization, setOrganization] = useState("");
+  const [organizations, setOrganizations] = useState<string[]>(() =>
+    loadSavedOrganizations()
+  );
   const [repositories, setRepositories] = useState<OrganizationRepository[]>(
     []
   );
@@ -58,65 +49,82 @@ export default function OrganizationBrowserPage() {
 
   const abortRef = useRef<AbortController | null>(null);
 
-  const handleLoadRepositories = useCallback(
-    async (orgValue?: string) => {
-      const org = (orgValue ?? organization).trim();
-      if (!org) {
-        setError("Enter an organization name.");
+  useEffect(() => {
+    const cachedRepositories = loadCombinedCachedRepositories(organizations);
+    cachedRepositories.sort(sortByUpdatedAtDesc);
+    setRepositories(cachedRepositories);
+  }, [organizations]);
+
+  const handleRefreshRepositories = useCallback(
+    async (organizationValues = organizations) => {
+      const nextOrganizations = organizationValues
+        .map((org) => org.trim())
+        .filter(Boolean);
+      if (nextOrganizations.length === 0) {
+        setError("Add at least one organization.");
+        setRepositories([]);
+        setIsLoadingRepos(false);
         return;
       }
 
+      setError("");
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
-      setError("");
-      setSelectedRepo("");
-      setFilterQuery("");
-
-      const cached = loadCachedRepositories(org);
-      if (cached.length > 0) {
-        cached.sort(sortByUpdatedAtDesc);
-        setRepositories(cached);
-      } else {
-        setRepositories([]);
-      }
+      const cachedRepositories = loadCombinedCachedRepositories(nextOrganizations);
+      cachedRepositories.sort(sortByUpdatedAtDesc);
+      setRepositories(cachedRepositories);
       setIsLoadingRepos(true);
 
-      try {
-        const repos = await requestOrganizationRepositories(
-          org,
-          controller.signal
-        );
-        repos.sort(sortByUpdatedAtDesc);
-        setRepositories(repos);
-        saveCachedRepositories(org, repos);
-        if (repos.length === 0) {
-          setError("No repositories found for this organization.");
+      const results = await Promise.allSettled(
+        nextOrganizations.map(async (org) => {
+          const repos = await requestOrganizationRepositories(org, controller.signal);
+          repos.sort(sortByUpdatedAtDesc);
+          saveCachedRepositories(org, repos);
+          return repos;
+        })
+      );
+
+      if (controller.signal.aborted) return;
+
+      const loadedRepositories: OrganizationRepository[] = [];
+      const failedOrganizations: string[] = [];
+
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          loadedRepositories.push(...result.value);
+          return;
         }
-      } catch (err) {
-        if (controller.signal.aborted) return;
+
+        failedOrganizations.push(nextOrganizations[index]);
+      });
+
+      loadedRepositories.sort(sortByUpdatedAtDesc);
+      setRepositories(loadedRepositories);
+      setSelectedRepo((currentSelectedRepo) =>
+        loadedRepositories.some((repo) => repo.repo === currentSelectedRepo)
+          ? currentSelectedRepo
+          : ""
+      );
+
+      if (failedOrganizations.length > 0) {
         setError(
-          err instanceof Error && err.message
-            ? err.message
-            : "Unable to list repositories."
+          `Unable to list repositories for: ${failedOrganizations.join(", ")}.`
         );
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingRepos(false);
-        }
+      } else if (loadedRepositories.length === 0) {
+        setError("No repositories found for the saved organizations.");
       }
+
+      setIsLoadingRepos(false);
     },
-    [organization]
+    [organizations]
   );
 
   const repoFuse = useMemo(() => {
     if (repositories.length === 0) return null;
     return new Fuse(repositories, {
-      keys: [
-        { name: "name", weight: 0.8 },
-        { name: "repo", weight: 0.2 },
-      ],
+      keys: [{ name: "name", weight: 1 }],
       threshold: 0.4,
     });
   }, [repositories]);
@@ -132,18 +140,68 @@ export default function OrganizationBrowserPage() {
 
   const repoInputValue = selectedRepo
     ? selectedRepo.includes("/")
-      ? selectedRepo.split("/").slice(1).join("/")
+      ? organizations.length === 1 &&
+        selectedRepo.toLowerCase().startsWith(`${organizations[0].toLowerCase()}/`)
+        ? selectedRepo.split("/").slice(1).join("/")
+        : selectedRepo
       : selectedRepo
     : "";
 
   const handleRepoInputChange = (value: string) => {
     const repoName = value.trim();
-    const org = organization.trim();
     if (!repoName) {
       setSelectedRepo("");
       return;
     }
-    setSelectedRepo(org ? `${org}/${repoName}` : repoName);
+
+    if (repoName.includes("/")) {
+      setSelectedRepo(repoName);
+      return;
+    }
+
+    const exactMatches = repositories.filter(
+      (repo) => repo.name.toLowerCase() === repoName.toLowerCase()
+    );
+
+    if (exactMatches.length === 1) {
+      setSelectedRepo(exactMatches[0].repo);
+      return;
+    }
+
+    setSelectedRepo(
+      organizations.length === 1 ? `${organizations[0]}/${repoName}` : repoName
+    );
+  };
+
+  const handleAddOrganization = async () => {
+    const nextOrganization = organization.trim();
+    if (!nextOrganization) {
+      setError("Enter an organization name.");
+      return;
+    }
+
+    const nextOrganizations = addOrganization(organizations, nextOrganization);
+    setOrganizations(nextOrganizations);
+    setOrganization("");
+    await handleRefreshRepositories(nextOrganizations);
+  };
+
+  const handleRemoveOrganization = (organizationToRemove: string) => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setIsLoadingRepos(false);
+
+    const nextOrganizations = removeOrganization(organizations, organizationToRemove);
+    clearCachedRepositories(organizationToRemove);
+    setOrganizations(nextOrganizations);
+    setSelectedRepo((currentSelectedRepo) =>
+      currentSelectedRepo.toLowerCase().startsWith(
+        `${organizationToRemove.toLowerCase()}/`
+      )
+        ? ""
+        : currentSelectedRepo
+    );
+    setError("");
   };
 
   return (
@@ -154,7 +212,10 @@ export default function OrganizationBrowserPage() {
         {error && <div className="org-page__error">{error}</div>}
 
         <div className="org-page__step">
-          <label htmlFor="org-page-name-input">Organization</label>
+          <label htmlFor="org-page-name-input">
+            Organizations
+            {organizations.length > 0 ? ` (${organizations.length} saved)` : ""}
+          </label>
           <div className="org-page__input-row">
             <input
               id="org-page-name-input"
@@ -162,7 +223,7 @@ export default function OrganizationBrowserPage() {
               value={organization}
               onChange={(e) => setOrganization(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") void handleLoadRepositories();
+                if (e.key === "Enter") void handleAddOrganization();
               }}
               placeholder="e.g. facebook"
               spellCheck={false}
@@ -170,11 +231,37 @@ export default function OrganizationBrowserPage() {
             />
             <button
               type="button"
-              onClick={() => void handleLoadRepositories()}
+              onClick={() => void handleAddOrganization()}
               disabled={isLoadingRepos || !organization.trim()}
             >
-              {isLoadingRepos ? "Loading…" : "List repos"}
+              Add
             </button>
+            <button
+              type="button"
+              onClick={() => void handleRefreshRepositories()}
+              disabled={isLoadingRepos || organizations.length === 0}
+            >
+              {isLoadingRepos ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
+          {organizations.length > 0 && (
+            <ul className="org-page__organization-list">
+              {organizations.map((savedOrganization) => (
+                <li key={savedOrganization} className="org-page__organization-item">
+                  <span>{savedOrganization}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveOrganization(savedOrganization)}
+                    aria-label={`Remove ${savedOrganization}`}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="org-page__hint">
+            Saved organizations are stored in local storage for this browser.
           </div>
         </div>
 
@@ -191,12 +278,13 @@ export default function OrganizationBrowserPage() {
               type="text"
               value={repoInputValue}
               onChange={(e) => handleRepoInputChange(e.target.value)}
-              placeholder="repo name"
+              placeholder="repo name or org/repo"
               spellCheck={false}
             />
           </div>
           <div className="org-page__hint">
-            Enter the repository name only (without organization prefix).
+            Search suggestions match repository names only. Use org/repo to
+            disambiguate duplicates.
           </div>
         </div>
 
@@ -262,6 +350,9 @@ export default function OrganizationBrowserPage() {
               >
                 <div className="org-page__list-item-main">
                   <span className="org-page__repo-name">{repo.name}</span>
+                  <span className="org-page__repo-organization">
+                    {getRepositoryOrganization(repo.repo)}
+                  </span>
                 </div>
                 <div className="org-page__list-item-meta">
                   {repo.updatedAt && (

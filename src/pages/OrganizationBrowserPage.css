@@ -81,6 +81,40 @@
   line-height: 1.4;
 }
 
+.org-page__organization-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.org-page__organization-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #444;
+  border-radius: 999px;
+  background: #1d1f21;
+  color: #d4d4d4;
+  font-size: 0.8rem;
+}
+
+.org-page__organization-item button {
+  border: none;
+  background: none;
+  color: #8b949e;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.org-page__organization-item button:hover {
+  color: #d4d4d4;
+}
+
 .org-page__selected-repo {
   display: flex;
   align-items: center;
@@ -184,6 +218,7 @@
 .org-page__list-item-main {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
 }
@@ -200,9 +235,12 @@
   color: #58a6ff;
 }
 
-.org-page__repo-full {
+.org-page__repo-organization {
   color: #8b949e;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  padding: 1px 6px;
+  border: 1px solid #444;
+  border-radius: 999px;
 }
 
 .org-page__repo-updated {
