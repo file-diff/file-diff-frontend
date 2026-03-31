@@ -263,16 +263,12 @@ export default function OrganizationBrowserPopup({
     setError("");
   };
 
-  const repoStatusMessage = error
-    ? error
+  const repositoryListStatusMessage = isLoadingRepos
+    ? "↻ refreshing"
     : lastFetchedAt
-      ? `Last updated ${formatRelativeDateTime(lastFetchedAt)}`
-      : organizations.length > 0
-        ? "Showing cached repositories until the next refresh finishes."
-        : "";
-  const repoStatusTone = error ? "error" : "info";
-  const repoStatusIcon = error ? "⚠" : isLoadingRepos ? "↻" : "ℹ";
-  const repoStatusTitle = lastFetchedAt
+      ? `updated ${formatRelativeDateTime(lastFetchedAt)}`
+      : "";
+  const repositoryListStatusTitle = lastFetchedAt
     ? `Last updated ${formatAbsoluteDateTime(lastFetchedAt)}`
     : undefined;
 
@@ -549,30 +545,23 @@ export default function OrganizationBrowserPopup({
             <div className="org-browser__hint">
               Saved organizations are stored in local storage for this browser.
             </div>
-            {repoStatusMessage && (
+            {error && (
               <div
-                className={`org-browser__status org-browser__status--${repoStatusTone}`}
-                role={error ? "alert" : "status"}
-                title={repoStatusTitle}
+                className="org-browser__status org-browser__status--error"
+                role="alert"
               >
                 <span className="org-browser__status-icon" aria-hidden="true">
-                  {repoStatusIcon}
+                  ⚠
                 </span>
                 <span>
-                  {repoStatusMessage}
-                  {isLoadingRepos && !error ? " Refreshing…" : ""}
+                  {error}
                 </span>
               </div>
             )}
           </div>
 
           <div className="org-browser__step">
-            <label htmlFor="org-browser-repository-input">
-              Repository
-              {repositories.length > 0
-                ? ` (${repositories.length} suggestions)`
-                : ""}
-            </label>
+            <label htmlFor="org-browser-repository-input">Repository</label>
             <div className="org-browser__input-row">
               <input
                 id="org-browser-repository-input"
@@ -603,10 +592,6 @@ export default function OrganizationBrowserPopup({
                 />
               ))}
             </datalist>
-            <div className="org-browser__hint">
-              Search suggestions match repository names only. Use org/repo to
-              disambiguate duplicates.
-            </div>
           </div>
 
           <div className="org-browser__step">
@@ -615,8 +600,14 @@ export default function OrganizationBrowserPopup({
               {repositories.length > 0
                 ? ` (${filteredRepositories.length}/${repositories.length})`
                 : ""}
-              {isLoadingRepos && (
-                <span className="org-browser__refreshing"> ↻ refreshing</span>
+              {repositoryListStatusMessage && (
+                <span
+                  className="org-browser__refreshing"
+                  title={repositoryListStatusTitle}
+                >
+                  {" "}
+                  — {repositoryListStatusMessage}
+                </span>
               )}
             </label>
             {repositories.length > 0 && (
