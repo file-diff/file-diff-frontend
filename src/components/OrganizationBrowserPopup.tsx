@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import Fuse from "fuse.js";
 import {
   parseRepositoryLocation,
   requestOrganizationRepositories,
@@ -12,6 +13,27 @@ import type {
   ResolveCommitResponse,
 } from "../utils/repositorySelection";
 import "./OrganizationBrowserPopup.css";
+
+const ORG_REPOS_STORAGE_PREFIX = "org-repos-";
+
+function loadCachedRepositories(org: string): OrganizationRepository[] {
+  try {
+    const raw = localStorage.getItem(ORG_REPOS_STORAGE_PREFIX + org.toLowerCase());
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as OrganizationRepository[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCachedRepositories(org: string, repos: OrganizationRepository[]): void {
+  try {
+    localStorage.setItem(ORG_REPOS_STORAGE_PREFIX + org.toLowerCase(), JSON.stringify(repos));
+  } catch {
+    // Ignore storage errors (quota exceeded, etc.)
+  }
+}
 
 function formatUpdatedAt(isoDate: string | undefined): string {
   if (!isoDate) return "";
@@ -63,6 +85,7 @@ export default function OrganizationBrowserPopup({
   const [isLoadingRefs, setIsLoadingRefs] = useState(false);
   const [isResolvingCommit, setIsResolvingCommit] = useState(false);
   const [error, setError] = useState("");
+  const [filterQuery, setFilterQuery] = useState("");
 
   const abortRef = useRef<AbortController | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -98,6 +121,7 @@ export default function OrganizationBrowserPopup({
     setIsLoadingRefs(false);
     setIsResolvingCommit(false);
     setError("");
+    setFilterQuery("");
     abortRef.current?.abort();
     abortRef.current = null;
   }, []);
@@ -120,15 +144,24 @@ export default function OrganizationBrowserPopup({
       abortRef.current = controller;
 
       setError("");
-      setRepositories([]);
       setIsLoadingRefs(false);
       setIsResolvingCommit(false);
+      setFilterQuery("");
+
+      const cached = loadCachedRepositories(org);
+      if (cached.length > 0) {
+        cached.sort(sortByUpdatedAtDesc);
+        setRepositories(cached);
+      } else {
+        setRepositories([]);
+      }
       setIsLoadingRepos(true);
 
       try {
         const repos = await requestOrganizationRepositories(org, controller.signal);
         repos.sort(sortByUpdatedAtDesc);
         setRepositories(repos);
+        saveCachedRepositories(org, repos);
         if (repos.length === 0) {
           setError("No repositories found for this organization.");
         }
@@ -305,6 +338,22 @@ export default function OrganizationBrowserPopup({
     await handleResolveCommit(refName);
   };
 
+  const repoFuse = useMemo(() => {
+    if (repositories.length === 0) return null;
+    return new Fuse(repositories, {
+      keys: [
+        { name: "name", weight: 0.8 },
+        { name: "repo", weight: 0.2 },
+      ],
+      threshold: 0.4,
+    });
+  }, [repositories]);
+
+  const filteredRepositories = useMemo(() => {
+    if (!filterQuery.trim() || !repoFuse) return repositories;
+    return repoFuse.search(filterQuery).map((result) => result.item);
+  }, [filterQuery, repoFuse, repositories]);
+
   const handleConfirm = () => {
     if (!resolvedCommit || !selectedRepo || !selectedRef) return;
 
@@ -416,42 +465,64 @@ export default function OrganizationBrowserPopup({
             </div>
           </div>
 
-          {repositories.length > 0 && (
-            <div className="org-browser__step">
-              <label>Repository list</label>
-              <ul className="org-browser__list" role="listbox">
-                {repositories.map((repo) => (
-                  <li
-                    key={repo.repo}
-                    role="option"
-                    aria-selected={selectedRepo === repo.repo}
-                    className={
-                      "org-browser__list-item" +
-                      (selectedRepo === repo.repo
-                        ? " org-browser__list-item--selected"
-                        : "")
-                    }
-                    onClick={() => void handleSelectRepository(repo.repo)}
+          <div className="org-browser__step">
+            <label>
+              Repository list
+              {repositories.length > 0
+                ? ` (${filteredRepositories.length}/${repositories.length})`
+                : ""}
+              {isLoadingRepos && (
+                <span className="org-browser__refreshing"> ↻ refreshing…</span>
+              )}
+            </label>
+            {repositories.length > 0 && (
+              <input
+                type="text"
+                className="org-browser__filter-input"
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                placeholder="Filter repositories…"
+                spellCheck={false}
+              />
+            )}
+            <ul className="org-browser__list" role="listbox">
+              {filteredRepositories.length === 0 && !isLoadingRepos && (
+                <li className="org-browser__list-empty">
+                  {repositories.length === 0
+                    ? "No repositories loaded."
+                    : "No repositories match the filter."}
+                </li>
+              )}
+              {filteredRepositories.map((repo) => (
+                <li
+                  key={repo.repo}
+                  role="option"
+                  aria-selected={selectedRepo === repo.repo}
+                  className={
+                    "org-browser__list-item" +
+                    (selectedRepo === repo.repo
+                      ? " org-browser__list-item--selected"
+                      : "")
+                  }
+                  onClick={() => void handleSelectRepository(repo.repo)}
+                >
+                  <span className="org-browser__repo-name">{repo.name}</span>
+                  {repo.updatedAt && (
+                    <span className="org-browser__repo-updated">
+                      {formatUpdatedAt(repo.updatedAt)}
+                    </span>
+                  )}
+                  <Link
+                    to={`/commits?repo=${encodeURIComponent(repo.repo)}`}
+                    className="org-browser__repo-commits-link"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <span className="org-browser__repo-name">{repo.name}</span>
-                    <span className="org-browser__repo-full">{repo.repo}</span>
-                    {repo.updatedAt && (
-                      <span className="org-browser__repo-updated">
-                        {formatUpdatedAt(repo.updatedAt)}
-                      </span>
-                    )}
-                    <Link
-                      to={`/commits?repo=${encodeURIComponent(repo.repo)}`}
-                      className="org-browser__repo-commits-link"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Commits
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+                    Commits
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
           {isLoadingRefs && (
             <div className="org-browser__loading">Loading refs…</div>

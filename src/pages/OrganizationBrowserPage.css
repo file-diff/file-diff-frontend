@@ -114,6 +114,36 @@
   font-size: 0.85rem;
 }
 
+.org-page__refreshing {
+  font-weight: normal;
+  color: #8b949e;
+  font-size: 0.8rem;
+}
+
+.org-page__filter-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #161616;
+  color: #d4d4d4;
+  font-size: 13px;
+  box-sizing: border-box;
+  margin-bottom: 4px;
+}
+
+.org-page__filter-input:focus {
+  outline: none;
+  border-color: #58a6ff;
+}
+
+.org-page__list-empty {
+  padding: 16px 12px;
+  color: #8b949e;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .org-page__list {
   list-style: none;
   margin: 0;
