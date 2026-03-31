@@ -11,16 +11,6 @@
   color: #e0e0e0;
 }
 
-.org-page__error {
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  border: 1px solid rgba(218, 54, 51, 0.4);
-  border-radius: 6px;
-  background: rgba(218, 54, 51, 0.12);
-  color: #ffa198;
-  font-size: 0.85rem;
-}
-
 .org-page__step {
   margin-bottom: 20px;
 }
@@ -79,6 +69,24 @@
   color: #8b949e;
   font-size: 0.8rem;
   line-height: 1.4;
+}
+
+.org-page__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: #8b949e;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.org-page__status--error {
+  color: #ffa198;
+}
+
+.org-page__status-icon {
+  flex-shrink: 0;
 }
 
 .org-page__organization-list {
@@ -140,12 +148,6 @@
 
 .org-page__commits-link:hover {
   text-decoration: underline;
-}
-
-.org-page__loading {
-  margin-bottom: 16px;
-  color: #8b949e;
-  font-size: 0.85rem;
 }
 
 .org-page__refreshing {

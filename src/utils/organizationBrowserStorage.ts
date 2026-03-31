@@ -3,6 +3,11 @@ import type { OrganizationRepository } from "./repositorySelection";
 const ORGANIZATIONS_STORAGE_KEY = "organization-browser-organizations";
 const ORG_REPOS_STORAGE_PREFIX = "org-repos-";
 
+interface CachedRepositoriesPayload {
+  repositories: OrganizationRepository[];
+  fetchedAt?: string;
+}
+
 function normalizeOrganization(org: string): string {
   return org.trim();
 }
@@ -24,6 +29,32 @@ function dedupeOrganizations(orgs: string[]): string[] {
     });
 
   return normalized;
+}
+
+function parseCachedRepositoriesPayload(
+  raw: string | null
+): CachedRepositoriesPayload | null {
+  if (!raw) return null;
+
+  const parsed: unknown = JSON.parse(raw);
+  if (Array.isArray(parsed)) {
+    return {
+      repositories: parsed as OrganizationRepository[],
+    };
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const candidate = parsed as Record<string, unknown>;
+  return {
+    repositories: Array.isArray(candidate.repositories)
+      ? (candidate.repositories as OrganizationRepository[])
+      : [],
+    fetchedAt:
+      typeof candidate.fetchedAt === "string" ? candidate.fetchedAt : undefined,
+  };
 }
 
 export function loadSavedOrganizations(): string[] {
@@ -65,10 +96,10 @@ export function removeOrganization(orgs: string[], org: string): string[] {
 
 export function loadCachedRepositories(org: string): OrganizationRepository[] {
   try {
-    const raw = localStorage.getItem(ORG_REPOS_STORAGE_PREFIX + organizationKey(org));
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as OrganizationRepository[]) : [];
+    const payload = parseCachedRepositoriesPayload(
+      localStorage.getItem(ORG_REPOS_STORAGE_PREFIX + organizationKey(org))
+    );
+    return payload?.repositories ?? [];
   } catch {
     return [];
   }
@@ -80,6 +111,36 @@ export function loadCombinedCachedRepositories(
   return organizations.flatMap((org) => loadCachedRepositories(org));
 }
 
+export function loadLatestCachedRepositoriesFetchedAt(
+  organizations: string[]
+): string {
+  let latestTimestamp = 0;
+  let latestFetchedAt = "";
+
+  for (const org of organizations) {
+    try {
+      const payload = parseCachedRepositoriesPayload(
+        localStorage.getItem(ORG_REPOS_STORAGE_PREFIX + organizationKey(org))
+      );
+      if (!payload?.fetchedAt) {
+        continue;
+      }
+
+      const timestamp = new Date(payload.fetchedAt).getTime();
+      if (Number.isNaN(timestamp) || timestamp <= latestTimestamp) {
+        continue;
+      }
+
+      latestTimestamp = timestamp;
+      latestFetchedAt = payload.fetchedAt;
+    } catch {
+      // Ignore malformed cached values and continue.
+    }
+  }
+
+  return latestFetchedAt;
+}
+
 export function saveCachedRepositories(
   org: string,
   repos: OrganizationRepository[]
@@ -87,7 +148,10 @@ export function saveCachedRepositories(
   try {
     localStorage.setItem(
       ORG_REPOS_STORAGE_PREFIX + organizationKey(org),
-      JSON.stringify(repos)
+      JSON.stringify({
+        repositories: repos,
+        fetchedAt: new Date().toISOString(),
+      } satisfies CachedRepositoriesPayload)
     );
   } catch {
     // Ignore storage errors (quota exceeded, etc.)
