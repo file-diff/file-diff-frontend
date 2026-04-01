@@ -14,6 +14,7 @@ interface TreeDiffViewProps {
   rightSource?: TreeDiffSource;
   selectedPath?: string | null;
   onSelectSlot?: (path: string) => void;
+  initialScrollPath?: string | null;
 }
 
 interface TreeDiffSource {
@@ -430,10 +431,12 @@ export default function TreeDiffView({
   rightSource,
   selectedPath,
   onSelectSlot,
+  initialScrollPath,
 }: TreeDiffViewProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const selectedRef = useRef<HTMLDivElement | null>(null);
+  const hasScrolledToInitial = useRef(false);
   const [selectedCompareEntry, setSelectedCompareEntry] =
     useState<TreeCompareSelection | null>(() =>
       restoreTreeCompareSelection(
@@ -454,6 +457,18 @@ export default function TreeDiffView({
       selectedRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [selectedPath, slots]);
+
+  useEffect(() => {
+    if (!hasScrolledToInitial.current && initialScrollPath && slots.length > 0) {
+      const el = document.querySelector(
+        `[data-slot-path="${CSS.escape(initialScrollPath)}"]`
+      );
+      if (el) {
+        el.scrollIntoView({ block: "start" });
+        hasScrolledToInitial.current = true;
+      }
+    }
+  }, [initialScrollPath, slots]);
 
   useEffect(() => {
     if (!activeActions) {
@@ -528,6 +543,7 @@ export default function TreeDiffView({
               <div
                 className={"tree-diff__slot"}
                 key={slotPath || `slot-${i}`}
+                data-slot-path={slotPath || undefined}
                 ref={isSelected ? selectedRef : undefined}
                 onClick={() => onSelectSlot?.(slotPath)}
               >

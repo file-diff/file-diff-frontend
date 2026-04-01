@@ -8,6 +8,8 @@ const TREE_COMPARE2_FILE_NAME_FILTER_ENABLED_STORAGE_KEY =
   "tree-compare2-file-name-filter-enabled";
 const TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY =
   "tree-compare2-file-name-filter-value";
+const TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY =
+  "tree-compare2-scroll-path";
 
 export interface LastSelectedParams {
   leftRepo: string;
@@ -368,6 +370,7 @@ export async function clearAllStoredData(): Promise<void> {
       TREE_COMPARE2_FILE_NAME_FILTER_ENABLED_STORAGE_KEY
     );
     window.localStorage.removeItem(TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY);
+    window.localStorage.removeItem(TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY);
   } catch {
     return;
   }
@@ -473,6 +476,25 @@ export function writeTreeCompare2FileNameFilterValue(value: string): void {
   try {
     window.localStorage.setItem(
       TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY,
+      value
+    );
+  } catch {
+    return;
+  }
+}
+
+export function readTreeCompare2ScrollPath(): string | null {
+  try {
+    return window.localStorage.getItem(TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeTreeCompare2ScrollPath(value: string): void {
+  try {
+    window.localStorage.setItem(
+      TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY,
       value
     );
   } catch {

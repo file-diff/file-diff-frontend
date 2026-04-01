@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Fuse from "fuse.js";
 import { useSearchParams } from "react-router-dom";
 import TreeDiffView from "../components/TreeDiffView";
@@ -19,9 +19,11 @@ import type {
 import {
   readTreeCompare2FileNameFilterEnabled,
   readTreeCompare2FileNameFilterValue,
+  readTreeCompare2ScrollPath,
   readTreeCompare2ShowUnchanged,
   writeTreeCompare2FileNameFilterEnabled,
   writeTreeCompare2FileNameFilterValue,
+  writeTreeCompare2ScrollPath,
   writeTreeCompare2ShowUnchanged,
 } from "../utils/storage";
 import "./TreeComparePage.css";
@@ -364,6 +366,10 @@ export default function TreeCompare2Page() {
   const [fileNameFilterValue, setFileNameFilterValue] = useState(
     () => readTreeCompare2FileNameFilterValue() ?? ""
   );
+  const [firstVisiblePath, setFirstVisiblePath] = useState<string>("");
+  const [initialScrollPath] = useState(() => readTreeCompare2ScrollPath());
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -499,6 +505,56 @@ export default function TreeCompare2Page() {
     writeTreeCompare2FileNameFilterValue(fileNameFilterValue);
   }, [fileNameFilterValue]);
 
+  useEffect(() => {
+    if (firstVisiblePath) {
+      writeTreeCompare2ScrollPath(firstVisiblePath);
+    }
+  }, [firstVisiblePath]);
+
+  const handleScroll = useCallback(() => {
+    if (scrollTimerRef.current != null) {
+      clearTimeout(scrollTimerRef.current);
+    }
+
+    scrollTimerRef.current = setTimeout(() => {
+      const container = scrollContainerRef.current;
+      if (!container) {
+        return;
+      }
+
+      const containerTop = container.getBoundingClientRect().top;
+      const slots = container.querySelectorAll<HTMLElement>("[data-slot-path]");
+      let bestPath = "";
+
+      for (const slot of slots) {
+        const rect = slot.getBoundingClientRect();
+        if (rect.bottom > containerTop) {
+          bestPath = slot.getAttribute("data-slot-path") ?? "";
+          break;
+        }
+      }
+
+      if (bestPath) {
+        setFirstVisiblePath(bestPath);
+      }
+    }, 150);
+  }, []);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      if (scrollTimerRef.current != null) {
+        clearTimeout(scrollTimerRef.current);
+      }
+    };
+  }, [handleScroll]);
+
   const leftSummaryRepo = firstNonEmptyString(
     compareData?.left.repo,
     leftRepo,
@@ -578,6 +634,12 @@ export default function TreeCompare2Page() {
                   disabled={!fileNameFilterEnabled}
                 />
               </div>
+
+              {firstVisiblePath && (
+                <span className="tree-compare2-scroll-position" title={firstVisiblePath}>
+                  📍 {firstVisiblePath}
+                </span>
+              )}
             </div>
 
             <div className="compare-summary tree-compare2-summary">
@@ -641,7 +703,7 @@ export default function TreeCompare2Page() {
               </div>
             </div>
           </div>
-          <div className="diff-result tree-compare2-diff-result">
+          <div className="diff-result tree-compare2-diff-result" ref={scrollContainerRef}>
             <TreeDiffView
               slots={filteredDiff ?? visibleDiff ?? diff}
               getLeftDownloadUrl={(entry) =>
@@ -664,6 +726,7 @@ export default function TreeCompare2Page() {
               }}
               selectedPath={selectedPath}
               onSelectSlot={setSelectedPath}
+              initialScrollPath={initialScrollPath}
             />
           </div>
         </div>
