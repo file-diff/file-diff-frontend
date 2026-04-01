@@ -1,0 +1,42 @@
+services:
+  app:
+    image: ${APP_IMAGE:-ghcr.io/file-diff/file-diff-engine:latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      BUILD_VERSION: ${BUILD_VERSION:-dev}
+      REQUEST_DELAY_MS: ${REQUEST_DELAY_MS:-0}
+      HOST: 0.0.0.0
+      PORT: 12986
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      POSTGRES_DB_HOST: postgres
+      POSTGRES_DB_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-file_diff_engine}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      TMP_DIR: /app/tmp
+    ports:
+      - "127.0.0.1:12986:12986"
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-file_diff_engine}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d file_diff_engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  redis:
+    image: redis:8-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
