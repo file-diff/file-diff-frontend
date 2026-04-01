@@ -107,7 +107,7 @@ function loadOrganizationEnabledAssignments(): OrganizationEnabledAssignments {
 
     return Object.fromEntries(
       Object.entries(parsed).filter(
-        ([key, value]) => Boolean(key) && typeof value === "boolean"
+        ([, value]) => typeof value === "boolean"
       )
     );
   } catch {

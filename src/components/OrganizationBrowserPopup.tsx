@@ -84,6 +84,10 @@ export default function OrganizationBrowserPopup({
   const organizationsRef = useRef<string[]>([]);
   const organizationEnabledMapRef = useRef<Record<string, boolean>>({});
   const selectedRepoRef = useRef("");
+  const abortPendingRequest = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
 
   useEffect(() => {
     organizationsRef.current = organizations;
@@ -117,6 +121,12 @@ export default function OrganizationBrowserPopup({
     return () => dialog.removeEventListener("close", handleClose);
   }, [onClose]);
 
+  const enabledOrganizations = useMemo(
+    () =>
+      organizations.filter((org) => organizationEnabledMap[org] ?? true),
+    [organizationEnabledMap, organizations]
+  );
+
   const resetState = useCallback(() => {
     setOrganization("");
     setOrganizations([]);
@@ -132,9 +142,8 @@ export default function OrganizationBrowserPopup({
     setError("");
     setFilterQuery("");
     setLastFetchedAt("");
-    abortRef.current?.abort();
-    abortRef.current = null;
-  }, []);
+    abortPendingRequest();
+  }, [abortPendingRequest]);
 
   const handleRefreshRepositories = useCallback(
     async (
@@ -145,8 +154,7 @@ export default function OrganizationBrowserPopup({
         .map((org) => org.trim())
         .filter(Boolean);
       if (nextOrganizations.length === 0) {
-        abortRef.current?.abort();
-        abortRef.current = null;
+        abortPendingRequest();
         setError("Add at least one organization.");
         setRepositories([]);
         setIsLoadingRepos(false);
@@ -158,8 +166,7 @@ export default function OrganizationBrowserPopup({
         (org) => (enabledValues ?? organizationEnabledMapRef.current)[org] ?? true
       );
       if (nextEnabledOrganizations.length === 0) {
-        abortRef.current?.abort();
-        abortRef.current = null;
+        abortPendingRequest();
         setError("Enable at least one organization.");
         setRepositories([]);
         setSelectedRepo("");
@@ -171,7 +178,7 @@ export default function OrganizationBrowserPopup({
         return;
       }
 
-      abortRef.current?.abort();
+      abortPendingRequest();
       const controller = new AbortController();
       abortRef.current = controller;
 
@@ -233,7 +240,7 @@ export default function OrganizationBrowserPopup({
 
       setIsLoadingRepos(false);
     },
-    []
+    [abortPendingRequest]
   );
 
   useEffect(() => {
@@ -279,8 +286,7 @@ export default function OrganizationBrowserPopup({
   };
 
   const handleRemoveOrganization = (organizationToRemove: string) => {
-    abortRef.current?.abort();
-    abortRef.current = null;
+    abortPendingRequest();
     setIsLoadingRepos(false);
     setIsLoadingRefs(false);
     setIsResolvingCommit(false);
@@ -357,7 +363,7 @@ export default function OrganizationBrowserPopup({
     setResolvedCommit(null);
     setError("");
 
-    abortRef.current?.abort();
+    abortPendingRequest();
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -407,7 +413,7 @@ export default function OrganizationBrowserPopup({
     setResolvedCommit(null);
     setError("");
 
-    abortRef.current?.abort();
+    abortPendingRequest();
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -443,8 +449,7 @@ export default function OrganizationBrowserPopup({
       );
       const nextEnabledMap = loadOrganizationEnabledMap(nextOrganizations);
 
-      abortRef.current?.abort();
-      abortRef.current = null;
+      abortPendingRequest();
       setSelectedRepo(parsedLocation.repo);
       setRefs([]);
       setSelectedRef(nextRef);
@@ -482,8 +487,7 @@ export default function OrganizationBrowserPopup({
           ? `${enabledOrganizations[0]}/${repoName}`
           : value;
 
-    abortRef.current?.abort();
-    abortRef.current = null;
+    abortPendingRequest();
     setSelectedRepo(nextRepo);
     setRefs([]);
     setSelectedRef("");
@@ -514,12 +518,6 @@ export default function OrganizationBrowserPopup({
     if (!filterQuery.trim() || !repoFuse) return repositories;
     return repoFuse.search(filterQuery).map((result) => result.item);
   }, [filterQuery, repoFuse, repositories]);
-
-  const enabledOrganizations = useMemo(
-    () =>
-      organizations.filter((org) => organizationEnabledMap[org] ?? true),
-    [organizationEnabledMap, organizations]
-  );
 
   const repoInputValue = selectedRepo
     ? selectedRepo.includes("/")

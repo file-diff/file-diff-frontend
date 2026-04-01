@@ -61,6 +61,10 @@ export default function OrganizationBrowserPage() {
   const abortRef = useRef<AbortController | null>(null);
   const organizationsRef = useRef(organizations);
   const organizationEnabledMapRef = useRef<Record<string, boolean>>({});
+  const abortPendingRequest = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
 
   useEffect(() => {
     organizationsRef.current = organizations;
@@ -79,8 +83,7 @@ export default function OrganizationBrowserPage() {
         .map((org) => org.trim())
         .filter(Boolean);
       if (nextOrganizations.length === 0) {
-        abortRef.current?.abort();
-        abortRef.current = null;
+        abortPendingRequest();
         setError("Add at least one organization.");
         setRepositories([]);
         setIsLoadingRepos(false);
@@ -92,8 +95,7 @@ export default function OrganizationBrowserPage() {
         (org) => (enabledValues ?? organizationEnabledMapRef.current)[org] ?? true
       );
       if (nextEnabledOrganizations.length === 0) {
-        abortRef.current?.abort();
-        abortRef.current = null;
+        abortPendingRequest();
         setError("Enable at least one organization.");
         setRepositories([]);
         setSelectedRepo("");
@@ -103,7 +105,7 @@ export default function OrganizationBrowserPage() {
       }
 
       setError("");
-      abortRef.current?.abort();
+      abortPendingRequest();
       const controller = new AbortController();
       abortRef.current = controller;
 
@@ -156,7 +158,7 @@ export default function OrganizationBrowserPage() {
 
       setIsLoadingRepos(false);
     },
-    []
+    [abortPendingRequest]
   );
 
   useEffect(() => {
