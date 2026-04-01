@@ -645,8 +645,8 @@ export default function OrganizationBrowserPopup({
                       <span>{savedOrganization}</span>
                       <span className="org-browser__sr-only">
                         {organizationEnabledMap[savedOrganization] ?? true
-                          ? " click to disable"
-                          : " click to enable"}
+                          ? "Click to disable"
+                          : "Click to enable"}
                       </span>
                     </label>
                     <button

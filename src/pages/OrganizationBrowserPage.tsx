@@ -389,8 +389,8 @@ export default function OrganizationBrowserPage() {
                     <span>{savedOrganization}</span>
                     <span className="org-page__sr-only">
                       {organizationEnabledMap[savedOrganization] ?? true
-                        ? " click to disable"
-                        : " click to enable"}
+                        ? "Click to disable"
+                        : "Click to enable"}
                     </span>
                   </label>
                   <button
