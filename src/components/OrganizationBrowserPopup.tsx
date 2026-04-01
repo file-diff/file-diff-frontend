@@ -641,11 +641,6 @@ export default function OrganizationBrowserPopup({
                             event.target.checked
                           )
                         }
-                        aria-label={`${
-                          organizationEnabledMap[savedOrganization] ?? true
-                            ? "Disable"
-                            : "Enable"
-                        } ${savedOrganization}`}
                       />
                       <span>{savedOrganization}</span>
                     </label>
