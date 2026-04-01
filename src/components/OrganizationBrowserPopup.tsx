@@ -761,7 +761,15 @@ export default function OrganizationBrowserPopup({
                   onClick={() => void handleSelectRepository(repo.repo)}
                 >
                   <div className="org-browser__list-item-main">
-                    <span className="org-browser__repo-name">{repo.name}</span>
+                    <a
+                      href={repo.repositoryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="org-browser__repo-name"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {repo.name}
+                    </a>
                     <span
                       className="org-browser__repo-organization"
                       style={getOrganizationColor(

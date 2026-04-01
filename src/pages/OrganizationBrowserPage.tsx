@@ -449,7 +449,15 @@ export default function OrganizationBrowserPage() {
                 onClick={() => handleSelectRepository(repo)}
               >
                 <div className="org-page__list-item-main">
-                  <span className="org-page__repo-name">{repo.name}</span>
+                  <a
+                    href={repo.repositoryUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="org-page__repo-name"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {repo.name}
+                  </a>
                   <span
                     className="org-page__repo-organization"
                     style={getOrganizationColor(
