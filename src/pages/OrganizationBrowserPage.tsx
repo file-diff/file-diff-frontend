@@ -14,10 +14,12 @@ import {
   getRepositoryOrganization,
   loadCachedRepositories,
   loadCombinedCachedRepositories,
+  loadOrganizationEnabledMap,
   loadLatestCachedRepositoriesFetchedAt,
   loadOrganizationColors,
   loadSavedOrganizations,
   removeOrganization,
+  setOrganizationEnabled,
   saveCachedRepositories,
 } from "../utils/organizationBrowserStorage";
 import type { OrganizationColorDefinition } from "../utils/organizationBrowserStorage";
@@ -49,23 +51,39 @@ export default function OrganizationBrowserPage() {
   const [lastFetchedAt, setLastFetchedAt] = useState(() =>
     loadLatestCachedRepositoriesFetchedAt(loadSavedOrganizations())
   );
+  const [organizationEnabledMap, setOrganizationEnabledMap] = useState<
+    Record<string, boolean>
+  >(() => loadOrganizationEnabledMap(loadSavedOrganizations()));
   const [organizationColors, setOrganizationColors] = useState<
     Record<string, OrganizationColorDefinition>
   >(() => loadOrganizationColors(loadSavedOrganizations()));
 
   const abortRef = useRef<AbortController | null>(null);
   const organizationsRef = useRef(organizations);
+  const organizationEnabledMapRef = useRef<Record<string, boolean>>({});
+  const abortPendingRequest = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
 
   useEffect(() => {
     organizationsRef.current = organizations;
   }, [organizations]);
 
+  useEffect(() => {
+    organizationEnabledMapRef.current = organizationEnabledMap;
+  }, [organizationEnabledMap]);
+
   const handleRefreshRepositories = useCallback(
-    async (organizationValues?: string[]) => {
+    async (
+      organizationValues?: string[],
+      enabledValues?: Record<string, boolean>
+    ) => {
       const nextOrganizations = (organizationValues ?? organizationsRef.current)
         .map((org) => org.trim())
         .filter(Boolean);
       if (nextOrganizations.length === 0) {
+        abortPendingRequest();
         setError("Add at least one organization.");
         setRepositories([]);
         setIsLoadingRepos(false);
@@ -73,8 +91,21 @@ export default function OrganizationBrowserPage() {
         return;
       }
 
+      const nextEnabledOrganizations = nextOrganizations.filter(
+        (org) => (enabledValues ?? organizationEnabledMapRef.current)[org] ?? true
+      );
+      if (nextEnabledOrganizations.length === 0) {
+        abortPendingRequest();
+        setError("Enable at least one organization.");
+        setRepositories([]);
+        setSelectedRepo("");
+        setIsLoadingRepos(false);
+        setLastFetchedAt("");
+        return;
+      }
+
       setError("");
-      abortRef.current?.abort();
+      abortPendingRequest();
       const controller = new AbortController();
       abortRef.current = controller;
 
@@ -84,7 +115,7 @@ export default function OrganizationBrowserPage() {
       setIsLoadingRepos(true);
 
       const results = await Promise.allSettled(
-        nextOrganizations.map(async (org) => {
+        nextEnabledOrganizations.map(async (org) => {
           const repos = await requestOrganizationRepositories(org, controller.signal);
           repos.sort(sortByUpdatedAtDesc);
           saveCachedRepositories(org, repos);
@@ -103,7 +134,7 @@ export default function OrganizationBrowserPage() {
           return;
         }
 
-        const failedOrganization = nextOrganizations[index];
+        const failedOrganization = nextEnabledOrganizations[index];
         failedOrganizations.push(failedOrganization);
         loadedRepositories.push(...loadCachedRepositories(failedOrganization));
       });
@@ -122,12 +153,12 @@ export default function OrganizationBrowserPage() {
           `Unable to refresh repositories for: ${failedOrganizations.join(", ")}. Showing cached data where available.`
         );
       } else if (loadedRepositories.length === 0) {
-        setError("No repositories found for the saved organizations.");
+        setError("No repositories found for the enabled organizations.");
       }
 
       setIsLoadingRepos(false);
     },
-    []
+    [abortPendingRequest]
   );
 
   useEffect(() => {
@@ -159,14 +190,22 @@ export default function OrganizationBrowserPage() {
     return repoFuse.search(filterQuery).map((result) => result.item);
   }, [filterQuery, repoFuse, repositories]);
 
+  const enabledOrganizations = useMemo(
+    () =>
+      organizations.filter((org) => organizationEnabledMap[org] ?? true),
+    [organizationEnabledMap, organizations]
+  );
+
   const handleSelectRepository = (repo: OrganizationRepository) => {
     setSelectedRepo(repo.repo);
   };
 
   const repoInputValue = selectedRepo
     ? selectedRepo.includes("/")
-      ? organizations.length === 1 &&
-        selectedRepo.toLowerCase().startsWith(`${organizations[0].toLowerCase()}/`)
+      ? enabledOrganizations.length === 1 &&
+        selectedRepo
+          .toLowerCase()
+          .startsWith(`${enabledOrganizations[0].toLowerCase()}/`)
         ? selectedRepo.split("/").slice(1).join("/")
         : selectedRepo
       : selectedRepo
@@ -194,7 +233,9 @@ export default function OrganizationBrowserPage() {
     }
 
     setSelectedRepo(
-      organizations.length === 1 ? `${organizations[0]}/${repoName}` : repoName
+      enabledOrganizations.length === 1
+        ? `${enabledOrganizations[0]}/${repoName}`
+        : repoName
     );
   };
 
@@ -206,10 +247,12 @@ export default function OrganizationBrowserPage() {
     }
 
     const nextOrganizations = addOrganization(organizations, nextOrganization);
+    const nextEnabledMap = loadOrganizationEnabledMap(nextOrganizations);
+    setOrganizationEnabledMap(nextEnabledMap);
     setOrganizationColors(loadOrganizationColors(nextOrganizations));
     setOrganizations(nextOrganizations);
     setOrganization("");
-    await handleRefreshRepositories(nextOrganizations);
+    await handleRefreshRepositories(nextOrganizations, nextEnabledMap);
   };
 
   const handleRemoveOrganization = (organizationToRemove: string) => {
@@ -218,9 +261,11 @@ export default function OrganizationBrowserPage() {
     setIsLoadingRepos(false);
 
     const nextOrganizations = removeOrganization(organizations, organizationToRemove);
+    const nextEnabledMap = loadOrganizationEnabledMap(nextOrganizations);
     const nextRepositories = loadCombinedCachedRepositories(nextOrganizations);
     nextRepositories.sort(sortByUpdatedAtDesc);
     clearCachedRepositories(organizationToRemove);
+    setOrganizationEnabledMap(nextEnabledMap);
     setOrganizationColors(loadOrganizationColors(nextOrganizations));
     setOrganizations(nextOrganizations);
     setRepositories(nextRepositories);
@@ -233,6 +278,27 @@ export default function OrganizationBrowserPage() {
         : currentSelectedRepo
     );
     setError("");
+  };
+
+  const handleToggleOrganization = async (
+    organizationToToggle: string,
+    enabled: boolean
+  ) => {
+    setOrganizationEnabled(organizationToToggle, enabled);
+    const nextEnabledMap = {
+      ...organizationEnabledMapRef.current,
+      [organizationToToggle]: enabled,
+    };
+
+    setOrganizationEnabledMap(nextEnabledMap);
+    if (
+      !enabled &&
+      selectedRepo.toLowerCase().startsWith(`${organizationToToggle.toLowerCase()}/`)
+    ) {
+      setSelectedRepo("");
+    }
+
+    await handleRefreshRepositories(organizations, nextEnabledMap);
   };
 
   const repositoryListStatusMessage = isLoadingRepos
@@ -252,7 +318,9 @@ export default function OrganizationBrowserPage() {
         <div className="org-page__step">
           <label htmlFor="org-page-name-input">
             Organizations
-            {organizations.length > 0 ? ` (${organizations.length} saved)` : ""}
+            {organizations.length > 0
+              ? ` (${enabledOrganizations.length}/${organizations.length} enabled)`
+              : ""}
           </label>
           <div className="org-page__input-row">
             <input
@@ -287,9 +355,30 @@ export default function OrganizationBrowserPage() {
               {organizations.map((savedOrganization) => (
                 <li
                   key={savedOrganization}
-                  className="org-page__organization-item"
+                  className={
+                    "org-page__organization-item" +
+                    ((organizationEnabledMap[savedOrganization] ?? true)
+                      ? ""
+                      : " org-page__organization-item--disabled")
+                  }
                   style={getOrganizationColor(savedOrganization, organizationColors)}
                 >
+                  <input
+                    type="checkbox"
+                    className="org-page__organization-toggle"
+                    checked={organizationEnabledMap[savedOrganization] ?? true}
+                    onChange={(event) =>
+                      void handleToggleOrganization(
+                        savedOrganization,
+                        event.target.checked
+                      )
+                    }
+                    aria-label={`${
+                      organizationEnabledMap[savedOrganization] ?? true
+                        ? "Disable"
+                        : "Enable"
+                    } ${savedOrganization}`}
+                  />
                   <span>{savedOrganization}</span>
                   <button
                     type="button"
@@ -303,7 +392,8 @@ export default function OrganizationBrowserPage() {
             </ul>
           )}
           <div className="org-page__hint">
-            Saved organizations are stored in local storage for this browser.
+            Saved organizations stay in local storage for this browser even when
+            disabled.
           </div>
           {error && (
             <div
