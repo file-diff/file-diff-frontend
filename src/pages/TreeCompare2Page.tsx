@@ -541,19 +541,12 @@ export default function TreeCompare2Page() {
   }, []);
 
   useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) {
-      return;
-    }
-
-    container.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
-      container.removeEventListener("scroll", handleScroll);
       if (scrollTimerRef.current != null) {
         clearTimeout(scrollTimerRef.current);
       }
     };
-  }, [handleScroll]);
+  }, []);
 
   const leftSummaryRepo = firstNonEmptyString(
     compareData?.left.repo,
@@ -703,7 +696,11 @@ export default function TreeCompare2Page() {
               </div>
             </div>
           </div>
-          <div className="diff-result tree-compare2-diff-result" ref={scrollContainerRef}>
+          <div
+            className="diff-result tree-compare2-diff-result"
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+          >
             <TreeDiffView
               slots={filteredDiff ?? visibleDiff ?? diff}
               getLeftDownloadUrl={(entry) =>
