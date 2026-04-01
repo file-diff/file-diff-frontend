@@ -26,6 +26,7 @@ import type { OrganizationColorDefinition } from "../utils/organizationBrowserSt
 import {
   formatAbsoluteDateTime,
   formatRelativeDateTime,
+  getOrganizationToggleId,
   sortByUpdatedAtDesc,
 } from "../utils/organizationBrowserPresentation";
 import "./OrganizationBrowserPage.css";
@@ -351,10 +352,10 @@ export default function OrganizationBrowserPage() {
             </button>
           </div>
           {organizations.length > 0 && (
-            <ul className="org-page__organization-list">
-              {organizations.map((savedOrganization) => (
-                <li
-                  key={savedOrganization}
+              <ul className="org-page__organization-list">
+                {organizations.map((savedOrganization) => (
+                  <li
+                    key={savedOrganization}
                   className={
                     "org-page__organization-item" +
                     ((organizationEnabledMap[savedOrganization] ?? true)
@@ -363,23 +364,35 @@ export default function OrganizationBrowserPage() {
                   }
                   style={getOrganizationColor(savedOrganization, organizationColors)}
                 >
-                  <input
-                    type="checkbox"
-                    className="org-page__organization-toggle"
-                    checked={organizationEnabledMap[savedOrganization] ?? true}
-                    onChange={(event) =>
-                      void handleToggleOrganization(
-                        savedOrganization,
-                        event.target.checked
-                      )
-                    }
-                    aria-label={`${
-                      organizationEnabledMap[savedOrganization] ?? true
-                        ? "Disable"
-                        : "Enable"
-                    } ${savedOrganization}`}
-                  />
-                  <span>{savedOrganization}</span>
+                  <label
+                    className="org-page__organization-label"
+                    htmlFor={getOrganizationToggleId(
+                      "org-page-toggle",
+                      savedOrganization
+                    )}
+                  >
+                    <input
+                      id={getOrganizationToggleId(
+                        "org-page-toggle",
+                        savedOrganization
+                      )}
+                      type="checkbox"
+                      className="org-page__organization-toggle"
+                      checked={organizationEnabledMap[savedOrganization] ?? true}
+                      onChange={(event) =>
+                        void handleToggleOrganization(
+                          savedOrganization,
+                          event.target.checked
+                        )
+                      }
+                    />
+                    <span>{savedOrganization}</span>
+                    <span className="org-page__sr-only">
+                      {organizationEnabledMap[savedOrganization] ?? true
+                        ? "Click to disable"
+                        : "Click to enable"}
+                    </span>
+                  </label>
                   <button
                     type="button"
                     onClick={() => handleRemoveOrganization(savedOrganization)}

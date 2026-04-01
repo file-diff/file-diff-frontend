@@ -31,6 +31,7 @@ import type { OrganizationColorDefinition } from "../utils/organizationBrowserSt
 import {
   formatAbsoluteDateTime,
   formatRelativeDateTime,
+  getOrganizationToggleId,
   sortByUpdatedAtDesc,
 } from "../utils/organizationBrowserPresentation";
 import "./OrganizationBrowserPopup.css";
@@ -619,23 +620,35 @@ export default function OrganizationBrowserPopup({
                     }
                     style={getOrganizationColor(savedOrganization, organizationColors)}
                   >
-                    <input
-                      type="checkbox"
-                      className="org-browser__organization-toggle"
-                      checked={organizationEnabledMap[savedOrganization] ?? true}
-                      onChange={(event) =>
-                        void handleToggleOrganization(
-                          savedOrganization,
-                          event.target.checked
-                        )
-                      }
-                      aria-label={`${
-                        organizationEnabledMap[savedOrganization] ?? true
-                          ? "Disable"
-                          : "Enable"
-                      } ${savedOrganization}`}
-                    />
-                    <span>{savedOrganization}</span>
+                    <label
+                      className="org-browser__organization-label"
+                      htmlFor={getOrganizationToggleId(
+                        "org-browser-toggle",
+                        savedOrganization
+                      )}
+                    >
+                      <input
+                        id={getOrganizationToggleId(
+                          "org-browser-toggle",
+                          savedOrganization
+                        )}
+                        type="checkbox"
+                        className="org-browser__organization-toggle"
+                        checked={organizationEnabledMap[savedOrganization] ?? true}
+                        onChange={(event) =>
+                          void handleToggleOrganization(
+                            savedOrganization,
+                            event.target.checked
+                          )
+                        }
+                      />
+                      <span>{savedOrganization}</span>
+                      <span className="org-browser__sr-only">
+                        {organizationEnabledMap[savedOrganization] ?? true
+                          ? "Click to disable"
+                          : "Click to enable"}
+                      </span>
+                    </label>
                     <button
                       type="button"
                       onClick={() => handleRemoveOrganization(savedOrganization)}
