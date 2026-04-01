@@ -219,13 +219,7 @@ export function isOrganizationEnabled(org: string): boolean {
 export function setOrganizationEnabled(org: string, enabled: boolean): void {
   const key = organizationKey(org);
   const enabledAssignments = loadOrganizationEnabledAssignments();
-
-  if (enabled) {
-    delete enabledAssignments[key];
-  } else {
-    enabledAssignments[key] = false;
-  }
-
+  enabledAssignments[key] = enabled;
   saveOrganizationEnabledAssignments(enabledAssignments);
 }
 

@@ -371,7 +371,11 @@ export default function OrganizationBrowserPage() {
                         event.target.checked
                       )
                     }
-                    aria-label={`Enable ${savedOrganization}`}
+                    aria-label={`${
+                      organizationEnabledMap[savedOrganization] ?? true
+                        ? "Disable"
+                        : "Enable"
+                    } ${savedOrganization}`}
                   />
                   <span>{savedOrganization}</span>
                   <button
