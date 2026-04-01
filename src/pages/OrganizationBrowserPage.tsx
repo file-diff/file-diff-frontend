@@ -180,7 +180,10 @@ export default function OrganizationBrowserPage() {
   const repoFuse = useMemo(() => {
     if (repositories.length === 0) return null;
     return new Fuse(repositories, {
-      keys: [{ name: "name", weight: 1 }],
+      keys: [
+        { name: "name", weight: 0.7 },
+        { name: "repo", weight: 0.3 },
+      ],
       threshold: 0.4,
     });
   }, [repositories]);
@@ -461,7 +464,7 @@ export default function OrganizationBrowserPage() {
               className="org-page__filter-input"
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
-              placeholder="Filter repositories…"
+              placeholder="Filter repositories or organizations…"
               spellCheck={false}
             />
           )}
