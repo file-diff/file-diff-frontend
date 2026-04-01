@@ -363,8 +363,12 @@ export default function OrganizationBrowserPage() {
                   }
                   style={getOrganizationColor(savedOrganization, organizationColors)}
                 >
-                  <label className="org-page__organization-label">
+                  <label
+                    className="org-page__organization-label"
+                    htmlFor={`org-page-toggle-${savedOrganization}`}
+                  >
                     <input
+                      id={`org-page-toggle-${savedOrganization}`}
                       type="checkbox"
                       className="org-page__organization-toggle"
                       checked={organizationEnabledMap[savedOrganization] ?? true}
@@ -374,11 +378,6 @@ export default function OrganizationBrowserPage() {
                           event.target.checked
                         )
                       }
-                      aria-label={`${
-                        organizationEnabledMap[savedOrganization] ?? true
-                          ? "Disable"
-                          : "Enable"
-                      } ${savedOrganization}`}
                     />
                     <span>{savedOrganization}</span>
                   </label>

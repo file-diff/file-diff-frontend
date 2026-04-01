@@ -619,8 +619,12 @@ export default function OrganizationBrowserPopup({
                     }
                     style={getOrganizationColor(savedOrganization, organizationColors)}
                   >
-                    <label className="org-browser__organization-label">
+                    <label
+                      className="org-browser__organization-label"
+                      htmlFor={`org-browser-toggle-${savedOrganization}`}
+                    >
                       <input
+                        id={`org-browser-toggle-${savedOrganization}`}
                         type="checkbox"
                         className="org-browser__organization-toggle"
                         checked={organizationEnabledMap[savedOrganization] ?? true}
@@ -630,11 +634,6 @@ export default function OrganizationBrowserPopup({
                             event.target.checked
                           )
                         }
-                        aria-label={`${
-                          organizationEnabledMap[savedOrganization] ?? true
-                            ? "Disable"
-                            : "Enable"
-                        } ${savedOrganization}`}
                       />
                       <span>{savedOrganization}</span>
                     </label>
