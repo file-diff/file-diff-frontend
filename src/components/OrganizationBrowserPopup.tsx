@@ -19,10 +19,12 @@ import {
   getRepositoryOrganization,
   loadCachedRepositories,
   loadCombinedCachedRepositories,
+  loadOrganizationEnabledMap,
   loadLatestCachedRepositoriesFetchedAt,
   loadOrganizationColors,
   loadSavedOrganizations,
   removeOrganization,
+  setOrganizationEnabled,
   saveCachedRepositories,
 } from "../utils/organizationBrowserStorage";
 import type { OrganizationColorDefinition } from "../utils/organizationBrowserStorage";
@@ -70,6 +72,9 @@ export default function OrganizationBrowserPopup({
   const [error, setError] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
   const [lastFetchedAt, setLastFetchedAt] = useState("");
+  const [organizationEnabledMap, setOrganizationEnabledMap] = useState<
+    Record<string, boolean>
+  >(() => loadOrganizationEnabledMap(loadSavedOrganizations()));
   const [organizationColors, setOrganizationColors] = useState<
     Record<string, OrganizationColorDefinition>
   >(() => loadOrganizationColors(loadSavedOrganizations()));
@@ -77,11 +82,16 @@ export default function OrganizationBrowserPopup({
   const abortRef = useRef<AbortController | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const organizationsRef = useRef<string[]>([]);
+  const organizationEnabledMapRef = useRef<Record<string, boolean>>({});
   const selectedRepoRef = useRef("");
 
   useEffect(() => {
     organizationsRef.current = organizations;
   }, [organizations]);
+
+  useEffect(() => {
+    organizationEnabledMapRef.current = organizationEnabledMap;
+  }, [organizationEnabledMap]);
 
   useEffect(() => {
     selectedRepoRef.current = selectedRepo;
@@ -110,6 +120,7 @@ export default function OrganizationBrowserPopup({
   const resetState = useCallback(() => {
     setOrganization("");
     setOrganizations([]);
+    setOrganizationEnabledMap({});
     setRepositories([]);
     setSelectedRepo("");
     setRefs([]);
@@ -126,13 +137,35 @@ export default function OrganizationBrowserPopup({
   }, []);
 
   const handleRefreshRepositories = useCallback(
-    async (organizationValues?: string[]) => {
+    async (
+      organizationValues?: string[],
+      enabledValues?: Record<string, boolean>
+    ) => {
       const nextOrganizations = (organizationValues ?? organizationsRef.current)
         .map((org) => org.trim())
         .filter(Boolean);
       if (nextOrganizations.length === 0) {
+        abortRef.current?.abort();
+        abortRef.current = null;
         setError("Add at least one organization.");
         setRepositories([]);
+        setIsLoadingRepos(false);
+        setLastFetchedAt("");
+        return;
+      }
+
+      const nextEnabledOrganizations = nextOrganizations.filter(
+        (org) => (enabledValues ?? organizationEnabledMapRef.current)[org] ?? true
+      );
+      if (nextEnabledOrganizations.length === 0) {
+        abortRef.current?.abort();
+        abortRef.current = null;
+        setError("Enable at least one organization.");
+        setRepositories([]);
+        setSelectedRepo("");
+        setRefs([]);
+        setSelectedRef("");
+        setResolvedCommit(null);
         setIsLoadingRepos(false);
         setLastFetchedAt("");
         return;
@@ -152,7 +185,7 @@ export default function OrganizationBrowserPopup({
       setIsLoadingRepos(true);
 
       const results = await Promise.allSettled(
-        nextOrganizations.map(async (org) => {
+        nextEnabledOrganizations.map(async (org) => {
           const repos = await requestOrganizationRepositories(org, controller.signal);
           repos.sort(sortByUpdatedAtDesc);
           saveCachedRepositories(org, repos);
@@ -171,7 +204,7 @@ export default function OrganizationBrowserPopup({
           return;
         }
 
-        const failedOrganization = nextOrganizations[index];
+        const failedOrganization = nextEnabledOrganizations[index];
         failedOrganizations.push(failedOrganization);
         loadedRepositories.push(...loadCachedRepositories(failedOrganization));
       });
@@ -195,7 +228,7 @@ export default function OrganizationBrowserPopup({
           `Unable to refresh repositories for: ${failedOrganizations.join(", ")}. Showing cached data where available.`
         );
       } else if (loadedRepositories.length === 0) {
-        setError("No repositories found for the saved organizations.");
+        setError("No repositories found for the enabled organizations.");
       }
 
       setIsLoadingRepos(false);
@@ -213,6 +246,7 @@ export default function OrganizationBrowserPopup({
     const cachedRepositories = loadCombinedCachedRepositories(savedOrganizations);
     cachedRepositories.sort(sortByUpdatedAtDesc);
 
+    setOrganizationEnabledMap(loadOrganizationEnabledMap(savedOrganizations));
     setOrganizationColors(loadOrganizationColors(savedOrganizations));
     setOrganizations(savedOrganizations);
     setRepositories(cachedRepositories);
@@ -236,10 +270,12 @@ export default function OrganizationBrowserPopup({
     }
 
     const nextOrganizations = addOrganization(organizations, org);
+    const nextEnabledMap = loadOrganizationEnabledMap(nextOrganizations);
+    setOrganizationEnabledMap(nextEnabledMap);
     setOrganizationColors(loadOrganizationColors(nextOrganizations));
     setOrganizations(nextOrganizations);
     setOrganization("");
-    await handleRefreshRepositories(nextOrganizations);
+    await handleRefreshRepositories(nextOrganizations, nextEnabledMap);
   };
 
   const handleRemoveOrganization = (organizationToRemove: string) => {
@@ -250,9 +286,11 @@ export default function OrganizationBrowserPopup({
     setIsResolvingCommit(false);
 
     const nextOrganizations = removeOrganization(organizations, organizationToRemove);
+    const nextEnabledMap = loadOrganizationEnabledMap(nextOrganizations);
     clearCachedRepositories(organizationToRemove);
     const nextRepositories = loadCombinedCachedRepositories(nextOrganizations);
     nextRepositories.sort(sortByUpdatedAtDesc);
+    setOrganizationEnabledMap(nextEnabledMap);
     setOrganizationColors(loadOrganizationColors(nextOrganizations));
     setOrganizations(nextOrganizations);
     setRepositories(nextRepositories);
@@ -270,6 +308,31 @@ export default function OrganizationBrowserPopup({
     }
 
     setError("");
+  };
+
+  const handleToggleOrganization = async (
+    organizationToToggle: string,
+    enabled: boolean
+  ) => {
+    setOrganizationEnabled(organizationToToggle, enabled);
+    const nextEnabledMap = {
+      ...organizationEnabledMapRef.current,
+      [organizationToToggle]: enabled,
+    };
+
+    setOrganizationEnabledMap(nextEnabledMap);
+
+    if (
+      !enabled &&
+      selectedRepo.toLowerCase().startsWith(`${organizationToToggle.toLowerCase()}/`)
+    ) {
+      setSelectedRepo("");
+      setRefs([]);
+      setSelectedRef("");
+      setResolvedCommit(null);
+    }
+
+    await handleRefreshRepositories(organizations, nextEnabledMap);
   };
 
   const repositoryListStatusMessage = isLoadingRepos
@@ -378,6 +441,7 @@ export default function OrganizationBrowserPopup({
         organizations,
         parsedLocation.organization
       );
+      const nextEnabledMap = loadOrganizationEnabledMap(nextOrganizations);
 
       abortRef.current?.abort();
       abortRef.current = null;
@@ -391,11 +455,12 @@ export default function OrganizationBrowserPopup({
       setError("");
 
       setOrganization(parsedLocation.organization);
+      setOrganizationEnabledMap(nextEnabledMap);
       setOrganizationColors(loadOrganizationColors(nextOrganizations));
       setOrganizations(nextOrganizations);
 
       void (async () => {
-        await handleRefreshRepositories(nextOrganizations);
+        await handleRefreshRepositories(nextOrganizations, nextEnabledMap);
         await handleLoadRefs(parsedLocation.repo);
 
         if (parsedLocation.ref) {
@@ -413,8 +478,8 @@ export default function OrganizationBrowserPopup({
       ? repoName
       : exactMatches.length === 1
         ? exactMatches[0].repo
-        : organizations.length === 1 && repoName
-          ? `${organizations[0]}/${repoName}`
+        : enabledOrganizations.length === 1 && repoName
+          ? `${enabledOrganizations[0]}/${repoName}`
           : value;
 
     abortRef.current?.abort();
@@ -450,10 +515,18 @@ export default function OrganizationBrowserPopup({
     return repoFuse.search(filterQuery).map((result) => result.item);
   }, [filterQuery, repoFuse, repositories]);
 
+  const enabledOrganizations = useMemo(
+    () =>
+      organizations.filter((org) => organizationEnabledMap[org] ?? true),
+    [organizationEnabledMap, organizations]
+  );
+
   const repoInputValue = selectedRepo
     ? selectedRepo.includes("/")
-      ? organizations.length === 1 &&
-        selectedRepo.toLowerCase().startsWith(`${organizations[0].toLowerCase()}/`)
+      ? enabledOrganizations.length === 1 &&
+        selectedRepo
+          .toLowerCase()
+          .startsWith(`${enabledOrganizations[0].toLowerCase()}/`)
         ? selectedRepo.split("/").slice(1).join("/")
         : selectedRepo
       : selectedRepo
@@ -503,7 +576,9 @@ export default function OrganizationBrowserPopup({
           <div className="org-browser__step">
             <label htmlFor="org-name-input">
               Organizations
-              {organizations.length > 0 ? ` (${organizations.length} saved)` : ""}
+              {organizations.length > 0
+                ? ` (${enabledOrganizations.length}/${organizations.length} enabled)`
+                : ""}
             </label>
             <div className="org-browser__input-row">
               <input
@@ -538,9 +613,26 @@ export default function OrganizationBrowserPopup({
                 {organizations.map((savedOrganization) => (
                   <li
                     key={savedOrganization}
-                    className="org-browser__organization-item"
+                    className={
+                      "org-browser__organization-item" +
+                      ((organizationEnabledMap[savedOrganization] ?? true)
+                        ? ""
+                        : " org-browser__organization-item--disabled")
+                    }
                     style={getOrganizationColor(savedOrganization, organizationColors)}
                   >
+                    <input
+                      type="checkbox"
+                      className="org-browser__organization-toggle"
+                      checked={organizationEnabledMap[savedOrganization] ?? true}
+                      onChange={(event) =>
+                        void handleToggleOrganization(
+                          savedOrganization,
+                          event.target.checked
+                        )
+                      }
+                      aria-label={`Enable ${savedOrganization}`}
+                    />
                     <span>{savedOrganization}</span>
                     <button
                       type="button"
@@ -554,7 +646,8 @@ export default function OrganizationBrowserPopup({
               </ul>
             )}
             <div className="org-browser__hint">
-              Saved organizations are stored in local storage for this browser.
+              Saved organizations stay in local storage for this browser even when
+              disabled.
             </div>
             {error && (
               <div

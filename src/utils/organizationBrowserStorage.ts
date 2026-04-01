@@ -2,6 +2,7 @@ import type { OrganizationRepository } from "./repositorySelection";
 
 const ORGANIZATIONS_STORAGE_KEY = "organization-browser-organizations";
 const ORGANIZATION_COLORS_STORAGE_KEY = "organization-browser-org-colors";
+const ORGANIZATION_ENABLED_STORAGE_KEY = "organization-browser-org-enabled";
 const ORG_REPOS_STORAGE_PREFIX = "org-repos-";
 
 interface CachedRepositoriesPayload {
@@ -16,6 +17,7 @@ export interface OrganizationColorDefinition {
 }
 
 type OrganizationColorAssignments = Record<string, number>;
+type OrganizationEnabledAssignments = Record<string, boolean>;
 
 const ORGANIZATION_COLOR_PALETTE: OrganizationColorDefinition[] = [
   {
@@ -93,6 +95,39 @@ function loadOrganizationColorAssignments(): OrganizationColorAssignments {
   }
 }
 
+function loadOrganizationEnabledAssignments(): OrganizationEnabledAssignments {
+  try {
+    const raw = localStorage.getItem(ORGANIZATION_ENABLED_STORAGE_KEY);
+    if (!raw) return {};
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([key, value]) => Boolean(key) && typeof value === "boolean"
+      )
+    );
+  } catch {
+    return {};
+  }
+}
+
+function saveOrganizationEnabledAssignments(
+  assignments: OrganizationEnabledAssignments
+): void {
+  try {
+    localStorage.setItem(
+      ORGANIZATION_ENABLED_STORAGE_KEY,
+      JSON.stringify(assignments)
+    );
+  } catch {
+    // Ignore storage errors (quota exceeded, etc.)
+  }
+}
+
 function saveOrganizationColorAssignments(
   assignments: OrganizationColorAssignments
 ): void {
@@ -164,8 +199,47 @@ export function addOrganization(orgs: string[], org: string): string[] {
 }
 
 export function removeOrganization(orgs: string[], org: string): string[] {
+  const key = organizationKey(org);
+  const enabledAssignments = loadOrganizationEnabledAssignments();
+  if (key in enabledAssignments) {
+    delete enabledAssignments[key];
+    saveOrganizationEnabledAssignments(enabledAssignments);
+  }
+
   return saveOrganizations(
-    orgs.filter((candidate) => organizationKey(candidate) !== organizationKey(org))
+    orgs.filter((candidate) => organizationKey(candidate) !== key)
+  );
+}
+
+export function isOrganizationEnabled(org: string): boolean {
+  const enabledAssignments = loadOrganizationEnabledAssignments();
+  return enabledAssignments[organizationKey(org)] ?? true;
+}
+
+export function setOrganizationEnabled(org: string, enabled: boolean): void {
+  const key = organizationKey(org);
+  const enabledAssignments = loadOrganizationEnabledAssignments();
+
+  if (enabled) {
+    delete enabledAssignments[key];
+  } else {
+    enabledAssignments[key] = false;
+  }
+
+  saveOrganizationEnabledAssignments(enabledAssignments);
+}
+
+export function loadOrganizationEnabledMap(
+  organizations: string[]
+): Record<string, boolean> {
+  return Object.fromEntries(
+    dedupeOrganizations(organizations).map((org) => [org, isOrganizationEnabled(org)])
+  );
+}
+
+export function loadEnabledOrganizations(organizations: string[]): string[] {
+  return dedupeOrganizations(organizations).filter((org) =>
+    isOrganizationEnabled(org)
   );
 }
 
@@ -242,16 +316,19 @@ export function loadCachedRepositories(org: string): OrganizationRepository[] {
 export function loadCombinedCachedRepositories(
   organizations: string[]
 ): OrganizationRepository[] {
-  return organizations.flatMap((org) => loadCachedRepositories(org));
+  return loadEnabledOrganizations(organizations).flatMap((org) =>
+    loadCachedRepositories(org)
+  );
 }
 
 export function loadLatestCachedRepositoriesFetchedAt(
   organizations: string[]
 ): string {
+  const enabledOrganizations = loadEnabledOrganizations(organizations);
   let latestTimestamp = 0;
   let latestFetchedAt = "";
 
-  for (const org of organizations) {
+  for (const org of enabledOrganizations) {
     try {
       const payload = parseCachedRepositoriesPayload(
         localStorage.getItem(ORG_REPOS_STORAGE_PREFIX + organizationKey(org))
