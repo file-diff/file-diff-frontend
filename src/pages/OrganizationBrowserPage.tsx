@@ -351,10 +351,10 @@ export default function OrganizationBrowserPage() {
             </button>
           </div>
           {organizations.length > 0 && (
-            <ul className="org-page__organization-list">
-              {organizations.map((savedOrganization) => (
-                <li
-                  key={savedOrganization}
+              <ul className="org-page__organization-list">
+                {organizations.map((savedOrganization, index) => (
+                  <li
+                    key={savedOrganization}
                   className={
                     "org-page__organization-item" +
                     ((organizationEnabledMap[savedOrganization] ?? true)
@@ -365,10 +365,10 @@ export default function OrganizationBrowserPage() {
                 >
                   <label
                     className="org-page__organization-label"
-                    htmlFor={`org-page-toggle-${savedOrganization}`}
+                    htmlFor={`org-page-toggle-${index}`}
                   >
                     <input
-                      id={`org-page-toggle-${savedOrganization}`}
+                      id={`org-page-toggle-${index}`}
                       type="checkbox"
                       className="org-page__organization-toggle"
                       checked={organizationEnabledMap[savedOrganization] ?? true}
@@ -378,6 +378,11 @@ export default function OrganizationBrowserPage() {
                           event.target.checked
                         )
                       }
+                      aria-label={`${
+                        organizationEnabledMap[savedOrganization] ?? true
+                          ? "Disable"
+                          : "Enable"
+                      } ${savedOrganization}`}
                     />
                     <span>{savedOrganization}</span>
                   </label>

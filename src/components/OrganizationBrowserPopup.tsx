@@ -608,7 +608,7 @@ export default function OrganizationBrowserPopup({
             </div>
             {organizations.length > 0 && (
               <ul className="org-browser__organization-list">
-                {organizations.map((savedOrganization) => (
+                {organizations.map((savedOrganization, index) => (
                   <li
                     key={savedOrganization}
                     className={
@@ -621,10 +621,10 @@ export default function OrganizationBrowserPopup({
                   >
                     <label
                       className="org-browser__organization-label"
-                      htmlFor={`org-browser-toggle-${savedOrganization}`}
+                      htmlFor={`org-browser-toggle-${index}`}
                     >
                       <input
-                        id={`org-browser-toggle-${savedOrganization}`}
+                        id={`org-browser-toggle-${index}`}
                         type="checkbox"
                         className="org-browser__organization-toggle"
                         checked={organizationEnabledMap[savedOrganization] ?? true}
@@ -634,6 +634,11 @@ export default function OrganizationBrowserPopup({
                             event.target.checked
                           )
                         }
+                        aria-label={`${
+                          organizationEnabledMap[savedOrganization] ?? true
+                            ? "Disable"
+                            : "Enable"
+                        } ${savedOrganization}`}
                       />
                       <span>{savedOrganization}</span>
                     </label>
