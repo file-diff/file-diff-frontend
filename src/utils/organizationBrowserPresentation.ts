@@ -57,3 +57,16 @@ export function sortByUpdatedAtDesc(
   const dateB = parseDateValue(b.updatedAt)?.getTime() ?? 0;
   return dateB - dateA;
 }
+
+export function getOrganizationToggleId(
+  prefix: string,
+  savedOrganization: string
+): string {
+  const encodedOrganization = Array.from(savedOrganization, (character) =>
+    character.codePointAt(0)?.toString(16)
+  )
+    .filter((codePoint): codePoint is string => codePoint !== undefined)
+    .join("-");
+
+  return `${prefix}-${encodedOrganization}`;
+}

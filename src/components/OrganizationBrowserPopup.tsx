@@ -31,19 +31,13 @@ import type { OrganizationColorDefinition } from "../utils/organizationBrowserSt
 import {
   formatAbsoluteDateTime,
   formatRelativeDateTime,
+  getOrganizationToggleId,
   sortByUpdatedAtDesc,
 } from "../utils/organizationBrowserPresentation";
 import "./OrganizationBrowserPopup.css";
 
 const REPOSITORY_OPTIONS_ID = "org-browser-repository-options";
 const REF_OPTIONS_ID = "org-browser-ref-options";
-
-function getOrganizationToggleId(savedOrganization: string): string {
-  const encodedOrganization = Array.from(savedOrganization, (character) =>
-    character.codePointAt(0)?.toString(16)
-  ).join("-");
-  return `org-browser-toggle-${encodedOrganization}`;
-}
 
 export interface OrganizationBrowserResult {
   repo: string;
@@ -628,10 +622,16 @@ export default function OrganizationBrowserPopup({
                   >
                     <label
                       className="org-browser__organization-label"
-                      htmlFor={getOrganizationToggleId(savedOrganization)}
+                      htmlFor={getOrganizationToggleId(
+                        "org-browser-toggle",
+                        savedOrganization
+                      )}
                     >
                       <input
-                        id={getOrganizationToggleId(savedOrganization)}
+                        id={getOrganizationToggleId(
+                          "org-browser-toggle",
+                          savedOrganization
+                        )}
                         type="checkbox"
                         className="org-browser__organization-toggle"
                         checked={organizationEnabledMap[savedOrganization] ?? true}

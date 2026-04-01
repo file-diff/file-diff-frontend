@@ -26,6 +26,7 @@ import type { OrganizationColorDefinition } from "../utils/organizationBrowserSt
 import {
   formatAbsoluteDateTime,
   formatRelativeDateTime,
+  getOrganizationToggleId,
   sortByUpdatedAtDesc,
 } from "../utils/organizationBrowserPresentation";
 import "./OrganizationBrowserPage.css";
@@ -34,13 +35,6 @@ function loadInitialRepositories(): OrganizationRepository[] {
   const cachedRepositories = loadCombinedCachedRepositories(loadSavedOrganizations());
   cachedRepositories.sort(sortByUpdatedAtDesc);
   return cachedRepositories;
-}
-
-function getOrganizationToggleId(savedOrganization: string): string {
-  const encodedOrganization = Array.from(savedOrganization, (character) =>
-    character.codePointAt(0)?.toString(16)
-  ).join("-");
-  return `org-page-toggle-${encodedOrganization}`;
 }
 
 export default function OrganizationBrowserPage() {
@@ -372,10 +366,16 @@ export default function OrganizationBrowserPage() {
                 >
                   <label
                     className="org-page__organization-label"
-                    htmlFor={getOrganizationToggleId(savedOrganization)}
+                    htmlFor={getOrganizationToggleId(
+                      "org-page-toggle",
+                      savedOrganization
+                    )}
                   >
                     <input
-                      id={getOrganizationToggleId(savedOrganization)}
+                      id={getOrganizationToggleId(
+                        "org-page-toggle",
+                        savedOrganization
+                      )}
                       type="checkbox"
                       className="org-page__organization-toggle"
                       checked={organizationEnabledMap[savedOrganization] ?? true}
