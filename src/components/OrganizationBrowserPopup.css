@@ -78,7 +78,6 @@
 .org-browser__step label {
   display: block;
   font-weight: 600;
-  margin-bottom: 8px;
   color: #bbb;
   font-size: 0.85rem;
 }

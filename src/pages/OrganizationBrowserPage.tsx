@@ -201,45 +201,6 @@ export default function OrganizationBrowserPage() {
     setSelectedRepo(repo.repo);
   };
 
-  const repoInputValue = selectedRepo
-    ? selectedRepo.includes("/")
-      ? enabledOrganizations.length === 1 &&
-        selectedRepo
-          .toLowerCase()
-          .startsWith(`${enabledOrganizations[0].toLowerCase()}/`)
-        ? selectedRepo.split("/").slice(1).join("/")
-        : selectedRepo
-      : selectedRepo
-    : "";
-
-  const handleRepoInputChange = (value: string) => {
-    const repoName = value.trim();
-    if (!repoName) {
-      setSelectedRepo("");
-      return;
-    }
-
-    if (repoName.includes("/")) {
-      setSelectedRepo(repoName);
-      return;
-    }
-
-    const exactMatches = repositories.filter(
-      (repo) => repo.name.toLowerCase() === repoName.toLowerCase()
-    );
-
-    if (exactMatches.length === 1) {
-      setSelectedRepo(exactMatches[0].repo);
-      return;
-    }
-
-    setSelectedRepo(
-      enabledOrganizations.length === 1
-        ? `${enabledOrganizations[0]}/${repoName}`
-        : repoName
-    );
-  };
-
   const handleAddOrganization = async () => {
     const nextOrganization = organization.trim();
     if (!nextOrganization) {
@@ -338,6 +299,7 @@ export default function OrganizationBrowserPage() {
             />
             <button
               type="button"
+              className="org-page__add-button"
               onClick={() => void handleAddOrganization()}
               disabled={isLoadingRepos || !organization.trim()}
             >
@@ -386,7 +348,7 @@ export default function OrganizationBrowserPage() {
                         )
                       }
                     />
-                    <span>{savedOrganization}</span>
+                    <div style={{padding: "0px 0px 2px 0px"}}>{savedOrganization}</div>
                     <span className="org-page__sr-only">
                       {organizationEnabledMap[savedOrganization] ?? true
                         ? "Click to disable"
@@ -395,6 +357,7 @@ export default function OrganizationBrowserPage() {
                   </label>
                   <button
                     type="button"
+                    style={{padding: "2px 8px 0px 7px"}}
                     onClick={() => handleRemoveOrganization(savedOrganization)}
                     aria-label={`Remove ${savedOrganization}`}
                   >
@@ -421,20 +384,6 @@ export default function OrganizationBrowserPage() {
               </span>
             </div>
           )}
-        </div>
-
-        <div className="org-page__step">
-          <label htmlFor="org-page-repository-input">Repository</label>
-          <div className="org-page__input-row">
-            <input
-              id="org-page-repository-input"
-              type="text"
-              value={repoInputValue}
-              onChange={(e) => handleRepoInputChange(e.target.value)}
-              placeholder="repo name or org/repo"
-              spellCheck={false}
-            />
-          </div>
         </div>
 
         {selectedRepo && (
