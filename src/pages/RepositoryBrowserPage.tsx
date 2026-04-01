@@ -109,6 +109,9 @@ export default function RepositoryBrowserPage() {
 
   const [leftCommit, setLeftCommit] = useState<string | null>(null);
   const [rightCommit, setRightCommit] = useState<string | null>(null);
+  const [hoveredParentCommit, setHoveredParentCommit] = useState<string | null>(
+    null
+  );
   const [highlightBranch, setHighlightBranch] = useState("");
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -479,6 +482,7 @@ export default function RepositoryBrowserPage() {
               const isSelected = isLeft || isRight;
               const indentLevel = commitIndentLevels.get(entry.commit) ?? 0;
               const isOffBranch = offBranchCommits.has(entry.commit);
+              const isHoveredParent = hoveredParentCommit === entry.commit;
 
               return (
                 <div
@@ -493,7 +497,10 @@ export default function RepositoryBrowserPage() {
                     (isOffBranch ? " repo-browser__commit--off-branch" : "") +
                     (isSelected ? " repo-browser__commit--selected" : "") +
                     (isLeft ? " repo-browser__commit--left" : "") +
-                    (isRight ? " repo-browser__commit--right" : "")
+                    (isRight ? " repo-browser__commit--right" : "") +
+                    (isHoveredParent
+                      ? " repo-browser__commit--parent-highlighted"
+                      : "")
                   }
                   onClick={() => handleSelectCommit(entry.commit)}
                   role="button"
@@ -547,6 +554,8 @@ export default function RepositoryBrowserPage() {
                               rel="noopener noreferrer"
                               className="repo-browser__commit-parent"
                               onClick={(e) => e.stopPropagation()}
+                              onMouseEnter={() => setHoveredParentCommit(parent)}
+                              onMouseLeave={() => setHoveredParentCommit(null)}
                             >
                               {parent.slice(0, 7)}
                             </a>
