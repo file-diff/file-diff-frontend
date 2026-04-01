@@ -619,23 +619,25 @@ export default function OrganizationBrowserPopup({
                     }
                     style={getOrganizationColor(savedOrganization, organizationColors)}
                   >
-                    <input
-                      type="checkbox"
-                      className="org-browser__organization-toggle"
-                      checked={organizationEnabledMap[savedOrganization] ?? true}
-                      onChange={(event) =>
-                        void handleToggleOrganization(
-                          savedOrganization,
-                          event.target.checked
-                        )
-                      }
-                      aria-label={`${
-                        organizationEnabledMap[savedOrganization] ?? true
-                          ? "Disable"
-                          : "Enable"
-                      } ${savedOrganization}`}
-                    />
-                    <span>{savedOrganization}</span>
+                    <label className="org-browser__organization-label">
+                      <input
+                        type="checkbox"
+                        className="org-browser__organization-toggle"
+                        checked={organizationEnabledMap[savedOrganization] ?? true}
+                        onChange={(event) =>
+                          void handleToggleOrganization(
+                            savedOrganization,
+                            event.target.checked
+                          )
+                        }
+                        aria-label={`${
+                          organizationEnabledMap[savedOrganization] ?? true
+                            ? "Disable"
+                            : "Enable"
+                        } ${savedOrganization}`}
+                      />
+                      <span>{savedOrganization}</span>
+                    </label>
                     <button
                       type="button"
                       onClick={() => handleRemoveOrganization(savedOrganization)}

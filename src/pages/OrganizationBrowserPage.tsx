@@ -363,23 +363,25 @@ export default function OrganizationBrowserPage() {
                   }
                   style={getOrganizationColor(savedOrganization, organizationColors)}
                 >
-                  <input
-                    type="checkbox"
-                    className="org-page__organization-toggle"
-                    checked={organizationEnabledMap[savedOrganization] ?? true}
-                    onChange={(event) =>
-                      void handleToggleOrganization(
-                        savedOrganization,
-                        event.target.checked
-                      )
-                    }
-                    aria-label={`${
-                      organizationEnabledMap[savedOrganization] ?? true
-                        ? "Disable"
-                        : "Enable"
-                    } ${savedOrganization}`}
-                  />
-                  <span>{savedOrganization}</span>
+                  <label className="org-page__organization-label">
+                    <input
+                      type="checkbox"
+                      className="org-page__organization-toggle"
+                      checked={organizationEnabledMap[savedOrganization] ?? true}
+                      onChange={(event) =>
+                        void handleToggleOrganization(
+                          savedOrganization,
+                          event.target.checked
+                        )
+                      }
+                      aria-label={`${
+                        organizationEnabledMap[savedOrganization] ?? true
+                          ? "Disable"
+                          : "Enable"
+                      } ${savedOrganization}`}
+                    />
+                    <span>{savedOrganization}</span>
+                  </label>
                   <button
                     type="button"
                     onClick={() => handleRemoveOrganization(savedOrganization)}
