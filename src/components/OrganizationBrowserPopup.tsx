@@ -39,7 +39,10 @@ const REPOSITORY_OPTIONS_ID = "org-browser-repository-options";
 const REF_OPTIONS_ID = "org-browser-ref-options";
 
 function getOrganizationToggleId(savedOrganization: string): string {
-  return `org-browser-toggle-${savedOrganization.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const encodedOrganization = Array.from(savedOrganization, (character) =>
+    character.codePointAt(0)?.toString(16)
+  ).join("-");
+  return `org-browser-toggle-${encodedOrganization}`;
 }
 
 export interface OrganizationBrowserResult {

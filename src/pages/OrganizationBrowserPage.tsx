@@ -37,7 +37,10 @@ function loadInitialRepositories(): OrganizationRepository[] {
 }
 
 function getOrganizationToggleId(savedOrganization: string): string {
-  return `org-page-toggle-${savedOrganization.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const encodedOrganization = Array.from(savedOrganization, (character) =>
+    character.codePointAt(0)?.toString(16)
+  ).join("-");
+  return `org-page-toggle-${encodedOrganization}`;
 }
 
 export default function OrganizationBrowserPage() {
