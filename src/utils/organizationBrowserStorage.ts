@@ -226,14 +226,19 @@ export function setOrganizationEnabled(org: string, enabled: boolean): void {
 export function loadOrganizationEnabledMap(
   organizations: string[]
 ): Record<string, boolean> {
+  const enabledAssignments = loadOrganizationEnabledAssignments();
   return Object.fromEntries(
-    dedupeOrganizations(organizations).map((org) => [org, isOrganizationEnabled(org)])
+    dedupeOrganizations(organizations).map((org) => [
+      org,
+      enabledAssignments[organizationKey(org)] ?? true,
+    ])
   );
 }
 
 export function loadEnabledOrganizations(organizations: string[]): string[] {
-  return dedupeOrganizations(organizations).filter((org) =>
-    isOrganizationEnabled(org)
+  const enabledAssignments = loadOrganizationEnabledAssignments();
+  return dedupeOrganizations(organizations).filter(
+    (org) => enabledAssignments[organizationKey(org)] ?? true
   );
 }
 
