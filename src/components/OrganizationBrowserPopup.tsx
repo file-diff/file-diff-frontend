@@ -38,6 +38,10 @@ import "./OrganizationBrowserPopup.css";
 const REPOSITORY_OPTIONS_ID = "org-browser-repository-options";
 const REF_OPTIONS_ID = "org-browser-ref-options";
 
+function getOrganizationToggleId(savedOrganization: string): string {
+  return `org-browser-toggle-${savedOrganization.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 export interface OrganizationBrowserResult {
   repo: string;
   ref: string;
@@ -608,7 +612,7 @@ export default function OrganizationBrowserPopup({
             </div>
             {organizations.length > 0 && (
               <ul className="org-browser__organization-list">
-                {organizations.map((savedOrganization, index) => (
+                {organizations.map((savedOrganization) => (
                   <li
                     key={savedOrganization}
                     className={
@@ -621,10 +625,10 @@ export default function OrganizationBrowserPopup({
                   >
                     <label
                       className="org-browser__organization-label"
-                      htmlFor={`org-browser-toggle-${index}`}
+                      htmlFor={getOrganizationToggleId(savedOrganization)}
                     >
                       <input
-                        id={`org-browser-toggle-${index}`}
+                        id={getOrganizationToggleId(savedOrganization)}
                         type="checkbox"
                         className="org-browser__organization-toggle"
                         checked={organizationEnabledMap[savedOrganization] ?? true}

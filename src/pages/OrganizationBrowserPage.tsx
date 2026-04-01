@@ -36,6 +36,10 @@ function loadInitialRepositories(): OrganizationRepository[] {
   return cachedRepositories;
 }
 
+function getOrganizationToggleId(savedOrganization: string): string {
+  return `org-page-toggle-${savedOrganization.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 export default function OrganizationBrowserPage() {
   const [organization, setOrganization] = useState("");
   const [organizations, setOrganizations] = useState<string[]>(() =>
@@ -352,7 +356,7 @@ export default function OrganizationBrowserPage() {
           </div>
           {organizations.length > 0 && (
               <ul className="org-page__organization-list">
-                {organizations.map((savedOrganization, index) => (
+                {organizations.map((savedOrganization) => (
                   <li
                     key={savedOrganization}
                   className={
@@ -365,10 +369,10 @@ export default function OrganizationBrowserPage() {
                 >
                   <label
                     className="org-page__organization-label"
-                    htmlFor={`org-page-toggle-${index}`}
+                    htmlFor={getOrganizationToggleId(savedOrganization)}
                   >
                     <input
-                      id={`org-page-toggle-${index}`}
+                      id={getOrganizationToggleId(savedOrganization)}
                       type="checkbox"
                       className="org-page__organization-toggle"
                       checked={organizationEnabledMap[savedOrganization] ?? true}
