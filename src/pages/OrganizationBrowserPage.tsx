@@ -452,7 +452,7 @@ export default function OrganizationBrowserPage() {
                   <a
                     href={repo.repositoryUrl}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="org-page__repo-name"
                     onClick={(e) => e.stopPropagation()}
                   >

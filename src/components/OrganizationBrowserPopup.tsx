@@ -764,7 +764,7 @@ export default function OrganizationBrowserPopup({
                     <a
                       href={repo.repositoryUrl}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="org-browser__repo-name"
                       onClick={(e) => e.stopPropagation()}
                     >
