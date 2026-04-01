@@ -23,3 +23,5 @@ npm run dev
 
 It has everything needed to test the agent, including fully functional backend. 
 You can access the frontend at http://localhost:5173 and the backend API at http://localhost:5173/api.
+
+Note: do not use local docker-compose.yml 
