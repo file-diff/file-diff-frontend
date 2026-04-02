@@ -368,6 +368,14 @@ export default function RepositoryBrowserPage() {
         <p className="page-subtitle">
           Browse recent commits of a repository and select two to compare.
         </p>
+        <div className="repo-browser__header-actions">
+          <Link
+            to={`/commits/graph${loadedRepo ? `?repo=${encodeURIComponent(loadedRepo)}` : ""}`}
+            className="repo-browser__graph-link"
+          >
+            Open DAG view
+          </Link>
+        </div>
       </div>
 
       <div className="repo-browser__input-section">
