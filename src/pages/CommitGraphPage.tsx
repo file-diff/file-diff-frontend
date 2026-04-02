@@ -357,7 +357,7 @@ export default function CommitGraphPage() {
       <div className="page-header">
         <h1>🌳 Commit Graph</h1>
         <p className="page-subtitle">
-          DAG visualisation of repository commit history.
+          DAG visualization of repository commit history.
         </p>
       </div>
 
@@ -500,7 +500,7 @@ export default function CommitGraphPage() {
           <p>
             Enter a repository above (e.g.{" "}
             <code>file-diff/file-diff-frontend</code>) and click{" "}
-            <strong>Load graph</strong> to visualise the commit DAG.
+            <strong>Load graph</strong> to visualize the commit DAG.
           </p>
         </div>
       )}
