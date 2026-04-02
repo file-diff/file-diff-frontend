@@ -5,7 +5,7 @@ import {
   requestCommitGraph,
 } from "../utils/repositorySelection";
 import type { RepositoryCommit } from "../utils/repositorySelection";
-import "./CommitGraphPage.css";
+import "./GraphPage.css";
 
 const DEFAULT_GRAPH_LIMIT = 200;
 const MAX_GRAPH_LIMIT = 1000;
@@ -213,7 +213,7 @@ function buildGitHubCommitUrl(repo: string, commit: string): string {
   return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/commit/${encodeURIComponent(commit)}`;
 }
 
-export default function CommitGraphPage() {
+export default function GraphPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
 
