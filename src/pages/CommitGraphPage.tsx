@@ -239,10 +239,6 @@ export default function CommitGraphPage() {
       return parsed.repo;
     }
 
-    if (/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(trimmed)) {
-      return trimmed;
-    }
-
     return trimmed;
   }, []);
 
@@ -694,8 +690,12 @@ export default function CommitGraphPage() {
                               </a>
                               <span>{entry.author}</span>
                               <span>{formatCommitDate(entry.date)}</span>
-                              <span>row {index + 1}</span>
-                              <span>lane {lane + 1}</span>
+                              <span aria-label={`Graph row ${index + 1}`}>
+                                row {index + 1}
+                              </span>
+                              <span aria-label={`Graph lane ${lane + 1}`}>
+                                lane {lane + 1}
+                              </span>
                             </div>
                           </div>
                           <div className="commit-graph__select-btns">

@@ -513,10 +513,9 @@ function normalizeCommitGraphItem(value: unknown): CommitGraphItem | null {
   }
 
   if (candidate.type === "node") {
-    const colorKey =
-      typeof candidate.colorKey === "string" && candidate.colorKey.trim()
-        ? candidate.colorKey.trim()
-        : undefined;
+    const trimmedColorKey =
+      typeof candidate.colorKey === "string" ? candidate.colorKey.trim() : "";
+    const colorKey = trimmedColorKey || undefined;
 
     return {
       id,
