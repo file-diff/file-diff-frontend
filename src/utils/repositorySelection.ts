@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  JOBS_API_URL,
-  COMMITS_API_URL,
-  COMMITS_GRAPH_API_URL,
-  buildOrganizationRepositoriesUrl,
-} from "../config/api";
+import { JOBS_API_URL, COMMITS_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -515,48 +510,5 @@ export async function requestRepositoryCommits(
   }
 
   const data = (await response.json()) as ListCommitsResponse;
-  return Array.isArray(data.commits) ? data.commits : [];
-}
-
-interface ListCommitsGraphRequest {
-  repo: string;
-  limit: number;
-}
-
-interface ListCommitsGraphResponse {
-  repo: string;
-  commits: RepositoryCommit[];
-}
-
-export async function requestCommitGraph(
-  repo: string,
-  limit: number,
-  signal?: AbortSignal
-): Promise<RepositoryCommit[]> {
-  const response = await fetch(COMMITS_GRAPH_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ repo, limit } satisfies ListCommitsGraphRequest),
-    signal,
-  });
-
-  if (!response.ok) {
-    let message = "Unable to load commit graph";
-
-    try {
-      const errorData = (await response.json()) as ErrorResponse;
-      if (typeof errorData.error === "string" && errorData.error.trim()) {
-        message = errorData.error.trim();
-      }
-    } catch {
-      // Ignore response parsing failures and fall back to the generic message.
-    }
-
-    throw new Error(message);
-  }
-
-  const data = (await response.json()) as ListCommitsGraphResponse;
   return Array.isArray(data.commits) ? data.commits : [];
 }
