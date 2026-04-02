@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL, COMMITS_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
+import {
+  JOBS_API_URL,
+  COMMITS_API_URL,
+  COMMITS_GRAPH_API_URL,
+  buildOrganizationRepositoriesUrl,
+} from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -470,6 +475,21 @@ export interface RepositoryCommit {
   tags: string[];
 }
 
+export interface CommitGraphNode {
+  id: string;
+  type: "node";
+  colorKey?: string;
+}
+
+export interface CommitGraphEdge {
+  id: string;
+  type: "edge";
+  source: string;
+  target: string;
+}
+
+export type CommitGraphItem = CommitGraphNode | CommitGraphEdge;
+
 interface ListCommitsRequest {
   repo: string;
   limit: number;
@@ -478,6 +498,51 @@ interface ListCommitsRequest {
 interface ListCommitsResponse {
   repo: string;
   commits: RepositoryCommit[];
+}
+
+function normalizeCommitGraphItem(value: unknown): CommitGraphItem | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
+
+  if (!id) {
+    return null;
+  }
+
+  if (candidate.type === "node") {
+    const trimmedColorKey =
+      typeof candidate.colorKey === "string" ? candidate.colorKey.trim() : "";
+    const colorKey = trimmedColorKey || undefined;
+
+    return {
+      id,
+      type: "node",
+      ...(colorKey ? { colorKey } : {}),
+    };
+  }
+
+  if (candidate.type === "edge") {
+    const source =
+      typeof candidate.source === "string" ? candidate.source.trim() : "";
+    const target =
+      typeof candidate.target === "string" ? candidate.target.trim() : "";
+
+    if (!source || !target) {
+      return null;
+    }
+
+    return {
+      id,
+      type: "edge",
+      source,
+      target,
+    };
+  }
+
+  return null;
 }
 
 export async function requestRepositoryCommits(
@@ -511,4 +576,41 @@ export async function requestRepositoryCommits(
 
   const data = (await response.json()) as ListCommitsResponse;
   return Array.isArray(data.commits) ? data.commits : [];
+}
+
+export async function requestRepositoryCommitGraph(
+  repo: string,
+  limit: number,
+  signal?: AbortSignal
+): Promise<CommitGraphItem[]> {
+  const response = await fetch(COMMITS_GRAPH_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ repo, limit } satisfies ListCommitsRequest),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = "Unable to load commit graph";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as unknown;
+  return Array.isArray(data)
+    ? data
+        .map(normalizeCommitGraphItem)
+        .filter((value): value is CommitGraphItem => value !== null)
+    : [];
 }
