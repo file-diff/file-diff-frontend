@@ -475,21 +475,6 @@ export interface RepositoryCommit {
   tags: string[];
 }
 
-export interface CommitGraphNode {
-  id: string;
-  type: "node";
-  colorKey?: string;
-}
-
-export interface CommitGraphEdge {
-  id: string;
-  type: "edge";
-  source: string;
-  target: string;
-}
-
-export type CommitGraphItem = CommitGraphNode | CommitGraphEdge;
-
 interface ListCommitsRequest {
   repo: string;
   limit: number;
@@ -498,51 +483,6 @@ interface ListCommitsRequest {
 interface ListCommitsResponse {
   repo: string;
   commits: RepositoryCommit[];
-}
-
-function normalizeCommitGraphItem(value: unknown): CommitGraphItem | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
-
-  if (!id) {
-    return null;
-  }
-
-  if (candidate.type === "node") {
-    const trimmedColorKey =
-      typeof candidate.colorKey === "string" ? candidate.colorKey.trim() : "";
-    const colorKey = trimmedColorKey || undefined;
-
-    return {
-      id,
-      type: "node",
-      ...(colorKey ? { colorKey } : {}),
-    };
-  }
-
-  if (candidate.type === "edge") {
-    const source =
-      typeof candidate.source === "string" ? candidate.source.trim() : "";
-    const target =
-      typeof candidate.target === "string" ? candidate.target.trim() : "";
-
-    if (!source || !target) {
-      return null;
-    }
-
-    return {
-      id,
-      type: "edge",
-      source,
-      target,
-    };
-  }
-
-  return null;
 }
 
 export async function requestRepositoryCommits(
@@ -578,17 +518,27 @@ export async function requestRepositoryCommits(
   return Array.isArray(data.commits) ? data.commits : [];
 }
 
-export async function requestRepositoryCommitGraph(
+interface ListCommitsGraphRequest {
+  repo: string;
+  limit: number;
+}
+
+interface ListCommitsGraphResponse {
+  repo: string;
+  commits: RepositoryCommit[];
+}
+
+export async function requestCommitGraph(
   repo: string,
   limit: number,
   signal?: AbortSignal
-): Promise<CommitGraphItem[]> {
+): Promise<RepositoryCommit[]> {
   const response = await fetch(COMMITS_GRAPH_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ repo, limit } satisfies ListCommitsRequest),
+    body: JSON.stringify({ repo, limit } satisfies ListCommitsGraphRequest),
     signal,
   });
 
@@ -607,10 +557,6 @@ export async function requestRepositoryCommitGraph(
     throw new Error(message);
   }
 
-  const data = (await response.json()) as unknown;
-  return Array.isArray(data)
-    ? data
-        .map(normalizeCommitGraphItem)
-        .filter((value): value is CommitGraphItem => value !== null)
-    : [];
+  const data = (await response.json()) as ListCommitsGraphResponse;
+  return Array.isArray(data.commits) ? data.commits : [];
 }

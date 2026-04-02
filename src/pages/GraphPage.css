@@ -1,0 +1,300 @@
+.commit-graph-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ── Input section ────────────────────────────────────────────────── */
+
+.commit-graph__input-section {
+  margin-bottom: 20px;
+}
+
+.commit-graph__input-section label {
+  display: block;
+  margin-bottom: 6px;
+  color: #bbb;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.commit-graph__input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.commit-graph__input-row input {
+  flex: 1;
+  padding: 8px 12px;
+  background: #161616;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #d4d4d4;
+  font-size: 0.9rem;
+  font-family: var(--code-font-family);
+}
+
+.commit-graph__input-row input:focus {
+  outline: none;
+  border-color: #58a6ff;
+}
+
+.commit-graph__input-row button {
+  padding: 8px 16px;
+  background: #238636;
+  border: 1px solid #2ea043;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.commit-graph__input-row button:hover:not(:disabled) {
+  background: #2ea043;
+}
+
+.commit-graph__input-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Error ────────────────────────────────────────────────────────── */
+
+.commit-graph__error {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid #6e3630;
+  border-radius: 6px;
+  background: rgba(218, 54, 51, 0.1);
+  color: #ffa198;
+  font-size: 0.85rem;
+}
+
+/* ── Container ────────────────────────────────────────────────────── */
+
+.commit-graph__container {
+  border: 1px solid #333;
+  border-radius: 10px;
+  background: #191a1c;
+  overflow: hidden;
+}
+
+.commit-graph__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #444;
+}
+
+.commit-graph__title {
+  font-size: 0.9rem;
+  color: #ccc;
+  font-weight: 600;
+}
+
+.commit-graph__repo-link {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.commit-graph__repo-link:hover {
+  text-decoration: underline;
+}
+
+.commit-graph__count {
+  font-size: 0.8rem;
+  color: #8b949e;
+}
+
+/* ── Grid layout ──────────────────────────────────────────────────── */
+
+.commit-graph__grid-wrapper {
+  overflow-x: auto;
+}
+
+.commit-graph__grid {
+  display: grid;
+  grid-template-columns: var(--graph-col-width, 120px) 1fr;
+  min-width: max-content;
+}
+
+.commit-graph__graph-col {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.commit-graph__svg {
+  display: block;
+}
+
+.commit-graph__info-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ── Row ──────────────────────────────────────────────────────────── */
+
+.commit-graph__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-bottom: 1px solid #2a2a2a;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.commit-graph__row:last-child {
+  border-bottom: none;
+}
+
+.commit-graph__row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.commit-graph__row-message {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commit-graph__row-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.commit-graph__branch-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 12px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+  white-space: nowrap;
+}
+
+.commit-graph__tag-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 12px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(126, 231, 135, 0.15);
+  color: #7ee787;
+  white-space: nowrap;
+}
+
+.commit-graph__pr-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 12px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(163, 113, 247, 0.15);
+  color: #a371f7;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.commit-graph__pr-badge:hover {
+  text-decoration: underline;
+}
+
+.commit-graph__row-sha {
+  font-size: 0.8rem;
+  color: #7ee787;
+  text-decoration: none;
+  font-family: var(--code-font-family);
+  flex-shrink: 0;
+}
+
+.commit-graph__row-sha:hover {
+  text-decoration: underline;
+}
+
+.commit-graph__row-author {
+  font-size: 0.78rem;
+  color: #8b949e;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.commit-graph__row-date {
+  font-size: 0.78rem;
+  color: #6e7681;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Load more ────────────────────────────────────────────────────── */
+
+.commit-graph__load-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px;
+  border-top: 1px solid #2a2a2a;
+}
+
+.commit-graph__load-more button {
+  padding: 6px 16px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: #2d2d2d;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+
+.commit-graph__load-more button:hover:not(:disabled) {
+  background: #3d3d3d;
+}
+
+.commit-graph__load-more button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Empty state ──────────────────────────────────────────────────── */
+
+.commit-graph__empty {
+  text-align: center;
+  padding: 60px 24px;
+  border: 1px solid #333;
+  border-radius: 12px;
+  background: #191a1c;
+}
+
+.commit-graph__empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.commit-graph__empty h2 {
+  margin: 0 0 8px;
+  color: #e0e0e0;
+}
+
+.commit-graph__empty p {
+  color: #999;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.commit-graph__empty code {
+  color: #58a6ff;
+  font-family: var(--code-font-family);
+}
