@@ -14,7 +14,6 @@ import TokenizePage from "./pages/TokenizePage";
 import RepositoryBrowserPage from "./pages/RepositoryBrowserPage";
 import OrganizationBrowserPage from "./pages/OrganizationBrowserPage";
 import GraphPage from "./pages/GraphPage";
-import CommitGraphPage from "./pages/CommitGraphPage";
 import FontSelector from "./components/FontSelector";
 import { DEFAULT_FONT_ID } from "./config/fonts";
 import { applyFont } from "./utils/fontInit";
@@ -91,7 +90,6 @@ function AppShell() {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/commits" element={<RepositoryBrowserPage />} />
           <Route path="/graph" element={<GraphPage />} />
-          <Route path="/commits/graph" element={<CommitGraphPage />} />
           <Route path="/browse" element={<OrganizationBrowserPage />} />
           <Route path="/tokenize" element={<TokenizePage />} />
           <Route path="/health" element={<HealthCheckPage />} />

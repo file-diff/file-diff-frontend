@@ -267,7 +267,7 @@ export default function RepositoryBrowserPage() {
         </p>
         <div className="repo-browser__header-actions">
           <Link
-            to={`/commits/graph${loadedRepo ? `?repo=${encodeURIComponent(loadedRepo)}` : ""}`}
+            to={`/graph${loadedRepo ? `?repo=${encodeURIComponent(loadedRepo)}` : ""}`}
             className="repo-browser__graph-link"
           >
             Open DAG view
