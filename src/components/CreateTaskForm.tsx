@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   parseRepositoryLocation,
   requestRepositoryBranches,
@@ -14,9 +14,149 @@ const MODEL_OPTIONS = [
   { value: "gpt-4", label: "GPT-4" },
   { value: "claude-opus-4.6", label: "Claude Opus 4.6" },
 ];
+const GITHUB_ACTIONS_RUN_URL_PATTERN =
+  /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/[0-9]+/;
+const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+const TASK_ID_KEYS = new Set([
+  "taskid",
+  "runid",
+  "workflowrunid",
+  "jobid",
+  "idtask",
+  "idrun",
+  "idworkflow",
+  "idjob",
+]);
 
 export interface CreateTaskFormProps {
   initialRepo?: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function resolveRepoInput(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  const parsed = parseRepositoryLocation(trimmed);
+  if (parsed) return parsed.repo;
+  if (REPO_PATTERN.test(trimmed)) return trimmed;
+  return trimmed;
+}
+
+function isTaskIdKey(key: string): boolean {
+  const normalizedKey = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase();
+  const compactKey = normalizedKey.replace(/[^a-z0-9]+/g, "");
+  return TASK_ID_KEYS.has(compactKey);
+}
+
+function getIdentifier(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return null;
+}
+
+function findGitHubActionsRunUrl(value: unknown): string | null {
+  if (typeof value === "string") {
+    const match = value.match(GITHUB_ACTIONS_RUN_URL_PATTERN);
+    return match ? match[0] : null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nestedMatch = findGitHubActionsRunUrl(item);
+      if (nestedMatch) return nestedMatch;
+    }
+    return null;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  for (const nestedValue of Object.values(value)) {
+    const nestedMatch = findGitHubActionsRunUrl(nestedValue);
+    if (nestedMatch) return nestedMatch;
+  }
+
+  return null;
+}
+
+function findTaskId(value: unknown): string | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nestedTaskId = findTaskId(item);
+      if (nestedTaskId) return nestedTaskId;
+    }
+    return null;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const priorityKeys = [
+    "task_id",
+    "taskId",
+    "run_id",
+    "runId",
+    "workflow_run_id",
+    "workflowRunId",
+    "job_id",
+    "jobId",
+  ];
+
+  for (const key of priorityKeys) {
+    const candidateId = getIdentifier(value[key]);
+    if (candidateId) {
+      return candidateId;
+    }
+  }
+
+  for (const [key, nestedValue] of Object.entries(value)) {
+    const nestedId = getIdentifier(nestedValue);
+    if (isTaskIdKey(key) && nestedId) {
+      return nestedId;
+    }
+    const nestedTaskId = findTaskId(nestedValue);
+    if (nestedTaskId) return nestedTaskId;
+  }
+
+  return null;
+}
+
+function getGitHubTaskInfo(
+  repo: string,
+  result: unknown
+): { url: string | null; taskId: string | null } {
+  const directUrl = findGitHubActionsRunUrl(result);
+  if (directUrl) {
+    const taskIdMatch = directUrl.match(/\/actions\/runs\/([0-9]+)/);
+    return {
+      url: directUrl,
+      taskId: taskIdMatch ? taskIdMatch[1] : findTaskId(result),
+    };
+  }
+
+  const taskId = findTaskId(result);
+  if (!taskId || !REPO_PATTERN.test(repo)) {
+    return { url: null, taskId };
+  }
+
+  return {
+    url: `https://github.com/${repo}/actions/runs/${encodeURIComponent(taskId)}`,
+    taskId,
+  };
 }
 
 export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps) {
@@ -38,15 +178,6 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
   const [submitResult, setSubmitResult] = useState<unknown>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  const resolveRepo = useCallback((input: string): string => {
-    const trimmed = input.trim();
-    if (!trimmed) return "";
-    const parsed = parseRepositoryLocation(trimmed);
-    if (parsed) return parsed.repo;
-    if (/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(trimmed)) return trimmed;
-    return trimmed;
-  }, []);
 
   const loadBranches = useCallback(async (repo: string) => {
     abortControllerRef.current?.abort();
@@ -86,16 +217,16 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
   }, []);
 
   const handleLoadBranches = useCallback(() => {
-    const repo = resolveRepo(repoInput);
+    const repo = resolveRepoInput(repoInput);
     if (!repo) {
       setBranchesError("Please enter a repository in owner/repo format.");
       return;
     }
     void loadBranches(repo);
-  }, [loadBranches, repoInput, resolveRepo]);
+  }, [loadBranches, repoInput]);
 
   const handleSubmit = useCallback(async () => {
-    const repo = resolveRepo(repoInput);
+    const repo = resolveRepoInput(repoInput);
     if (!repo) {
       setSubmitError("Please enter a repository.");
       return;
@@ -138,7 +269,6 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
       setIsSubmitting(false);
     }
   }, [
-    resolveRepo,
     repoInput,
     eventContent,
     bearerToken,
@@ -159,6 +289,14 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
     repoInput.trim() !== "" &&
     eventContent.trim() !== "" &&
     bearerToken.trim() !== "";
+  const resolvedRepo = useMemo(() => resolveRepoInput(repoInput), [repoInput]);
+  const githubTaskInfo = useMemo(
+    () =>
+      submitResult !== null
+        ? getGitHubTaskInfo(resolvedRepo, submitResult)
+        : { url: null, taskId: null },
+    [resolvedRepo, submitResult]
+  );
 
   return (
     <div className="create-task-form">
@@ -303,6 +441,23 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
       {submitResult !== null && (
         <div className="create-task-form__result">
           <div className="create-task-form__result-header">Task created</div>
+          {githubTaskInfo.url && (
+            <div className="create-task-form__result-link-row">
+              <a
+                className="create-task-form__result-link"
+                href={githubTaskInfo.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open task in GitHub
+              </a>
+              {githubTaskInfo.taskId && (
+                <span className="create-task-form__result-link-hint">
+                  Task ID: <code>{githubTaskInfo.taskId}</code>
+                </span>
+              )}
+            </div>
+          )}
           <pre className="create-task-form__result-json">
             {JSON.stringify(submitResult, null, 2)}
           </pre>

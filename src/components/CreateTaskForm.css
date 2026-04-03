@@ -159,6 +159,36 @@
   font-weight: 600;
 }
 
+.create-task-form__result-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  padding: 12px 14px 0;
+  background: #161616;
+}
+
+.create-task-form__result-link {
+  color: #58a6ff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.create-task-form__result-link:hover {
+  text-decoration: underline;
+}
+
+.create-task-form__result-link-hint {
+  color: #8b949e;
+  font-size: 0.8rem;
+}
+
+.create-task-form__result-link-hint code {
+  color: #d4d4d4;
+  font-family: var(--code-font-family);
+}
+
 .create-task-form__result-json {
   padding: 12px 14px;
   margin: 0;
