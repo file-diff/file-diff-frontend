@@ -45,6 +45,24 @@ function getOptionalQueryParam(
   return null;
 }
 
+function applySelectedCommitParams(
+  params: URLSearchParams,
+  leftCommit: string | null,
+  rightCommit: string | null
+): void {
+  if (leftCommit) {
+    params.set("leftCommit", leftCommit);
+  } else {
+    params.delete("leftCommit");
+  }
+
+  if (rightCommit) {
+    params.set("rightCommit", rightCommit);
+  } else {
+    params.delete("rightCommit");
+  }
+}
+
 export default function RepositoryBrowserPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
@@ -186,18 +204,7 @@ export default function RepositoryBrowserPage() {
 
     updateSearchParams((params) => {
       params.set("repo", loadedRepo);
-
-      if (leftCommit) {
-        params.set("leftCommit", leftCommit);
-      } else {
-        params.delete("leftCommit");
-      }
-
-      if (rightCommit) {
-        params.set("rightCommit", rightCommit);
-      } else {
-        params.delete("rightCommit");
-      }
+      applySelectedCommitParams(params, leftCommit, rightCommit);
     });
   }, [leftCommit, loadedRepo, rightCommit, updateSearchParams]);
 
@@ -212,18 +219,7 @@ export default function RepositoryBrowserPage() {
 
     normalizedLegacySearchRef.current = legacyCommitSelectionSearch;
     updateSearchParams((params) => {
-      if (queryLeftCommit) {
-        params.set("leftCommit", queryLeftCommit);
-      } else {
-        params.delete("leftCommit");
-      }
-
-      if (queryRightCommit) {
-        params.set("rightCommit", queryRightCommit);
-      } else {
-        params.delete("rightCommit");
-      }
-
+      applySelectedCommitParams(params, queryLeftCommit, queryRightCommit);
       params.delete("lc");
       params.delete("rc");
     });
