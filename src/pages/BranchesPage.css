@@ -1,0 +1,316 @@
+.branches-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.branches-page__input-section {
+  margin-bottom: 20px;
+}
+
+.branches-page__input-section label {
+  display: block;
+  margin-bottom: 6px;
+  color: #bbb;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.branches-page__input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.branches-page__input-row input {
+  flex: 1;
+  padding: 8px 12px;
+  background: #161616;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #d4d4d4;
+  font-size: 0.9rem;
+  font-family: var(--code-font-family);
+}
+
+.branches-page__input-row input:focus {
+  outline: none;
+  border-color: #58a6ff;
+}
+
+.branches-page__input-row button {
+  padding: 8px 16px;
+  background: #238636;
+  border: 1px solid #2ea043;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.branches-page__input-row button:hover:not(:disabled) {
+  background: #2ea043;
+}
+
+.branches-page__input-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.branches-page__nav-links {
+  margin-top: 8px;
+}
+
+.branches-page__nav-link {
+  font-size: 0.85rem;
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.branches-page__nav-link:hover {
+  text-decoration: underline;
+}
+
+.branches-page__error {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid #6e3630;
+  border-radius: 6px;
+  background: rgba(218, 54, 51, 0.1);
+  color: #ffa198;
+  font-size: 0.85rem;
+}
+
+.branches-page__branches {
+  border: 1px solid #333;
+  border-radius: 10px;
+  background: #191a1c;
+  overflow: hidden;
+}
+
+.branches-page__branches-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #444;
+}
+
+.branches-page__branches-title {
+  font-size: 0.9rem;
+  color: #ccc;
+  font-weight: 600;
+}
+
+.branches-page__repo-link {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.branches-page__repo-link:hover {
+  text-decoration: underline;
+}
+
+.branches-page__branches-count {
+  font-size: 0.8rem;
+  color: #8b949e;
+}
+
+.branches-page__branch-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.branches-page__branch {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid #2a2a2a;
+  gap: 12px;
+}
+
+.branches-page__branch:last-child {
+  border-bottom: none;
+}
+
+.branches-page__branch:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.branches-page__branch--default {
+  background: rgba(88, 166, 255, 0.04);
+}
+
+.branches-page__branch--default:hover {
+  background: rgba(88, 166, 255, 0.08);
+}
+
+.branches-page__branch-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.branches-page__branch-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.branches-page__branch-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #58a6ff;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branches-page__branch-name:hover {
+  text-decoration: underline;
+}
+
+.branches-page__default-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.branches-page__pr-status {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.branches-page__pr-status--open {
+  background: rgba(126, 231, 135, 0.15);
+  color: #7ee787;
+}
+
+.branches-page__pr-status--closed {
+  background: rgba(218, 54, 51, 0.15);
+  color: #ffa198;
+}
+
+.branches-page__branch-commit-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.branches-page__commit-sha {
+  color: #7ee787;
+  text-decoration: none;
+  font-family: var(--code-font-family);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.branches-page__commit-sha:hover {
+  text-decoration: underline;
+}
+
+.branches-page__commit-title {
+  font-size: 0.85rem;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.branches-page__branch-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.8rem;
+}
+
+.branches-page__branch-author {
+  color: #8b949e;
+}
+
+.branches-page__branch-date {
+  color: #6e7681;
+  cursor: default;
+}
+
+.branches-page__branch-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.branches-page__tag-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(126, 231, 135, 0.15);
+  color: #7ee787;
+  white-space: nowrap;
+}
+
+.branches-page__pr-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(163, 113, 247, 0.15);
+  color: #a371f7;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.branches-page__pr-badge:hover {
+  text-decoration: underline;
+}
+
+.branches-page__empty {
+  text-align: center;
+  padding: 60px 24px;
+  border: 1px solid #333;
+  border-radius: 12px;
+  background: #191a1c;
+}
+
+.branches-page__empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.branches-page__empty h2 {
+  margin: 0 0 8px;
+  color: #e0e0e0;
+}
+
+.branches-page__empty p {
+  color: #999;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.branches-page__empty code {
+  color: #58a6ff;
+  font-family: var(--code-font-family);
+}
