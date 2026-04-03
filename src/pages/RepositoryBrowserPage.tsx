@@ -195,11 +195,37 @@ export default function RepositoryBrowserPage() {
       } else {
         params.delete("rightCommit");
       }
+    });
+  }, [leftCommit, loadedRepo, rightCommit, updateSearchParams]);
+
+  useEffect(() => {
+    if (!loadedRepo || (!searchParams.has("lc") && !searchParams.has("rc"))) {
+      return;
+    }
+
+    updateSearchParams((params) => {
+      if (queryLeftCommit) {
+        params.set("leftCommit", queryLeftCommit);
+      } else {
+        params.delete("leftCommit");
+      }
+
+      if (queryRightCommit) {
+        params.set("rightCommit", queryRightCommit);
+      } else {
+        params.delete("rightCommit");
+      }
 
       params.delete("lc");
       params.delete("rc");
     });
-  }, [leftCommit, loadedRepo, rightCommit, updateSearchParams]);
+  }, [
+    loadedRepo,
+    queryLeftCommit,
+    queryRightCommit,
+    searchParams,
+    updateSearchParams,
+  ]);
 
   useEffect(() => {
     const repo = loadedRepo.trim();
