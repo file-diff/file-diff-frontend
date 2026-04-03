@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
+import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -573,4 +573,47 @@ export async function requestRepositoryBranches(
 
   const data = (await response.json()) as ListBranchesResponse;
   return Array.isArray(data.branches) ? data.branches : [];
+}
+
+export interface CreateTaskRequest {
+  repo: string;
+  event_content: string;
+  model?: string;
+  problem_statement?: string;
+  custom_agent?: string;
+  create_pull_request?: boolean;
+  base_ref?: string;
+}
+
+export async function requestCreateTask(
+  request: CreateTaskRequest,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<unknown> {
+  const response = await fetch(CREATE_TASK_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = "Unable to create task";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as unknown;
 }
