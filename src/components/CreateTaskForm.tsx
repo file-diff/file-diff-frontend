@@ -14,6 +14,11 @@ const MODEL_OPTIONS = [
   { value: "gpt-4", label: "GPT-4" },
   { value: "claude-opus-4.6", label: "Claude Opus 4.6" },
 ];
+const GITHUB_ACTIONS_RUN_URL_PATTERN =
+  /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/[0-9]+/i;
+const TASK_ID_KEY_PATTERN =
+  /(?:task|run|workflow|job)[_-]?id|id[_-]?(?:task|run|workflow|job)/i;
+const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
 
 export interface CreateTaskFormProps {
   initialRepo?: string;
@@ -25,9 +30,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function findGitHubActionsRunUrl(value: unknown): string | null {
   if (typeof value === "string") {
-    const match = value.match(
-      /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/[0-9]+/i
-    );
+    const match = value.match(GITHUB_ACTIONS_RUN_URL_PATTERN);
     return match ? match[0] : null;
   }
 
@@ -87,7 +90,7 @@ function findTaskId(value: unknown): string | null {
 
   for (const [key, nestedValue] of Object.entries(value)) {
     if (
-      /(?:task|run|workflow|job)[_-]?id|id[_-]?(?:task|run|workflow|job)/i.test(key) &&
+      TASK_ID_KEY_PATTERN.test(key) &&
       ((typeof nestedValue === "string" && nestedValue.trim()) ||
         typeof nestedValue === "number")
     ) {
@@ -109,7 +112,7 @@ function buildGitHubTaskUrl(repo: string, result: unknown): string | null {
     return directUrl;
   }
 
-  if (!/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(repo)) {
+  if (!REPO_PATTERN.test(repo)) {
     return null;
   }
 
@@ -146,7 +149,7 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
     if (!trimmed) return "";
     const parsed = parseRepositoryLocation(trimmed);
     if (parsed) return parsed.repo;
-    if (/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(trimmed)) return trimmed;
+    if (REPO_PATTERN.test(trimmed)) return trimmed;
     return trimmed;
   }, []);
 
