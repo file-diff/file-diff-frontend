@@ -31,9 +31,29 @@ function buildGitHubCommitUrl(repo: string, commit: string): string {
   return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/commit/${encodeURIComponent(commit)}`;
 }
 
+function getOptionalQueryParam(
+  searchParams: URLSearchParams,
+  ...keys: string[]
+): string | null {
+  for (const key of keys) {
+    const value = searchParams.get(key)?.trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 export default function RepositoryBrowserPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
+  const queryLeftCommit = getOptionalQueryParam(searchParams, "leftCommit", "lc");
+  const queryRightCommit = getOptionalQueryParam(
+    searchParams,
+    "rightCommit",
+    "rc"
+  );
 
   const [repoInput, setRepoInput] = useState(queryRepo);
   const [commits, setCommits] = useState<RepositoryCommit[]>([]);
@@ -41,8 +61,8 @@ export default function RepositoryBrowserPage() {
   const [error, setError] = useState("");
   const [loadedRepo, setLoadedRepo] = useState("");
 
-  const [leftCommit, setLeftCommit] = useState<string | null>(null);
-  const [rightCommit, setRightCommit] = useState<string | null>(null);
+  const [leftCommit, setLeftCommit] = useState<string | null>(queryLeftCommit);
+  const [rightCommit, setRightCommit] = useState<string | null>(queryRightCommit);
   const [hoveredParentCommit, setHoveredParentCommit] = useState<string | null>(
     null
   );
@@ -66,6 +86,22 @@ export default function RepositoryBrowserPage() {
     return trimmed;
   }, []);
 
+  const updateSearchParams = useCallback(
+    (update: (params: URLSearchParams) => void) => {
+      const params = new URLSearchParams(currentSearchRef.current);
+      update(params);
+
+      const nextSearch = params.toString();
+      if (nextSearch === currentSearchRef.current) {
+        return;
+      }
+
+      currentSearchRef.current = nextSearch;
+      setSearchParams(params, { replace: true });
+    },
+    [setSearchParams]
+  );
+
   const loadCommitsForRepo = useCallback(async (repo: string) => {
     abortControllerRef.current?.abort();
     const controller = new AbortController();
@@ -86,10 +122,6 @@ export default function RepositoryBrowserPage() {
       );
       setCommits(result);
       setLoadedRepo(repo);
-
-      const params = new URLSearchParams(currentSearchRef.current);
-      params.set("repo", repo);
-      setSearchParams(params, { replace: true });
     } catch (err) {
       if (controller.signal.aborted) return;
       setError(
@@ -102,7 +134,7 @@ export default function RepositoryBrowserPage() {
         setIsLoading(false);
       }
     }
-  }, [setSearchParams]);
+  }, []);
 
   useEffect(() => {
     currentSearchRef.current = searchParams.toString();
@@ -131,10 +163,43 @@ export default function RepositoryBrowserPage() {
   }, [loadCommitsForRepo, queryRepo, resolveRepoInput]);
 
   useEffect(() => {
+    setLeftCommit(queryLeftCommit);
+  }, [queryLeftCommit]);
+
+  useEffect(() => {
+    setRightCommit(queryRightCommit);
+  }, [queryRightCommit]);
+
+  useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!loadedRepo) {
+      return;
+    }
+
+    updateSearchParams((params) => {
+      params.set("repo", loadedRepo);
+
+      if (leftCommit) {
+        params.set("leftCommit", leftCommit);
+      } else {
+        params.delete("leftCommit");
+      }
+
+      if (rightCommit) {
+        params.set("rightCommit", rightCommit);
+      } else {
+        params.delete("rightCommit");
+      }
+
+      params.delete("lc");
+      params.delete("rc");
+    });
+  }, [leftCommit, loadedRepo, rightCommit, updateSearchParams]);
 
   useEffect(() => {
     const repo = loadedRepo.trim();
