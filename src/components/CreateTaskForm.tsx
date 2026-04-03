@@ -17,6 +17,16 @@ const MODEL_OPTIONS = [
 const GITHUB_ACTIONS_RUN_URL_PATTERN =
   /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/[0-9]+/;
 const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+const TASK_ID_KEYS = new Set([
+  "taskid",
+  "runid",
+  "workflowrunid",
+  "jobid",
+  "idtask",
+  "idrun",
+  "idworkflow",
+  "idjob",
+]);
 
 export interface CreateTaskFormProps {
   initialRepo?: string;
@@ -39,15 +49,8 @@ function isTaskIdKey(key: string): boolean {
   const normalizedKey = key
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .toLowerCase();
-  const tokens = normalizedKey.split(/[^a-z0-9]+/).filter(Boolean);
-
-  return (
-    tokens.includes("id") &&
-    (tokens.includes("task") ||
-      tokens.includes("run") ||
-      tokens.includes("workflow") ||
-      tokens.includes("job"))
-  );
+  const compactKey = normalizedKey.replace(/[^a-z0-9]+/g, "");
+  return TASK_ID_KEYS.has(compactKey);
 }
 
 function getIdentifier(value: unknown): string | null {
@@ -132,22 +135,28 @@ function findTaskId(value: unknown): string | null {
   return null;
 }
 
-function buildGitHubTaskUrl(repo: string, result: unknown): string | null {
+function getGitHubTaskInfo(
+  repo: string,
+  result: unknown
+): { url: string | null; taskId: string | null } {
   const directUrl = findGitHubActionsRunUrl(result);
   if (directUrl) {
-    return directUrl;
-  }
-
-  if (!REPO_PATTERN.test(repo)) {
-    return null;
+    const taskIdMatch = directUrl.match(/\/actions\/runs\/([0-9]+)/);
+    return {
+      url: directUrl,
+      taskId: taskIdMatch ? taskIdMatch[1] : findTaskId(result),
+    };
   }
 
   const taskId = findTaskId(result);
-  if (!taskId) {
-    return null;
+  if (!taskId || !REPO_PATTERN.test(repo)) {
+    return { url: null, taskId };
   }
 
-  return `https://github.com/${repo}/actions/runs/${encodeURIComponent(taskId)}`;
+  return {
+    url: `https://github.com/${repo}/actions/runs/${encodeURIComponent(taskId)}`,
+    taskId,
+  };
 }
 
 export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps) {
@@ -281,12 +290,11 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
     eventContent.trim() !== "" &&
     bearerToken.trim() !== "";
   const resolvedRepo = useMemo(() => resolveRepoInput(repoInput), [repoInput]);
-  const githubTaskId = useMemo(
-    () => (submitResult !== null ? findTaskId(submitResult) : null),
-    [submitResult]
-  );
-  const githubTaskUrl = useMemo(
-    () => (submitResult !== null ? buildGitHubTaskUrl(resolvedRepo, submitResult) : null),
+  const githubTaskInfo = useMemo(
+    () =>
+      submitResult !== null
+        ? getGitHubTaskInfo(resolvedRepo, submitResult)
+        : { url: null, taskId: null },
     [resolvedRepo, submitResult]
   );
 
@@ -433,19 +441,19 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
       {submitResult !== null && (
         <div className="create-task-form__result">
           <div className="create-task-form__result-header">Task created</div>
-          {githubTaskUrl && (
+          {githubTaskInfo.url && (
             <div className="create-task-form__result-link-row">
               <a
                 className="create-task-form__result-link"
-                href={githubTaskUrl}
+                href={githubTaskInfo.url}
                 target="_blank"
                 rel="noreferrer"
               >
                 Open task in GitHub
               </a>
-              {githubTaskId && (
+              {githubTaskInfo.taskId && (
                 <span className="create-task-form__result-link-hint">
-                  Task ID: <code>{githubTaskId}</code>
+                  Task ID: <code>{githubTaskInfo.taskId}</code>
                 </span>
               )}
             </div>
