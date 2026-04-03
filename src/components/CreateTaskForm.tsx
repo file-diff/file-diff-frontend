@@ -19,6 +19,108 @@ export interface CreateTaskFormProps {
   initialRepo?: string;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function findGitHubActionsRunUrl(value: unknown): string | null {
+  if (typeof value === "string") {
+    const match = value.match(
+      /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/[0-9]+/i
+    );
+    return match ? match[0] : null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nestedMatch = findGitHubActionsRunUrl(item);
+      if (nestedMatch) return nestedMatch;
+    }
+    return null;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  for (const nestedValue of Object.values(value)) {
+    const nestedMatch = findGitHubActionsRunUrl(nestedValue);
+    if (nestedMatch) return nestedMatch;
+  }
+
+  return null;
+}
+
+function findTaskId(value: unknown): string | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nestedTaskId = findTaskId(item);
+      if (nestedTaskId) return nestedTaskId;
+    }
+    return null;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const priorityKeys = [
+    "task_id",
+    "taskId",
+    "run_id",
+    "runId",
+    "workflow_run_id",
+    "workflowRunId",
+    "job_id",
+    "jobId",
+  ];
+
+  for (const key of priorityKeys) {
+    const candidate = value[key];
+    if (
+      (typeof candidate === "string" && candidate.trim()) ||
+      typeof candidate === "number"
+    ) {
+      return String(candidate).trim();
+    }
+  }
+
+  for (const [key, nestedValue] of Object.entries(value)) {
+    if (
+      /(?:task|run|workflow|job)[_-]?id|id[_-]?(?:task|run|workflow|job)/i.test(key) &&
+      ((typeof nestedValue === "string" && nestedValue.trim()) ||
+        typeof nestedValue === "number")
+    ) {
+      return String(nestedValue).trim();
+    }
+  }
+
+  for (const nestedValue of Object.values(value)) {
+    const nestedTaskId = findTaskId(nestedValue);
+    if (nestedTaskId) return nestedTaskId;
+  }
+
+  return null;
+}
+
+function buildGitHubTaskUrl(repo: string, result: unknown): string | null {
+  const directUrl = findGitHubActionsRunUrl(result);
+  if (directUrl) {
+    return directUrl;
+  }
+
+  if (!/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(repo)) {
+    return null;
+  }
+
+  const taskId = findTaskId(result);
+  if (!taskId) {
+    return null;
+  }
+
+  return `https://github.com/${repo}/actions/runs/${encodeURIComponent(taskId)}`;
+}
+
 export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps) {
   const [repoInput, setRepoInput] = useState(initialRepo);
   const [eventContent, setEventContent] = useState("");
@@ -159,6 +261,9 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
     repoInput.trim() !== "" &&
     eventContent.trim() !== "" &&
     bearerToken.trim() !== "";
+  const githubTaskUrl =
+    submitResult !== null ? buildGitHubTaskUrl(resolveRepo(repoInput), submitResult) : null;
+  const githubTaskId = submitResult !== null ? findTaskId(submitResult) : null;
 
   return (
     <div className="create-task-form">
@@ -303,6 +408,23 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
       {submitResult !== null && (
         <div className="create-task-form__result">
           <div className="create-task-form__result-header">Task created</div>
+          {githubTaskUrl && (
+            <div className="create-task-form__result-link-row">
+              <a
+                className="create-task-form__result-link"
+                href={githubTaskUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open task in GitHub
+              </a>
+              {githubTaskId && (
+                <span className="create-task-form__result-link-hint">
+                  Task ID: <code>{githubTaskId}</code>
+                </span>
+              )}
+            </div>
+          )}
           <pre className="create-task-form__result-json">
             {JSON.stringify(submitResult, null, 2)}
           </pre>
