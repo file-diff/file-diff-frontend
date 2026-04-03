@@ -15,9 +15,8 @@ const MODEL_OPTIONS = [
   { value: "claude-opus-4.6", label: "Claude Opus 4.6" },
 ];
 const GITHUB_ACTIONS_RUN_URL_PATTERN =
-  /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/[0-9]+/i;
+  /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/[0-9]+/;
 const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
-const TASK_ID_KEYWORDS = ["task", "run", "workflow", "job"];
 
 export interface CreateTaskFormProps {
   initialRepo?: string;
@@ -29,7 +28,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isTaskIdKey(key: string): boolean {
   const normalizedKey = key.replace(/[^a-z0-9]+/gi, "").toLowerCase();
-  return normalizedKey.includes("id") && TASK_ID_KEYWORDS.some((part) => normalizedKey.includes(part));
+  if (!normalizedKey.includes("id")) {
+    return false;
+  }
+
+  return (
+    normalizedKey.includes("task") ||
+    normalizedKey.includes("run") ||
+    normalizedKey.includes("workflow") ||
+    normalizedKey.includes("job")
+  );
+}
+
+function getIdentifier(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return null;
 }
 
 function findGitHubActionsRunUrl(value: unknown): string | null {
@@ -83,22 +104,16 @@ function findTaskId(value: unknown): string | null {
   ];
 
   for (const key of priorityKeys) {
-    const candidate = value[key];
-    if (
-      (typeof candidate === "string" && candidate.trim()) ||
-      typeof candidate === "number"
-    ) {
-      return String(candidate).trim();
+    const candidateId = getIdentifier(value[key]);
+    if (candidateId) {
+      return candidateId;
     }
   }
 
   for (const [key, nestedValue] of Object.entries(value)) {
-    if (
-      isTaskIdKey(key) &&
-      ((typeof nestedValue === "string" && nestedValue.trim()) ||
-        typeof nestedValue === "number")
-    ) {
-      return String(nestedValue).trim();
+    const nestedId = getIdentifier(nestedValue);
+    if (isTaskIdKey(key) && nestedId) {
+      return nestedId;
     }
   }
 
