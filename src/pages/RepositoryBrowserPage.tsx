@@ -289,6 +289,16 @@ export default function RepositoryBrowserPage() {
             {isLoading && commits.length === 0 ? "Loading…" : "Load commits"}
           </button>
         </div>
+        {loadedRepo && (
+          <div className="repo-browser__nav-links">
+            <Link
+              to={`/branches?repo=${encodeURIComponent(loadedRepo)}`}
+              className="repo-browser__nav-link"
+            >
+              View branches →
+            </Link>
+          </div>
+        )}
       </div>
 
       {error && <div className="repo-browser__error">{error}</div>}
