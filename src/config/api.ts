@@ -17,6 +17,7 @@ export const CACHE_API_URL = `${JOBS_API_URL}/cache`;
 export const COMMITS_API_URL = `${JOBS_API_URL}/commits`;
 export const BRANCHES_API_URL = `${JOBS_API_URL}/branches`;
 export const STATS_API_URL = `${trimmedDefaultApiBaseUrl}/stats`;
+export const CREATE_TASK_API_URL = `${JOBS_API_URL}/create-task`;
 
 export function buildCommitFilesUrl(commit: string, format?: string): string {
   const base = `${trimmedDefaultApiBaseUrl}/commit/${encodeURIComponent(commit)}/files`;

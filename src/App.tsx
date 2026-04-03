@@ -14,6 +14,7 @@ import TokenizePage from "./pages/TokenizePage";
 import RepositoryBrowserPage from "./pages/RepositoryBrowserPage";
 import BranchesPage from "./pages/BranchesPage";
 import OrganizationBrowserPage from "./pages/OrganizationBrowserPage";
+import CreateTaskPage from "./pages/CreateTaskPage";
 import FontSelector from "./components/FontSelector";
 import { DEFAULT_FONT_ID } from "./config/fonts";
 import { applyFont } from "./utils/fontInit";
@@ -66,6 +67,9 @@ function AppShell() {
             <Link to="/browse" className="nav-link">
               🏢 Browse Org
             </Link>
+            <Link to="/create-task" className="nav-link">
+              🤖 Create Task
+            </Link>
             <Link to="/tokenize" className="nav-link">
               🎨 Tokenize
             </Link>
@@ -91,6 +95,7 @@ function AppShell() {
           <Route path="/commits" element={<RepositoryBrowserPage />} />
           <Route path="/branches" element={<BranchesPage />} />
           <Route path="/browse" element={<OrganizationBrowserPage />} />
+          <Route path="/create-task" element={<CreateTaskPage />} />
           <Route path="/tokenize" element={<TokenizePage />} />
           <Route path="/health" element={<HealthCheckPage />} />
         </Routes>
