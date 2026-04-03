@@ -11,7 +11,8 @@ import type {
 import "./CreateTaskForm.css";
 
 const MODEL_OPTIONS = [
-  { value: "gpt-4", label: "GPT-4" },
+  { value: "gpt-5.4", label: "GPT-5.4" },
+  { value: "claude-sonnet-4.6", label: "Claude Sonnet 4.6" },
   { value: "claude-opus-4.6", label: "Claude Opus 4.6" },
 ];
 const GITHUB_ACTIONS_RUN_URL_PATTERN =
