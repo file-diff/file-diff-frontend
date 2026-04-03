@@ -71,6 +71,9 @@ export default function RepositoryBrowserPage() {
   const autoLoadedRepoRef = useRef<string>("");
   const currentSearchRef = useRef(searchParams.toString());
   const startedIndexingKeysRef = useRef<Set<string>>(new Set());
+  const normalizedLegacySearchRef = useRef("");
+  const legacyCommitSelectionSearch =
+    searchParams.has("lc") || searchParams.has("rc") ? searchParams.toString() : "";
 
   const resolveRepoInput = useCallback((input: string): string => {
     const trimmed = input.trim();
@@ -199,10 +202,15 @@ export default function RepositoryBrowserPage() {
   }, [leftCommit, loadedRepo, rightCommit, updateSearchParams]);
 
   useEffect(() => {
-    if (!loadedRepo || (!searchParams.has("lc") && !searchParams.has("rc"))) {
+    if (!loadedRepo || !legacyCommitSelectionSearch) {
       return;
     }
 
+    if (normalizedLegacySearchRef.current === legacyCommitSelectionSearch) {
+      return;
+    }
+
+    normalizedLegacySearchRef.current = legacyCommitSelectionSearch;
     updateSearchParams((params) => {
       if (queryLeftCommit) {
         params.set("leftCommit", queryLeftCommit);
@@ -221,9 +229,9 @@ export default function RepositoryBrowserPage() {
     });
   }, [
     loadedRepo,
+    legacyCommitSelectionSearch,
     queryLeftCommit,
     queryRightCommit,
-    searchParams,
     updateSearchParams,
   ]);
 
