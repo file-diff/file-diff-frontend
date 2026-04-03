@@ -26,17 +26,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function resolveRepoInput(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  const parsed = parseRepositoryLocation(trimmed);
+  if (parsed) return parsed.repo;
+  if (REPO_PATTERN.test(trimmed)) return trimmed;
+  return trimmed;
+}
+
 function isTaskIdKey(key: string): boolean {
-  const normalizedKey = key.replace(/[^a-z0-9]+/gi, "").toLowerCase();
-  if (!normalizedKey.includes("id")) {
-    return false;
-  }
+  const normalizedKey = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase();
+  const tokens = normalizedKey.split(/[^a-z0-9]+/).filter(Boolean);
 
   return (
-    normalizedKey.includes("task") ||
-    normalizedKey.includes("run") ||
-    normalizedKey.includes("workflow") ||
-    normalizedKey.includes("job")
+    tokens.includes("id") &&
+    (tokens.includes("task") ||
+      tokens.includes("run") ||
+      tokens.includes("workflow") ||
+      tokens.includes("job"))
   );
 }
 
@@ -115,9 +125,6 @@ function findTaskId(value: unknown): string | null {
     if (isTaskIdKey(key) && nestedId) {
       return nestedId;
     }
-  }
-
-  for (const nestedValue of Object.values(value)) {
     const nestedTaskId = findTaskId(nestedValue);
     if (nestedTaskId) return nestedTaskId;
   }
@@ -163,15 +170,6 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const resolveRepo = useCallback((input: string): string => {
-    const trimmed = input.trim();
-    if (!trimmed) return "";
-    const parsed = parseRepositoryLocation(trimmed);
-    if (parsed) return parsed.repo;
-    if (REPO_PATTERN.test(trimmed)) return trimmed;
-    return trimmed;
-  }, []);
-
   const loadBranches = useCallback(async (repo: string) => {
     abortControllerRef.current?.abort();
     const controller = new AbortController();
@@ -210,16 +208,16 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
   }, []);
 
   const handleLoadBranches = useCallback(() => {
-    const repo = resolveRepo(repoInput);
+    const repo = resolveRepoInput(repoInput);
     if (!repo) {
       setBranchesError("Please enter a repository in owner/repo format.");
       return;
     }
     void loadBranches(repo);
-  }, [loadBranches, repoInput, resolveRepo]);
+  }, [loadBranches, repoInput]);
 
   const handleSubmit = useCallback(async () => {
-    const repo = resolveRepo(repoInput);
+    const repo = resolveRepoInput(repoInput);
     if (!repo) {
       setSubmitError("Please enter a repository.");
       return;
@@ -262,7 +260,6 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
       setIsSubmitting(false);
     }
   }, [
-    resolveRepo,
     repoInput,
     eventContent,
     bearerToken,
@@ -283,7 +280,7 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
     repoInput.trim() !== "" &&
     eventContent.trim() !== "" &&
     bearerToken.trim() !== "";
-  const resolvedRepo = useMemo(() => resolveRepo(repoInput), [repoInput, resolveRepo]);
+  const resolvedRepo = useMemo(() => resolveRepoInput(repoInput), [repoInput]);
   const githubTaskId = useMemo(
     () => (submitResult !== null ? findTaskId(submitResult) : null),
     [submitResult]
