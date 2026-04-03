@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
+import { JOBS_API_URL, COMMITS_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -511,66 +511,4 @@ export async function requestRepositoryCommits(
 
   const data = (await response.json()) as ListCommitsResponse;
   return Array.isArray(data.commits) ? data.commits : [];
-}
-
-export interface BranchPullRequest {
-  number: number;
-  title: string;
-  url: string;
-  state: "open" | "closed";
-}
-
-export interface RepositoryBranch {
-  name: string;
-  ref: string;
-  commit: string;
-  commitShort: string;
-  date: string;
-  author: string;
-  title: string;
-  isDefault: boolean;
-  pullRequestStatus: "open" | "closed" | "none";
-  pullRequest: BranchPullRequest | null;
-  tags: string[];
-}
-
-interface ListBranchesRequest {
-  repo: string;
-}
-
-interface ListBranchesResponse {
-  repo: string;
-  branches: RepositoryBranch[];
-}
-
-export async function requestRepositoryBranches(
-  repo: string,
-  signal?: AbortSignal
-): Promise<RepositoryBranch[]> {
-  const response = await fetch(BRANCHES_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ repo } satisfies ListBranchesRequest),
-    signal,
-  });
-
-  if (!response.ok) {
-    let message = "Unable to list branches";
-
-    try {
-      const errorData = (await response.json()) as ErrorResponse;
-      if (typeof errorData.error === "string" && errorData.error.trim()) {
-        message = errorData.error.trim();
-      }
-    } catch {
-      // Ignore response parsing failures and fall back to the generic message.
-    }
-
-    throw new Error(message);
-  }
-
-  const data = (await response.json()) as ListBranchesResponse;
-  return Array.isArray(data.branches) ? data.branches : [];
 }

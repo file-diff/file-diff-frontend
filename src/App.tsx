@@ -12,7 +12,6 @@ import HealthCheckPage from "./pages/HealthCheckPage";
 import HistoryPage from "./pages/HistoryPage";
 import TokenizePage from "./pages/TokenizePage";
 import RepositoryBrowserPage from "./pages/RepositoryBrowserPage";
-import BranchesPage from "./pages/BranchesPage";
 import OrganizationBrowserPage from "./pages/OrganizationBrowserPage";
 import FontSelector from "./components/FontSelector";
 import { DEFAULT_FONT_ID } from "./config/fonts";
@@ -60,9 +59,6 @@ function AppShell() {
             <Link to="/commits" className="nav-link">
               🔀 Commits
             </Link>
-            <Link to="/branches" className="nav-link">
-              🌿 Branches
-            </Link>
             <Link to="/browse" className="nav-link">
               🏢 Browse Org
             </Link>
@@ -89,7 +85,6 @@ function AppShell() {
           <Route path="/files" element={<FileComparePage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/commits" element={<RepositoryBrowserPage />} />
-          <Route path="/branches" element={<BranchesPage />} />
           <Route path="/browse" element={<OrganizationBrowserPage />} />
           <Route path="/tokenize" element={<TokenizePage />} />
           <Route path="/health" element={<HealthCheckPage />} />

@@ -59,20 +59,6 @@
   cursor: not-allowed;
 }
 
-.repo-browser__nav-links {
-  margin-top: 8px;
-}
-
-.repo-browser__nav-link {
-  font-size: 0.85rem;
-  color: #58a6ff;
-  text-decoration: none;
-}
-
-.repo-browser__nav-link:hover {
-  text-decoration: underline;
-}
-
 .repo-browser__error {
   margin-bottom: 16px;
   padding: 10px 14px;

@@ -31,47 +31,9 @@ function buildGitHubCommitUrl(repo: string, commit: string): string {
   return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/commit/${encodeURIComponent(commit)}`;
 }
 
-function getOptionalQueryParam(
-  searchParams: URLSearchParams,
-  ...keys: string[]
-): string | null {
-  for (const key of keys) {
-    const value = searchParams.get(key)?.trim();
-    if (value) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
-function applySelectedCommitParams(
-  params: URLSearchParams,
-  leftCommit: string | null,
-  rightCommit: string | null
-): void {
-  if (leftCommit) {
-    params.set("leftCommit", leftCommit);
-  } else {
-    params.delete("leftCommit");
-  }
-
-  if (rightCommit) {
-    params.set("rightCommit", rightCommit);
-  } else {
-    params.delete("rightCommit");
-  }
-}
-
 export default function RepositoryBrowserPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
-  const queryLeftCommit = getOptionalQueryParam(searchParams, "leftCommit", "lc");
-  const queryRightCommit = getOptionalQueryParam(
-    searchParams,
-    "rightCommit",
-    "rc"
-  );
 
   const [repoInput, setRepoInput] = useState(queryRepo);
   const [commits, setCommits] = useState<RepositoryCommit[]>([]);
@@ -79,8 +41,8 @@ export default function RepositoryBrowserPage() {
   const [error, setError] = useState("");
   const [loadedRepo, setLoadedRepo] = useState("");
 
-  const [leftCommit, setLeftCommit] = useState<string | null>(queryLeftCommit);
-  const [rightCommit, setRightCommit] = useState<string | null>(queryRightCommit);
+  const [leftCommit, setLeftCommit] = useState<string | null>(null);
+  const [rightCommit, setRightCommit] = useState<string | null>(null);
   const [hoveredParentCommit, setHoveredParentCommit] = useState<string | null>(
     null
   );
@@ -89,8 +51,6 @@ export default function RepositoryBrowserPage() {
   const autoLoadedRepoRef = useRef<string>("");
   const currentSearchRef = useRef(searchParams.toString());
   const startedIndexingKeysRef = useRef<Set<string>>(new Set());
-  const legacyCommitSelectionSearch =
-    searchParams.has("lc") || searchParams.has("rc") ? searchParams.toString() : "";
 
   const resolveRepoInput = useCallback((input: string): string => {
     const trimmed = input.trim();
@@ -105,22 +65,6 @@ export default function RepositoryBrowserPage() {
 
     return trimmed;
   }, []);
-
-  const updateSearchParams = useCallback(
-    (update: (params: URLSearchParams) => void) => {
-      const params = new URLSearchParams(currentSearchRef.current);
-      update(params);
-
-      const nextSearch = params.toString();
-      if (nextSearch === currentSearchRef.current) {
-        return;
-      }
-
-      currentSearchRef.current = nextSearch;
-      setSearchParams(params, { replace: true });
-    },
-    [setSearchParams]
-  );
 
   const loadCommitsForRepo = useCallback(async (repo: string) => {
     abortControllerRef.current?.abort();
@@ -142,6 +86,10 @@ export default function RepositoryBrowserPage() {
       );
       setCommits(result);
       setLoadedRepo(repo);
+
+      const params = new URLSearchParams(currentSearchRef.current);
+      params.set("repo", repo);
+      setSearchParams(params, { replace: true });
     } catch (err) {
       if (controller.signal.aborted) return;
       setError(
@@ -154,7 +102,7 @@ export default function RepositoryBrowserPage() {
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [setSearchParams]);
 
   useEffect(() => {
     currentSearchRef.current = searchParams.toString();
@@ -183,44 +131,10 @@ export default function RepositoryBrowserPage() {
   }, [loadCommitsForRepo, queryRepo, resolveRepoInput]);
 
   useEffect(() => {
-    setLeftCommit(queryLeftCommit);
-  }, [queryLeftCommit]);
-
-  useEffect(() => {
-    setRightCommit(queryRightCommit);
-  }, [queryRightCommit]);
-
-  useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
     };
   }, []);
-
-  useEffect(() => {
-    if (!loadedRepo) {
-      return;
-    }
-
-    updateSearchParams((params) => {
-      params.set("repo", loadedRepo);
-      if (legacyCommitSelectionSearch) {
-        applySelectedCommitParams(params, queryLeftCommit, queryRightCommit);
-        params.delete("lc");
-        params.delete("rc");
-        return;
-      }
-
-      applySelectedCommitParams(params, leftCommit, rightCommit);
-    });
-  }, [
-    leftCommit,
-    legacyCommitSelectionSearch,
-    loadedRepo,
-    queryLeftCommit,
-    queryRightCommit,
-    rightCommit,
-    updateSearchParams,
-  ]);
 
   useEffect(() => {
     const repo = loadedRepo.trim();
@@ -375,16 +289,6 @@ export default function RepositoryBrowserPage() {
             {isLoading && commits.length === 0 ? "Loading…" : "Load commits"}
           </button>
         </div>
-        {loadedRepo && (
-          <div className="repo-browser__nav-links">
-            <Link
-              to={`/branches?repo=${encodeURIComponent(loadedRepo)}`}
-              className="repo-browser__nav-link"
-            >
-              View branches →
-            </Link>
-          </div>
-        )}
       </div>
 
       {error && <div className="repo-browser__error">{error}</div>}
