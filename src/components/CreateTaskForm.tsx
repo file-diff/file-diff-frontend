@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   parseRepositoryLocation,
   requestRepositoryBranches,
@@ -16,9 +16,8 @@ const MODEL_OPTIONS = [
 ];
 const GITHUB_ACTIONS_RUN_URL_PATTERN =
   /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/[0-9]+/i;
-const TASK_ID_KEY_PATTERN =
-  /(?:task|run|workflow|job)[_-]?id|id[_-]?(?:task|run|workflow|job)/i;
 const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+const TASK_ID_KEYWORDS = ["task", "run", "workflow", "job"];
 
 export interface CreateTaskFormProps {
   initialRepo?: string;
@@ -26,6 +25,11 @@ export interface CreateTaskFormProps {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isTaskIdKey(key: string): boolean {
+  const normalizedKey = key.replace(/[^a-z0-9]+/gi, "").toLowerCase();
+  return normalizedKey.includes("id") && TASK_ID_KEYWORDS.some((part) => normalizedKey.includes(part));
 }
 
 function findGitHubActionsRunUrl(value: unknown): string | null {
@@ -90,7 +94,7 @@ function findTaskId(value: unknown): string | null {
 
   for (const [key, nestedValue] of Object.entries(value)) {
     if (
-      TASK_ID_KEY_PATTERN.test(key) &&
+      isTaskIdKey(key) &&
       ((typeof nestedValue === "string" && nestedValue.trim()) ||
         typeof nestedValue === "number")
     ) {
@@ -264,9 +268,15 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
     repoInput.trim() !== "" &&
     eventContent.trim() !== "" &&
     bearerToken.trim() !== "";
-  const githubTaskUrl =
-    submitResult !== null ? buildGitHubTaskUrl(resolveRepo(repoInput), submitResult) : null;
-  const githubTaskId = submitResult !== null ? findTaskId(submitResult) : null;
+  const resolvedRepo = useMemo(() => resolveRepo(repoInput), [repoInput, resolveRepo]);
+  const githubTaskId = useMemo(
+    () => (submitResult !== null ? findTaskId(submitResult) : null),
+    [submitResult]
+  );
+  const githubTaskUrl = useMemo(
+    () => (submitResult !== null ? buildGitHubTaskUrl(resolvedRepo, submitResult) : null),
+    [resolvedRepo, submitResult]
+  );
 
   return (
     <div className="create-task-form">
