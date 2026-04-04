@@ -15,6 +15,8 @@ import {
   saveCachedBranches,
   loadLastRepo,
   saveLastRepo,
+  loadAutoRefreshEnabled,
+  saveAutoRefreshEnabled,
 } from "../utils/branchesPageStorage";
 import {
   formatRelativeDateTime,
@@ -23,6 +25,7 @@ import {
 import "./BranchesPage.css";
 
 const BEARER_TOKEN_STORAGE_KEY = "branches-page-bearer-token";
+const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 function loadStoredBearerToken(): string {
   try {
@@ -118,6 +121,11 @@ interface ActionResult {
 
 type MergeMethod = "merge" | "squash" | "rebase";
 
+interface LoadBranchesOptions {
+  clearActionResults?: boolean;
+  useCachedBranches?: boolean;
+}
+
 function formatConfirmList(items: string[], maxDisplay: number = 10): string {
   if (items.length <= maxDisplay) {
     return items.join("\n");
@@ -167,6 +175,9 @@ export default function BranchesPage() {
   const [actionInProgress, setActionInProgress] = useState(false);
   const [actionResults, setActionResults] = useState<ActionResult[]>([]);
   const [mergeMethod, setMergeMethod] = useState<MergeMethod>("merge");
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
+    loadAutoRefreshEnabled
+  );
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoLoadedRepoRef = useRef<string>("");
@@ -187,23 +198,28 @@ export default function BranchesPage() {
   }, []);
 
   const loadBranchesForRepo = useCallback(
-    async (repo: string) => {
+    async (repo: string, options: LoadBranchesOptions = {}) => {
+      const { clearActionResults = true, useCachedBranches = true } = options;
       abortControllerRef.current?.abort();
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
       setIsLoading(true);
       setError("");
-      setActionResults([]);
+      if (clearActionResults) {
+        setActionResults([]);
+      }
 
-      const cachedBranches = loadCachedBranches(repo);
-      if (cachedBranches.length > 0) {
-        setBranches(sortBranchesByNewestCommit(cachedBranches));
-        setLoadedRepo(repo);
-      } else {
-        setBranches([]);
-        setLoadedRepo("");
-        setSelectedBranches(new Set());
+      const cachedBranches = useCachedBranches ? loadCachedBranches(repo) : [];
+      if (useCachedBranches) {
+        if (cachedBranches.length > 0) {
+          setBranches(sortBranchesByNewestCommit(cachedBranches));
+          setLoadedRepo(repo);
+        } else {
+          setBranches([]);
+          setLoadedRepo("");
+          setSelectedBranches(new Set());
+        }
       }
 
       try {
@@ -293,6 +309,33 @@ export default function BranchesPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!loadedRepo || !autoRefreshEnabled) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (isLoading || actionInProgress) {
+        return;
+      }
+
+      void loadBranchesForRepo(loadedRepo, {
+        clearActionResults: false,
+        useCachedBranches: false,
+      });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    actionInProgress,
+    autoRefreshEnabled,
+    isLoading,
+    loadBranchesForRepo,
+    loadedRepo,
+  ]);
+
   const toggleBranchSelection = useCallback((ref: string) => {
     setSelectedBranches((prev) => {
       const next = new Set(prev);
@@ -321,6 +364,11 @@ export default function BranchesPage() {
   const handleBearerTokenChange = useCallback((value: string) => {
     setBearerToken(value);
     saveBearerToken(value);
+  }, []);
+
+  const handleAutoRefreshChange = useCallback((value: boolean) => {
+    setAutoRefreshEnabled(value);
+    saveAutoRefreshEnabled(value);
   }, []);
 
   const handleDeleteBranches = useCallback(async () => {
@@ -371,7 +419,12 @@ export default function BranchesPage() {
         return next;
       });
     }
-  }, [loadedRepo, selectedBranchObjects, bearerToken]);
+
+    void loadBranchesForRepo(loadedRepo, {
+      clearActionResults: false,
+      useCachedBranches: false,
+    });
+  }, [loadedRepo, selectedBranchObjects, bearerToken, loadBranchesForRepo]);
 
   const handleReadyForReview = useCallback(async () => {
     if (!loadedRepo || selectedBranchObjects.length === 0) return;
@@ -421,7 +474,11 @@ export default function BranchesPage() {
 
     setActionResults(results);
     setActionInProgress(false);
-  }, [loadedRepo, selectedBranchObjects, bearerToken]);
+    void loadBranchesForRepo(loadedRepo, {
+      clearActionResults: false,
+      useCachedBranches: false,
+    });
+  }, [loadedRepo, selectedBranchObjects, bearerToken, loadBranchesForRepo]);
 
   const handleMergePullRequests = useCallback(async () => {
     if (!loadedRepo || selectedBranchObjects.length === 0) return;
@@ -480,7 +537,17 @@ export default function BranchesPage() {
 
     setActionResults(results);
     setActionInProgress(false);
-  }, [loadedRepo, selectedBranchObjects, bearerToken, mergeMethod]);
+    void loadBranchesForRepo(loadedRepo, {
+      clearActionResults: false,
+      useCachedBranches: false,
+    });
+  }, [
+    loadedRepo,
+    selectedBranchObjects,
+    bearerToken,
+    mergeMethod,
+    loadBranchesForRepo,
+  ]);
 
   const handleCreatePullRequests = useCallback(async (draft: boolean) => {
     if (!loadedRepo || selectedBranchObjects.length === 0) return;
@@ -541,7 +608,17 @@ export default function BranchesPage() {
 
     setActionResults(results);
     setActionInProgress(false);
-  }, [loadedRepo, selectedBranchObjects, bearerToken, branches]);
+    void loadBranchesForRepo(loadedRepo, {
+      clearActionResults: false,
+      useCachedBranches: false,
+    });
+  }, [
+    loadedRepo,
+    selectedBranchObjects,
+    bearerToken,
+    branches,
+    loadBranchesForRepo,
+  ]);
 
   const clearActionResults = useCallback(() => {
     setActionResults([]);
@@ -607,6 +684,14 @@ export default function BranchesPage() {
             >
               View commits →
             </Link>
+            <label className="branches-page__auto-refresh-toggle">
+              <input
+                type="checkbox"
+                checked={autoRefreshEnabled}
+                onChange={(e) => handleAutoRefreshChange(e.target.checked)}
+              />
+              Auto-refresh every 30s
+            </label>
             <button
               type="button"
               className="branches-page__token-toggle"
