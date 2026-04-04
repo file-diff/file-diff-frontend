@@ -479,6 +479,16 @@
   background: rgba(126, 231, 135, 0.3);
 }
 
+.branches-page__action-btn--create {
+  background: rgba(255, 166, 87, 0.15);
+  border: 1px solid #8a5a2a;
+  color: #ffa657;
+}
+
+.branches-page__action-btn--create:hover:not(:disabled) {
+  background: rgba(255, 166, 87, 0.3);
+}
+
 .branches-page__action-btn--open {
   background: rgba(163, 113, 247, 0.15);
   border: 1px solid #5a3d8a;
