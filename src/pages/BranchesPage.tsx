@@ -3,9 +3,31 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   parseRepositoryLocation,
   requestRepositoryBranches,
+  requestDeleteRemoteBranch,
+  requestPullRequestReady,
+  requestPullRequestMerge,
+  requestPullRequestOpen,
 } from "../utils/repositorySelection";
 import type { RepositoryBranch } from "../utils/repositorySelection";
 import "./BranchesPage.css";
+
+const BEARER_TOKEN_STORAGE_KEY = "branches-page-bearer-token";
+
+function loadStoredBearerToken(): string {
+  try {
+    return localStorage.getItem(BEARER_TOKEN_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveBearerToken(token: string): void {
+  try {
+    localStorage.setItem(BEARER_TOKEN_STORAGE_KEY, token);
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 function formatBranchDate(isoDate: string): string {
   const date = new Date(isoDate);
@@ -77,6 +99,28 @@ function getPrStatusClass(status: string): string {
   }
 }
 
+interface ActionResult {
+  branch: string;
+  success: boolean;
+  message: string;
+}
+
+type MergeMethod = "merge" | "squash" | "rebase";
+
+function formatConfirmList(items: string[], maxDisplay: number = 10): string {
+  if (items.length <= maxDisplay) {
+    return items.join("\n");
+  }
+  const shown = items.slice(0, maxDisplay);
+  const remaining = items.length - maxDisplay;
+  return `${shown.join("\n")}\n... and ${String(remaining)} more`;
+}
+
+function getDefaultBranch(branches: RepositoryBranch[]): string {
+  const defaultBranch = branches.find((b) => b.isDefault);
+  return defaultBranch ? defaultBranch.name : "main";
+}
+
 export default function BranchesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
@@ -86,6 +130,13 @@ export default function BranchesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [loadedRepo, setLoadedRepo] = useState("");
+
+  const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set());
+  const [bearerToken, setBearerToken] = useState(loadStoredBearerToken);
+  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState(false);
+  const [actionResults, setActionResults] = useState<ActionResult[]>([]);
+  const [mergeMethod, setMergeMethod] = useState<MergeMethod>("merge");
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoLoadedRepoRef = useRef<string>("");
@@ -115,6 +166,8 @@ export default function BranchesPage() {
       setError("");
       setBranches([]);
       setLoadedRepo("");
+      setSelectedBranches(new Set());
+      setActionResults([]);
 
       try {
         const result = await requestRepositoryBranches(
@@ -175,6 +228,257 @@ export default function BranchesPage() {
     };
   }, []);
 
+  const toggleBranchSelection = useCallback((ref: string) => {
+    setSelectedBranches((prev) => {
+      const next = new Set(prev);
+      if (next.has(ref)) {
+        next.delete(ref);
+      } else {
+        next.add(ref);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedBranches((prev) => {
+      if (prev.size === branches.length) {
+        return new Set();
+      }
+      return new Set(branches.map((b) => b.ref));
+    });
+  }, [branches]);
+
+  const selectedBranchObjects = branches.filter((b) =>
+    selectedBranches.has(b.ref)
+  );
+
+  const handleBearerTokenChange = useCallback((value: string) => {
+    setBearerToken(value);
+    saveBearerToken(value);
+  }, []);
+
+  const handleDeleteBranches = useCallback(async () => {
+    if (!loadedRepo || selectedBranchObjects.length === 0) return;
+    if (!bearerToken.trim()) {
+      setShowTokenInput(true);
+      return;
+    }
+
+    const branchNames = selectedBranchObjects.map((b) => b.name);
+    const confirmed = window.confirm(
+      `Delete ${String(branchNames.length)} branch${branchNames.length !== 1 ? "es" : ""}?\n\n${formatConfirmList(branchNames)}\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setActionInProgress(true);
+    setActionResults([]);
+    const results: ActionResult[] = [];
+
+    for (const branch of selectedBranchObjects) {
+      try {
+        await requestDeleteRemoteBranch(loadedRepo, branch.name, bearerToken.trim());
+        results.push({ branch: branch.name, success: true, message: "Deleted" });
+      } catch (err) {
+        results.push({
+          branch: branch.name,
+          success: false,
+          message: err instanceof Error ? err.message : "Failed to delete",
+        });
+      }
+    }
+
+    setActionResults(results);
+    setActionInProgress(false);
+
+    const deletedNames = new Set(
+      results.filter((r) => r.success).map((r) => r.branch)
+    );
+    if (deletedNames.size > 0) {
+      setBranches((prev) => prev.filter((b) => !deletedNames.has(b.name)));
+      setSelectedBranches((prev) => {
+        const next = new Set(prev);
+        for (const b of selectedBranchObjects) {
+          if (deletedNames.has(b.name)) {
+            next.delete(b.ref);
+          }
+        }
+        return next;
+      });
+    }
+  }, [loadedRepo, selectedBranchObjects, bearerToken]);
+
+  const handleReadyForReview = useCallback(async () => {
+    if (!loadedRepo || selectedBranchObjects.length === 0) return;
+    if (!bearerToken.trim()) {
+      setShowTokenInput(true);
+      return;
+    }
+
+    const branchesWithPr = selectedBranchObjects.filter(
+      (b) => b.pullRequest && b.pullRequestStatus === "open"
+    );
+    if (branchesWithPr.length === 0) {
+      setActionResults([
+        {
+          branch: "",
+          success: false,
+          message: "No selected branches have an open pull request.",
+        },
+      ]);
+      return;
+    }
+
+    setActionInProgress(true);
+    setActionResults([]);
+    const results: ActionResult[] = [];
+
+    for (const branch of branchesWithPr) {
+      try {
+        await requestPullRequestReady(
+          loadedRepo,
+          branch.pullRequest!.number,
+          bearerToken.trim()
+        );
+        results.push({
+          branch: branch.name,
+          success: true,
+          message: `PR #${String(branch.pullRequest!.number)} marked as ready`,
+        });
+      } catch (err) {
+        results.push({
+          branch: branch.name,
+          success: false,
+          message: err instanceof Error ? err.message : "Failed",
+        });
+      }
+    }
+
+    setActionResults(results);
+    setActionInProgress(false);
+  }, [loadedRepo, selectedBranchObjects, bearerToken]);
+
+  const handleMergePullRequests = useCallback(async () => {
+    if (!loadedRepo || selectedBranchObjects.length === 0) return;
+    if (!bearerToken.trim()) {
+      setShowTokenInput(true);
+      return;
+    }
+
+    const branchesWithPr = selectedBranchObjects.filter(
+      (b) => b.pullRequest && b.pullRequestStatus === "open"
+    );
+    if (branchesWithPr.length === 0) {
+      setActionResults([
+        {
+          branch: "",
+          success: false,
+          message: "No selected branches have an open pull request to merge.",
+        },
+      ]);
+      return;
+    }
+
+    const prNumbers = branchesWithPr.map((b) => `#${String(b.pullRequest!.number)}`);
+    const confirmed = window.confirm(
+      `Merge ${String(branchesWithPr.length)} pull request${branchesWithPr.length !== 1 ? "s" : ""} (${mergeMethod})?\n\n${formatConfirmList(prNumbers)}`
+    );
+    if (!confirmed) return;
+
+    setActionInProgress(true);
+    setActionResults([]);
+    const results: ActionResult[] = [];
+
+    for (const branch of branchesWithPr) {
+      try {
+        const result = await requestPullRequestMerge(
+          loadedRepo,
+          branch.pullRequest!.number,
+          mergeMethod,
+          bearerToken.trim()
+        );
+        results.push({
+          branch: branch.name,
+          success: true,
+          message: result.merged
+            ? `PR #${String(branch.pullRequest!.number)} merged`
+            : `PR #${String(branch.pullRequest!.number)}: ${result.message}`,
+        });
+      } catch (err) {
+        results.push({
+          branch: branch.name,
+          success: false,
+          message: err instanceof Error ? err.message : "Failed to merge",
+        });
+      }
+    }
+
+    setActionResults(results);
+    setActionInProgress(false);
+  }, [loadedRepo, selectedBranchObjects, bearerToken, mergeMethod]);
+
+  const handleOpenPullRequests = useCallback(async () => {
+    if (!loadedRepo || selectedBranchObjects.length === 0) return;
+    if (!bearerToken.trim()) {
+      setShowTokenInput(true);
+      return;
+    }
+
+    const branchesWithoutPr = selectedBranchObjects.filter(
+      (b) => b.pullRequestStatus === "none" && !b.isDefault
+    );
+    if (branchesWithoutPr.length === 0) {
+      setActionResults([
+        {
+          branch: "",
+          success: false,
+          message:
+            "No selected branches are eligible. Branches must not have an existing PR and must not be the default branch.",
+        },
+      ]);
+      return;
+    }
+
+    const baseBranch = getDefaultBranch(branches);
+
+    setActionInProgress(true);
+    setActionResults([]);
+    const results: ActionResult[] = [];
+
+    for (const branch of branchesWithoutPr) {
+      try {
+        const result = await requestPullRequestOpen(
+          loadedRepo,
+          branch.name,
+          baseBranch,
+          false,
+          bearerToken.trim()
+        );
+        results.push({
+          branch: branch.name,
+          success: true,
+          message: `PR #${String(result.pullNumber)} opened: ${result.title}`,
+        });
+      } catch (err) {
+        results.push({
+          branch: branch.name,
+          success: false,
+          message: err instanceof Error ? err.message : "Failed to open PR",
+        });
+      }
+    }
+
+    setActionResults(results);
+    setActionInProgress(false);
+  }, [loadedRepo, selectedBranchObjects, bearerToken, branches]);
+
+  const clearActionResults = useCallback(() => {
+    setActionResults([]);
+  }, []);
+
+  const hasSelection = selectedBranches.size > 0;
+  const allSelected = branches.length > 0 && selectedBranches.size === branches.length;
+
   return (
     <div className="branches-page">
       <div className="page-header">
@@ -214,28 +518,93 @@ export default function BranchesPage() {
             >
               View commits →
             </Link>
+            <button
+              type="button"
+              className="branches-page__token-toggle"
+              onClick={() => setShowTokenInput((v) => !v)}
+            >
+              {showTokenInput ? "Hide token" : "🔑 API token"}
+            </button>
+          </div>
+        )}
+        {showTokenInput && (
+          <div className="branches-page__token-section">
+            <label htmlFor="branches-page-token">Bearer Token</label>
+            <input
+              id="branches-page-token"
+              type="password"
+              value={bearerToken}
+              onChange={(e) => handleBearerTokenChange(e.target.value)}
+              placeholder="Required for write operations"
+              spellCheck={false}
+              autoComplete="off"
+            />
           </div>
         )}
       </div>
 
       {error && <div className="branches-page__error">{error}</div>}
 
+      {actionResults.length > 0 && (
+        <div className="branches-page__action-results">
+          <div className="branches-page__action-results-header">
+            <span>Action Results</span>
+            <button
+              type="button"
+              className="branches-page__action-results-close"
+              onClick={clearActionResults}
+            >
+              ✕
+            </button>
+          </div>
+          {actionResults.map((result, i) => (
+            <div
+              key={`${result.branch}-${String(i)}`}
+              className={
+                "branches-page__action-result" +
+                (result.success
+                  ? " branches-page__action-result--success"
+                  : " branches-page__action-result--error")
+              }
+            >
+              {result.branch && (
+                <span className="branches-page__action-result-branch">
+                  {result.branch}:
+                </span>
+              )}{" "}
+              {result.message}
+            </div>
+          ))}
+        </div>
+      )}
+
       {branches.length > 0 && (
         <div className="branches-page__branches">
           <div className="branches-page__branches-header">
-            <span className="branches-page__branches-title">
-              Branches in{" "}
-              <a
-                href={`https://github.com/${loadedRepo}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="branches-page__repo-link"
-              >
-                {loadedRepo}
-              </a>
-            </span>
+            <div className="branches-page__branches-header-left">
+              <label className="branches-page__select-all">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                />
+              </label>
+              <span className="branches-page__branches-title">
+                Branches in{" "}
+                <a
+                  href={`https://github.com/${loadedRepo}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="branches-page__repo-link"
+                >
+                  {loadedRepo}
+                </a>
+              </span>
+            </div>
             <span className="branches-page__branches-count">
-              {branches.length} branch{branches.length !== 1 ? "es" : ""}
+              {hasSelection
+                ? `${String(selectedBranches.size)} of ${String(branches.length)} selected`
+                : `${String(branches.length)} branch${branches.length !== 1 ? "es" : ""}`}
             </span>
           </div>
 
@@ -245,9 +614,19 @@ export default function BranchesPage() {
                 key={branch.ref}
                 className={
                   "branches-page__branch" +
-                  (branch.isDefault ? " branches-page__branch--default" : "")
+                  (branch.isDefault ? " branches-page__branch--default" : "") +
+                  (selectedBranches.has(branch.ref)
+                    ? " branches-page__branch--selected"
+                    : "")
                 }
               >
+                <label className="branches-page__branch-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedBranches.has(branch.ref)}
+                    onChange={() => toggleBranchSelection(branch.ref)}
+                  />
+                </label>
                 <div className="branches-page__branch-main">
                   <div className="branches-page__branch-name-row">
                     <a
@@ -318,6 +697,62 @@ export default function BranchesPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {hasSelection && (
+        <div className="branches-page__action-bar">
+          <span className="branches-page__action-bar-count">
+            {String(selectedBranches.size)} selected
+          </span>
+          <div className="branches-page__action-bar-actions">
+            <button
+              type="button"
+              className="branches-page__action-btn branches-page__action-btn--open"
+              onClick={() => void handleOpenPullRequests()}
+              disabled={actionInProgress}
+              title="Open pull requests for selected branches"
+            >
+              Open PR
+            </button>
+            <button
+              type="button"
+              className="branches-page__action-btn branches-page__action-btn--ready"
+              onClick={() => void handleReadyForReview()}
+              disabled={actionInProgress}
+              title="Mark selected pull requests as ready for review"
+            >
+              Ready to Review
+            </button>
+            <button
+              type="button"
+              className="branches-page__action-btn branches-page__action-btn--merge"
+              onClick={() => void handleMergePullRequests()}
+              disabled={actionInProgress}
+              title="Merge selected pull requests"
+            >
+              Merge PR
+            </button>
+            <select
+              className="branches-page__merge-method"
+              value={mergeMethod}
+              onChange={(e) => setMergeMethod(e.target.value as MergeMethod)}
+              title="Merge method"
+            >
+              <option value="merge">merge</option>
+              <option value="squash">squash</option>
+              <option value="rebase">rebase</option>
+            </select>
+            <button
+              type="button"
+              className="branches-page__action-btn branches-page__action-btn--delete"
+              onClick={() => void handleDeleteBranches()}
+              disabled={actionInProgress}
+              title="Delete selected branches"
+            >
+              {actionInProgress ? "Working…" : "Delete"}
+            </button>
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
+import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -616,4 +616,169 @@ export async function requestCreateTask(
   }
 
   return (await response.json()) as unknown;
+}
+
+export interface DeleteRemoteBranchResponse {
+  repo: string;
+  branch: string;
+}
+
+export async function requestDeleteRemoteBranch(
+  repo: string,
+  branch: string,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<DeleteRemoteBranchResponse> {
+  const response = await fetch(DELETE_REMOTE_BRANCH_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    body: JSON.stringify({ repo, branch }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `Unable to delete branch "${branch}"`;
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as DeleteRemoteBranchResponse;
+}
+
+export interface PullRequestReadyResponse {
+  repo: string;
+  pullNumber: number;
+}
+
+export async function requestPullRequestReady(
+  repo: string,
+  pullNumber: number,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<PullRequestReadyResponse> {
+  const response = await fetch(PULL_REQUEST_READY_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    body: JSON.stringify({ repo, pullNumber }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `Unable to mark PR #${String(pullNumber)} as ready`;
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as PullRequestReadyResponse;
+}
+
+export interface PullRequestMergeResponse {
+  repo: string;
+  pullNumber: number;
+  merged: boolean;
+  message: string;
+  sha: string;
+}
+
+export async function requestPullRequestMerge(
+  repo: string,
+  pullNumber: number,
+  mergeMethod: "merge" | "squash" | "rebase",
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<PullRequestMergeResponse> {
+  const response = await fetch(PULL_REQUEST_MERGE_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    body: JSON.stringify({ repo, pullNumber, mergeMethod }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `Unable to merge PR #${String(pullNumber)}`;
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as PullRequestMergeResponse;
+}
+
+export interface PullRequestOpenResponse {
+  repo: string;
+  pullNumber: number;
+  title: string;
+  url: string;
+  draft: boolean;
+}
+
+export async function requestPullRequestOpen(
+  repo: string,
+  head: string,
+  base: string,
+  draft: boolean,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<PullRequestOpenResponse> {
+  const response = await fetch(PULL_REQUEST_OPEN_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    body: JSON.stringify({ repo, head, base, draft }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `Unable to open pull request for "${head}"`;
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as PullRequestOpenResponse;
 }

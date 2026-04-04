@@ -18,6 +18,10 @@ export const COMMITS_API_URL = `${JOBS_API_URL}/commits`;
 export const BRANCHES_API_URL = `${JOBS_API_URL}/branches`;
 export const STATS_API_URL = `${trimmedDefaultApiBaseUrl}/stats`;
 export const CREATE_TASK_API_URL = `${JOBS_API_URL}/create-task`;
+export const DELETE_REMOTE_BRANCH_API_URL = `${JOBS_API_URL}/delete-remote-branch`;
+export const PULL_REQUEST_READY_API_URL = `${JOBS_API_URL}/pull-request/ready`;
+export const PULL_REQUEST_MERGE_API_URL = `${JOBS_API_URL}/pull-request/merge`;
+export const PULL_REQUEST_OPEN_API_URL = `${JOBS_API_URL}/pull-request/open`;
 
 export function buildCommitFilesUrl(commit: string, format?: string): string {
   const base = `${trimmedDefaultApiBaseUrl}/commit/${encodeURIComponent(commit)}/files`;
