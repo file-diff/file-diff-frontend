@@ -9,6 +9,17 @@ import {
   requestPullRequestOpen,
 } from "../utils/repositorySelection";
 import type { RepositoryBranch } from "../utils/repositorySelection";
+import {
+  loadCachedBranches,
+  loadCachedBranchesFetchedAt,
+  saveCachedBranches,
+  loadLastRepo,
+  saveLastRepo,
+} from "../utils/branchesPageStorage";
+import {
+  formatRelativeDateTime,
+  formatAbsoluteDateTime,
+} from "../utils/organizationBrowserPresentation";
 import "./BranchesPage.css";
 
 const BEARER_TOKEN_STORAGE_KEY = "branches-page-bearer-token";
@@ -121,15 +132,34 @@ function getDefaultBranch(branches: RepositoryBranch[]): string {
   return defaultBranch ? defaultBranch.name : "main";
 }
 
+function resolveInitialRepo(queryRepo: string): string {
+  if (queryRepo) return queryRepo;
+  return loadLastRepo();
+}
+
+function loadInitialBranches(repo: string): RepositoryBranch[] {
+  if (!repo) return [];
+  const cached = loadCachedBranches(repo);
+  return sortBranchesByNewestCommit(cached);
+}
+
 export default function BranchesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
+  const initialRepo = resolveInitialRepo(queryRepo);
 
-  const [repoInput, setRepoInput] = useState(queryRepo);
-  const [branches, setBranches] = useState<RepositoryBranch[]>([]);
+  const [repoInput, setRepoInput] = useState(initialRepo);
+  const [branches, setBranches] = useState<RepositoryBranch[]>(() =>
+    loadInitialBranches(initialRepo)
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [loadedRepo, setLoadedRepo] = useState("");
+  const [loadedRepo, setLoadedRepo] = useState(() =>
+    loadInitialBranches(initialRepo).length > 0 ? initialRepo : ""
+  );
+  const [lastFetchedAt, setLastFetchedAt] = useState(() =>
+    initialRepo ? loadCachedBranchesFetchedAt(initialRepo) : ""
+  );
 
   const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set());
   const [bearerToken, setBearerToken] = useState(loadStoredBearerToken);
@@ -164,18 +194,38 @@ export default function BranchesPage() {
 
       setIsLoading(true);
       setError("");
-      setBranches([]);
-      setLoadedRepo("");
-      setSelectedBranches(new Set());
       setActionResults([]);
+
+      const cachedBranches = loadCachedBranches(repo);
+      if (cachedBranches.length > 0) {
+        setBranches(sortBranchesByNewestCommit(cachedBranches));
+        setLoadedRepo(repo);
+      } else {
+        setBranches([]);
+        setLoadedRepo("");
+        setSelectedBranches(new Set());
+      }
 
       try {
         const result = await requestRepositoryBranches(
           repo,
           controller.signal
         );
-        setBranches(sortBranchesByNewestCommit(result));
+        const sorted = sortBranchesByNewestCommit(result);
+        setBranches(sorted);
         setLoadedRepo(repo);
+        saveCachedBranches(repo, sorted);
+        saveLastRepo(repo);
+        setLastFetchedAt(loadCachedBranchesFetchedAt(repo));
+
+        setSelectedBranches((prev) => {
+          const validRefs = new Set(sorted.map((b) => b.ref));
+          const next = new Set<string>();
+          for (const ref of prev) {
+            if (validRefs.has(ref)) next.add(ref);
+          }
+          return next;
+        });
 
         const params = new URLSearchParams(currentSearchRef.current);
         params.set("repo", repo);
@@ -187,6 +237,14 @@ export default function BranchesPage() {
             ? err.message
             : "Unable to load branches"
         );
+        if (cachedBranches.length > 0) {
+          setError(
+            (err instanceof Error && err.message
+              ? err.message
+              : "Unable to refresh branches") +
+              " — showing cached data."
+          );
+        }
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
@@ -212,15 +270,22 @@ export default function BranchesPage() {
   }, [loadBranchesForRepo, repoInput, resolveRepoInput]);
 
   useEffect(() => {
-    const repo = resolveRepoInput(queryRepo);
+    const repo = resolveRepoInput(initialRepo);
     if (!repo || autoLoadedRepoRef.current === repo) {
       return;
     }
 
     autoLoadedRepoRef.current = repo;
     setRepoInput(repo);
-    void loadBranchesForRepo(repo);
-  }, [loadBranchesForRepo, queryRepo, resolveRepoInput]);
+
+    const refreshTimer = window.setTimeout(() => {
+      void loadBranchesForRepo(repo);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(refreshTimer);
+    };
+  }, [loadBranchesForRepo, initialRepo, resolveRepoInput]);
 
   useEffect(() => {
     return () => {
@@ -482,6 +547,15 @@ export default function BranchesPage() {
     setActionResults([]);
   }, []);
 
+  const branchListStatusMessage = isLoading
+    ? "↻ refreshing"
+    : lastFetchedAt
+      ? `updated ${formatRelativeDateTime(lastFetchedAt)}`
+      : "";
+  const branchListStatusTitle = lastFetchedAt
+    ? `Last updated ${formatAbsoluteDateTime(lastFetchedAt)}`
+    : undefined;
+
   const hasSelection = selectedBranches.size > 0;
   const allSelected = branches.length > 0 && selectedBranches.size === branches.length;
 
@@ -513,8 +587,17 @@ export default function BranchesPage() {
             onClick={() => void handleLoadBranches()}
             disabled={isLoading || !repoInput.trim()}
           >
-            {isLoading ? "Loading…" : "Load branches"}
+            {isLoading && !loadedRepo ? "Loading…" : "Load branches"}
           </button>
+          {loadedRepo && (
+            <button
+              type="button"
+              onClick={() => void loadBranchesForRepo(loadedRepo)}
+              disabled={isLoading}
+            >
+              {isLoading ? "Refreshing…" : "Refresh"}
+            </button>
+          )}
         </div>
         {loadedRepo && (
           <div className="branches-page__nav-links">
@@ -611,6 +694,15 @@ export default function BranchesPage() {
               {hasSelection
                 ? `${String(selectedBranches.size)} of ${String(branches.length)} selected`
                 : `${String(branches.length)} branch${branches.length !== 1 ? "es" : ""}`}
+              {branchListStatusMessage && (
+                <span
+                  className="branches-page__refreshing"
+                  title={branchListStatusTitle}
+                >
+                  {" "}
+                  — {branchListStatusMessage}
+                </span>
+              )}
             </span>
           </div>
 

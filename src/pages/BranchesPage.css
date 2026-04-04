@@ -571,3 +571,9 @@
 .branches-page__action-result-branch {
   font-weight: 600;
 }
+
+.branches-page__refreshing {
+  font-weight: 400;
+  color: #6e7681;
+  font-size: 0.78rem;
+}
