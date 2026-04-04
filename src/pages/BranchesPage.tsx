@@ -105,6 +105,17 @@ interface ActionResult {
   message: string;
 }
 
+type MergeMethod = "merge" | "squash" | "rebase";
+
+function formatConfirmList(items: string[], maxDisplay: number = 10): string {
+  if (items.length <= maxDisplay) {
+    return items.join("\n");
+  }
+  const shown = items.slice(0, maxDisplay);
+  const remaining = items.length - maxDisplay;
+  return `${shown.join("\n")}\n... and ${String(remaining)} more`;
+}
+
 function getDefaultBranch(branches: RepositoryBranch[]): string {
   const defaultBranch = branches.find((b) => b.isDefault);
   return defaultBranch ? defaultBranch.name : "main";
@@ -125,6 +136,7 @@ export default function BranchesPage() {
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [actionResults, setActionResults] = useState<ActionResult[]>([]);
+  const [mergeMethod, setMergeMethod] = useState<MergeMethod>("merge");
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoLoadedRepoRef = useRef<string>("");
@@ -255,7 +267,7 @@ export default function BranchesPage() {
 
     const branchNames = selectedBranchObjects.map((b) => b.name);
     const confirmed = window.confirm(
-      `Delete ${String(branchNames.length)} branch${branchNames.length !== 1 ? "es" : ""}?\n\n${branchNames.join("\n")}\n\nThis action cannot be undone.`
+      `Delete ${String(branchNames.length)} branch${branchNames.length !== 1 ? "es" : ""}?\n\n${formatConfirmList(branchNames)}\n\nThis action cannot be undone.`
     );
     if (!confirmed) return;
 
@@ -369,7 +381,7 @@ export default function BranchesPage() {
 
     const prNumbers = branchesWithPr.map((b) => `#${String(b.pullRequest!.number)}`);
     const confirmed = window.confirm(
-      `Merge ${String(branchesWithPr.length)} pull request${branchesWithPr.length !== 1 ? "s" : ""}?\n\n${prNumbers.join("\n")}`
+      `Merge ${String(branchesWithPr.length)} pull request${branchesWithPr.length !== 1 ? "s" : ""} (${mergeMethod})?\n\n${formatConfirmList(prNumbers)}`
     );
     if (!confirmed) return;
 
@@ -382,7 +394,7 @@ export default function BranchesPage() {
         const result = await requestPullRequestMerge(
           loadedRepo,
           branch.pullRequest!.number,
-          "merge",
+          mergeMethod,
           bearerToken.trim()
         );
         results.push({
@@ -403,7 +415,7 @@ export default function BranchesPage() {
 
     setActionResults(results);
     setActionInProgress(false);
-  }, [loadedRepo, selectedBranchObjects, bearerToken]);
+  }, [loadedRepo, selectedBranchObjects, bearerToken, mergeMethod]);
 
   const handleOpenPullRequests = useCallback(async () => {
     if (!loadedRepo || selectedBranchObjects.length === 0) return;
@@ -722,6 +734,16 @@ export default function BranchesPage() {
             >
               Merge PR
             </button>
+            <select
+              className="branches-page__merge-method"
+              value={mergeMethod}
+              onChange={(e) => setMergeMethod(e.target.value as MergeMethod)}
+              title="Merge method"
+            >
+              <option value="merge">merge</option>
+              <option value="squash">squash</option>
+              <option value="rebase">rebase</option>
+            </select>
             <button
               type="button"
               className="branches-page__action-btn branches-page__action-btn--delete"
