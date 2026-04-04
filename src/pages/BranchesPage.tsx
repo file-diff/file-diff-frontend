@@ -417,7 +417,7 @@ export default function BranchesPage() {
     setActionInProgress(false);
   }, [loadedRepo, selectedBranchObjects, bearerToken, mergeMethod]);
 
-  const handleOpenPullRequests = useCallback(async () => {
+  const handleCreatePullRequests = useCallback(async (draft: boolean) => {
     if (!loadedRepo || selectedBranchObjects.length === 0) return;
     if (!bearerToken.trim()) {
       setShowTokenInput(true);
@@ -451,19 +451,25 @@ export default function BranchesPage() {
           loadedRepo,
           branch.name,
           baseBranch,
-          false,
+          draft,
           bearerToken.trim()
         );
         results.push({
           branch: branch.name,
           success: true,
-          message: `PR #${String(result.pullNumber)} opened: ${result.title}`,
+          message: draft
+            ? `Draft PR #${String(result.pullNumber)} created: ${result.title}`
+            : `PR #${String(result.pullNumber)} opened: ${result.title}`,
         });
       } catch (err) {
         results.push({
           branch: branch.name,
           success: false,
-          message: err instanceof Error ? err.message : "Failed to open PR",
+          message: err instanceof Error
+            ? err.message
+            : draft
+              ? "Failed to create draft PR"
+              : "Failed to open PR",
         });
       }
     }
@@ -709,8 +715,17 @@ export default function BranchesPage() {
           <div className="branches-page__action-bar-actions">
             <button
               type="button"
+              className="branches-page__action-btn branches-page__action-btn--create"
+              onClick={() => void handleCreatePullRequests(true)}
+              disabled={actionInProgress}
+              title="Create draft pull requests for selected branches"
+            >
+              Create PR
+            </button>
+            <button
+              type="button"
               className="branches-page__action-btn branches-page__action-btn--open"
-              onClick={() => void handleOpenPullRequests()}
+              onClick={() => void handleCreatePullRequests(false)}
               disabled={actionInProgress}
               title="Open pull requests for selected branches"
             >
