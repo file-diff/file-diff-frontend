@@ -63,6 +63,7 @@
   margin-top: 8px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -74,6 +75,23 @@
 
 .branches-page__nav-link:hover {
   text-decoration: underline;
+}
+
+.branches-page__auto-refresh-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #8b949e;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.branches-page__auto-refresh-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #58a6ff;
+  cursor: pointer;
+  margin: 0;
 }
 
 .branches-page__token-toggle {
