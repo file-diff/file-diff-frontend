@@ -4,6 +4,7 @@ import {
   requestRepositoryBranches,
   requestCreateTask,
 } from "../utils/repositorySelection";
+import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
 import type {
   RepositoryBranch,
   CreateTaskRequest,
@@ -165,7 +166,7 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
   const [eventContent, setEventContent] = useState("");
   const [problemStatement, setProblemStatement] = useState("");
   const [model, setModel] = useState(MODEL_OPTIONS[0].value);
-  const [bearerToken, setBearerToken] = useState("");
+  const [bearerToken, setBearerToken] = useState(loadBearerToken);
   const [createPullRequest, setCreatePullRequest] = useState(true);
   const [baseRef, setBaseRef] = useState("main");
 
@@ -225,6 +226,11 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
     }
     void loadBranches(repo);
   }, [loadBranches, repoInput]);
+
+  const handleBearerTokenChange = useCallback((value: string) => {
+    setBearerToken(value);
+    saveBearerToken(value);
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     const repo = resolveRepoInput(repoInput);
@@ -409,7 +415,7 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
           id="create-task-token"
           type="password"
           value={bearerToken}
-          onChange={(e) => setBearerToken(e.target.value)}
+          onChange={(e) => handleBearerTokenChange(e.target.value)}
           placeholder="Authorization token"
           spellCheck={false}
         />

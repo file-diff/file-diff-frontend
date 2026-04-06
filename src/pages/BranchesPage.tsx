@@ -19,29 +19,16 @@ import {
   saveAutoRefreshEnabled,
 } from "../utils/branchesPageStorage";
 import {
+  loadBearerToken,
+  saveBearerToken,
+} from "../utils/bearerTokenStorage";
+import {
   formatRelativeDateTime,
   formatAbsoluteDateTime,
 } from "../utils/organizationBrowserPresentation";
 import "./BranchesPage.css";
 
-const BEARER_TOKEN_STORAGE_KEY = "branches-page-bearer-token";
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
-
-function loadStoredBearerToken(): string {
-  try {
-    return localStorage.getItem(BEARER_TOKEN_STORAGE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function saveBearerToken(token: string): void {
-  try {
-    localStorage.setItem(BEARER_TOKEN_STORAGE_KEY, token);
-  } catch {
-    // Ignore storage failures.
-  }
-}
 
 function formatBranchDate(isoDate: string): string {
   const date = new Date(isoDate);
@@ -170,7 +157,7 @@ export default function BranchesPage() {
   );
 
   const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set());
-  const [bearerToken, setBearerToken] = useState(loadStoredBearerToken);
+  const [bearerToken, setBearerToken] = useState(loadBearerToken);
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [actionResults, setActionResults] = useState<ActionResult[]>([]);
