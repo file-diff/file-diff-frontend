@@ -71,3 +71,13 @@ export function buildOrganizationRepositoriesUrl(
     organization
   )}/repositories`;
 }
+
+const AGENTS_BASE_URL = trimTrailingSlash(import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5173").replace(/\/api$/, "");
+
+export function buildAgentTasksUrl(owner: string, repo: string): string {
+  return `${AGENTS_BASE_URL}/agents/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks`;
+}
+
+export function buildAgentTaskUrl(owner: string, repo: string, taskId: string): string {
+  return `${AGENTS_BASE_URL}/agents/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/${encodeURIComponent(taskId)}`;
+}
