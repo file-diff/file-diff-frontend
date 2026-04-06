@@ -5,6 +5,7 @@ import {
   requestAgentTasks,
   requestAgentTask,
 } from "../utils/repositorySelection";
+import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
 import "./AgentTaskInfoPage.css";
 
 const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
@@ -132,7 +133,7 @@ export default function AgentTaskInfoPage() {
   const queryTaskId = searchParams.get("taskId") ?? "";
 
   const [repoInput, setRepoInput] = useState(queryRepo);
-  const [bearerToken, setBearerToken] = useState("");
+  const [bearerToken, setBearerToken] = useState(loadBearerToken);
   const [showToken, setShowToken] = useState(false);
 
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
@@ -149,6 +150,11 @@ export default function AgentTaskInfoPage() {
 
   const resolvedRepo = useMemo(() => resolveRepoInput(repoInput), [repoInput]);
   const ownerRepo = useMemo(() => splitOwnerRepo(resolvedRepo), [resolvedRepo]);
+
+  const handleBearerTokenChange = useCallback((value: string) => {
+    setBearerToken(value);
+    saveBearerToken(value);
+  }, []);
 
   const handleLoadTasks = useCallback(async () => {
     if (!ownerRepo) {
@@ -289,7 +295,7 @@ export default function AgentTaskInfoPage() {
           id="agent-task-token"
           type={showToken ? "text" : "password"}
           value={bearerToken}
-          onChange={(e) => setBearerToken(e.target.value)}
+          onChange={(e) => handleBearerTokenChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") void handleLoadTasks();
           }}
