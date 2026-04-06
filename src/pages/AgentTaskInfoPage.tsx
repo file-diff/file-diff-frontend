@@ -8,6 +8,8 @@ import {
 import "./AgentTaskInfoPage.css";
 
 const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+const MAX_TASK_ID_DISPLAY_LENGTH = 12;
+const MAX_DESCRIPTION_DISPLAY_LENGTH = 120;
 
 function resolveRepoInput(input: string): string {
   const trimmed = input.trim();
@@ -324,8 +326,8 @@ export default function AgentTaskInfoPage() {
               >
                 <div className="agent-task-info-page__task-top-row">
                   <code className="agent-task-info-page__task-id">
-                    {task.id.length > 12
-                      ? `${task.id.slice(0, 12)}…`
+                    {task.id.length > MAX_TASK_ID_DISPLAY_LENGTH
+                      ? `${task.id.slice(0, MAX_TASK_ID_DISPLAY_LENGTH)}…`
                       : task.id}
                   </code>
                   <span
@@ -336,8 +338,8 @@ export default function AgentTaskInfoPage() {
                 </div>
                 {task.description && (
                   <div className="agent-task-info-page__task-description">
-                    {task.description.length > 120
-                      ? `${task.description.slice(0, 120)}…`
+                    {task.description.length > MAX_DESCRIPTION_DISPLAY_LENGTH
+                      ? `${task.description.slice(0, MAX_DESCRIPTION_DISPLAY_LENGTH)}…`
                       : task.description}
                   </div>
                 )}
