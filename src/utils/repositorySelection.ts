@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, buildOrganizationRepositoriesUrl } from "../config/api";
+import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, buildOrganizationRepositoriesUrl, buildAgentTasksUrl, buildAgentTaskUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -781,4 +781,69 @@ export async function requestPullRequestOpen(
   }
 
   return (await response.json()) as PullRequestOpenResponse;
+}
+
+export async function requestAgentTasks(
+  owner: string,
+  repo: string,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<unknown> {
+  const response = await fetch(buildAgentTasksUrl(owner, repo), {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = "Unable to fetch agent tasks";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as unknown;
+}
+
+export async function requestAgentTask(
+  owner: string,
+  repo: string,
+  taskId: string,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<unknown> {
+  const response = await fetch(buildAgentTaskUrl(owner, repo, taskId), {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = "Unable to fetch agent task";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as unknown;
 }
