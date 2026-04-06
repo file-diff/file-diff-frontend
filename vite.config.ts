@@ -31,16 +31,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: "http://127.0.0.1:12986", // Local development server
+        target: "https://127.0.0.1:12986", // Local development server
         changeOrigin: true,            // Needed for virtual hosted sites
         rewrite: (path) => path.replace(/^\/api/, '/api'), // Keep the /api prefix
         secure: false,                 // If your remote uses self-signed SSL
-      },
-      '/agents': {
-        target: "http://127.0.0.1:12986",
-        changeOrigin: true,
-        secure: false,
-      },
+      }
     },
   },
   define: {
