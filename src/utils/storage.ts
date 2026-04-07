@@ -1,3 +1,5 @@
+import { CREATE_TASK_DRAFT_STORAGE_KEY } from "./createTaskStorage";
+
 const LAST_PARAMS_STORAGE_KEY = "last-selected-params";
 const INDEXING_HISTORY_STORAGE_KEY = "indexing-parameter-history";
 const FONT_PREFERENCE_STORAGE_KEY = "code-font-preference";
@@ -10,7 +12,6 @@ const TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY =
   "tree-compare2-file-name-filter-value";
 const TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY =
   "tree-compare2-scroll-path";
-import { CREATE_TASK_DRAFT_STORAGE_KEY } from "./createTaskStorage";
 
 export interface LastSelectedParams {
   leftRepo: string;
