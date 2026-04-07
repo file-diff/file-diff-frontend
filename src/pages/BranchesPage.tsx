@@ -150,7 +150,7 @@ function getAgentTaskStatusPresentation(task: TaskSummary): {
   return { label: value || "unknown", tone: "neutral" };
 }
 
-function getPullRequestReviewState(
+function getPullRequestBadgeState(
   pullRequest: RepositoryBranch["pullRequest"]
 ):
   | {
@@ -162,7 +162,8 @@ function getPullRequestReviewState(
     return null;
   }
 
-  const mergeState = prettifyStatusLabel(pullRequest.mergeStateStatus ?? "");
+  const rawMergeState = (pullRequest.mergeStateStatus ?? "").trim().toLowerCase();
+  const mergeState = prettifyStatusLabel(rawMergeState);
   if (pullRequest.draft || mergeState === "draft") {
     return { label: "draft", tone: "draft" };
   }
@@ -171,6 +172,7 @@ function getPullRequestReviewState(
     pullRequest.readyToMerge === true ||
     mergeState === "ready to merge" ||
     mergeState === "clean" ||
+    rawMergeState === "has_hooks" ||
     mergeState === "has hooks" ||
     mergeState === "unstable" ||
     (pullRequest.mergeable === true && !mergeState)
@@ -990,7 +992,7 @@ export default function BranchesPage() {
             {branches.map((branch) => {
               const isSelected = selectedBranches.has(branch.ref);
               const agentAssignment = branchAgentAssignments[branch.name];
-              const pullRequestReviewState = getPullRequestReviewState(
+              const pullRequestBadgeState = getPullRequestBadgeState(
                 branch.pullRequest
               );
 
@@ -1077,14 +1079,14 @@ export default function BranchesPage() {
                         #{branch.pullRequest.number}
                       </a>
                     )}
-                    {pullRequestReviewState && (
+                    {pullRequestBadgeState && (
                       <span
                         className={
                           "branches-page__pr-state-badge branches-page__pr-state-badge--" +
-                          pullRequestReviewState.tone
+                          pullRequestBadgeState.tone
                         }
                       >
-                        {pullRequestReviewState.label}
+                        {pullRequestBadgeState.label}
                       </span>
                     )}
                     {agentAssignment && (
