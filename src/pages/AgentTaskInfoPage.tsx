@@ -204,7 +204,10 @@ function extractTaskSummaries(data: unknown): TaskSummary[] {
       readStringField(item, "branch", "head_branch", "headBranch", "base_ref", "baseRef") ??
       artBaseRef;
 
-    const headRef = artHeadRef || readStringField(item, "head_ref", "headRef") || "";
+    const headRef =
+      artHeadRef !== ""
+        ? artHeadRef
+        : readStringField(item, "head_ref", "headRef") ?? "";
 
     summaries.push({
       id,
@@ -530,7 +533,7 @@ export default function AgentTaskInfoPage() {
                           #{task.pullRequestNumber}
                         </a>
                       ) : (
-                        `#${task.pullRequestNumber}`
+                        <>#{task.pullRequestNumber}</>
                       )}
                     </span>
                   )}
