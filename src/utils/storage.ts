@@ -10,6 +10,7 @@ const TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY =
   "tree-compare2-file-name-filter-value";
 const TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY =
   "tree-compare2-scroll-path";
+const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
 
 export interface LastSelectedParams {
   leftRepo: string;
@@ -371,6 +372,7 @@ export async function clearAllStoredData(): Promise<void> {
     );
     window.localStorage.removeItem(TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY);
     window.localStorage.removeItem(TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY);
+    window.localStorage.removeItem(CREATE_TASK_DRAFT_STORAGE_KEY);
   } catch {
     return;
   }
