@@ -372,6 +372,25 @@
   text-decoration: underline;
 }
 
+.branches-page__pr-state-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.branches-page__pr-state-badge--draft {
+  background: rgba(255, 166, 87, 0.15);
+  color: #ffa657;
+}
+
+.branches-page__pr-state-badge--ready {
+  background: rgba(126, 231, 135, 0.15);
+  color: #7ee787;
+}
+
 .branches-page__agent-task-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -386,6 +405,32 @@
 
 .branches-page__agent-task-badge:hover {
   text-decoration: underline;
+}
+
+.branches-page__agent-task-badge--completed {
+  background: rgba(126, 231, 135, 0.15);
+  color: #7ee787;
+}
+
+.branches-page__agent-task-badge--failed {
+  background: rgba(218, 54, 51, 0.15);
+  color: #ffa198;
+}
+
+.branches-page__agent-task-badge--active {
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+}
+
+.branches-page__agent-task-badge--waiting {
+  background: rgba(255, 166, 87, 0.15);
+  color: #ffa657;
+}
+
+.branches-page__agent-task-badge--cancelled,
+.branches-page__agent-task-badge--neutral {
+  background: rgba(139, 148, 158, 0.2);
+  color: #8b949e;
 }
 
 .branches-page__empty {

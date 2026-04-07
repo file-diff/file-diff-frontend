@@ -25,6 +25,24 @@ interface ErrorResponse {
 
 type GitRefType = "branch" | "tag";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
 export interface GitRefSummary {
   name: string;
   ref: string;
@@ -518,6 +536,10 @@ export interface BranchPullRequest {
   title: string;
   url: string;
   state: "open" | "closed";
+  draft?: boolean;
+  mergeable?: boolean;
+  mergeStateStatus?: string;
+  readyToMerge?: boolean;
 }
 
 export interface RepositoryBranch {
@@ -541,6 +563,98 @@ interface ListBranchesRequest {
 interface ListBranchesResponse {
   repo: string;
   branches: RepositoryBranch[];
+}
+
+function normalizePullRequestState(value: unknown): "open" | "closed" {
+  return typeof value === "string" && value.trim().toLowerCase() === "open"
+    ? "open"
+    : "closed";
+}
+
+function normalizePullRequest(value: unknown): BranchPullRequest | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const number =
+    asNumber(value.number) ??
+    asNumber(value.pullNumber) ??
+    asNumber(value.pull_number);
+  const url =
+    asString(value.url)?.trim() ?? asString(value.html_url)?.trim() ?? "";
+
+  if (!number || !url) {
+    return null;
+  }
+
+  return {
+    number,
+    title: asString(value.title)?.trim() ?? "",
+    url,
+    state: normalizePullRequestState(value.state),
+    draft:
+      asBoolean(value.draft) ??
+      asBoolean(value.isDraft) ??
+      asBoolean(value.is_draft),
+    mergeable: asBoolean(value.mergeable),
+    mergeStateStatus:
+      asString(value.mergeStateStatus)?.trim() ??
+      asString(value.merge_state_status)?.trim() ??
+      asString(value.mergeState)?.trim() ??
+      asString(value.merge_state)?.trim(),
+    readyToMerge:
+      asBoolean(value.readyToMerge) ?? asBoolean(value.ready_to_merge),
+  };
+}
+
+function normalizePullRequestStatus(value: unknown): "open" | "closed" | "none" {
+  if (value === "open" || value === "closed" || value === "none") {
+    return value;
+  }
+  return "none";
+}
+
+function normalizeRepositoryBranch(value: unknown): RepositoryBranch | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const name = asString(value.name)?.trim() ?? "";
+  const ref = asString(value.ref)?.trim() ?? "";
+
+  if (!name || !ref) {
+    return null;
+  }
+
+  const pullRequest = normalizePullRequest(value.pullRequest ?? value.pull_request);
+  const pullRequestStatus = normalizePullRequestStatus(
+    value.pullRequestStatus ?? value.pull_request_status
+  );
+
+  return {
+    name,
+    ref,
+    commit: asString(value.commit)?.trim() ?? "",
+    commitShort:
+      asString(value.commitShort)?.trim() ??
+      asString(value.commit_short)?.trim() ??
+      "",
+    date: asString(value.date)?.trim() ?? "",
+    author: asString(value.author)?.trim() ?? "",
+    title: asString(value.title)?.trim() ?? "",
+    isDefault:
+      asBoolean(value.isDefault) ?? asBoolean(value.is_default) ?? false,
+    pullRequestStatus:
+      pullRequestStatus !== "none"
+        ? pullRequestStatus
+        : pullRequest?.state ?? "none",
+    pullRequest,
+    tags: Array.isArray(value.tags)
+      ? value.tags
+          .map((tag) => (typeof tag === "string" ? tag.trim() : ""))
+          .filter((tag) => tag.length > 0)
+      : [],
+  };
 }
 
 export async function requestRepositoryBranches(
@@ -572,7 +686,11 @@ export async function requestRepositoryBranches(
   }
 
   const data = (await response.json()) as ListBranchesResponse;
-  return Array.isArray(data.branches) ? data.branches : [];
+  return Array.isArray(data.branches)
+    ? data.branches
+        .map(normalizeRepositoryBranch)
+        .filter((branch): branch is RepositoryBranch => branch !== null)
+    : [];
 }
 
 export interface CreateTaskRequest {
