@@ -169,26 +169,20 @@ function getGitHubTaskInfo(
 }
 
 export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps) {
-  const savedDraftRef = useRef(loadCreateTaskDraft());
+  const [savedDraft] = useState(() => loadCreateTaskDraft());
   const [repoInput, setRepoInput] = useState(
-    initialRepo || savedDraftRef.current?.repoInput || ""
+    initialRepo || savedDraft?.repoInput || ""
   );
-  const [eventContent, setEventContent] = useState(
-    savedDraftRef.current?.eventContent || ""
-  );
+  const [eventContent, setEventContent] = useState(savedDraft?.eventContent || "");
   const [problemStatement, setProblemStatement] = useState(
-    savedDraftRef.current?.problemStatement || ""
+    savedDraft?.problemStatement || ""
   );
-  const [model, setModel] = useState(
-    savedDraftRef.current?.model || MODEL_OPTIONS[0].value
-  );
+  const [model, setModel] = useState(savedDraft?.model || MODEL_OPTIONS[0].value);
   const [bearerToken, setBearerToken] = useState(loadBearerToken);
   const [createPullRequest, setCreatePullRequest] = useState(
-    savedDraftRef.current?.createPullRequest ?? DEFAULT_CREATE_PULL_REQUEST
+    savedDraft?.createPullRequest ?? DEFAULT_CREATE_PULL_REQUEST
   );
-  const [baseRef, setBaseRef] = useState(
-    savedDraftRef.current?.baseRef || DEFAULT_BRANCH_NAME
-  );
+  const [baseRef, setBaseRef] = useState(savedDraft?.baseRef || DEFAULT_BRANCH_NAME);
 
   const [branches, setBranches] = useState<RepositoryBranch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
@@ -228,7 +222,7 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
         if (result.some((b) => b.name === DEFAULT_BRANCH_NAME)) {
           return DEFAULT_BRANCH_NAME;
         }
-        return result[0]?.name || currentBaseRef;
+        return result[0]?.name || DEFAULT_BRANCH_NAME;
       });
     } catch (err) {
       if (controller.signal.aborted) return;
