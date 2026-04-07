@@ -989,13 +989,13 @@ export default function BranchesPage() {
                             className="branches-page__agent-task-badge"
                             title={
                               agentAssignment.count > 1
-                                ? `${String(agentAssignment.count)} assigned agent tasks`
+                                ? `${agentAssignment.count} assigned agent tasks`
                                 : `Assigned agent task ${agentAssignment.taskId}`
                             }
                           >
                             🤖
                             {agentAssignment.count > 1
-                              ? ` ${String(agentAssignment.count)}`
+                              ? ` ${agentAssignment.count}`
                               : ""}
                           </a>
                         )}
