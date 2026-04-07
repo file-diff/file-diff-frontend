@@ -54,8 +54,12 @@ function resolveRepoInput(input: string): string {
   return trimmed;
 }
 
-function normalizeDescriptionLine(value: string): string {
+function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function normalizeDescriptionBlock(value: string): string {
+  return value.trim().replace(/\r\n?/g, "\n");
 }
 
 function buildTaskDescription({
@@ -69,19 +73,21 @@ function buildTaskDescription({
   problemStatement: string;
   optionalDescription: string;
 }): string {
-  const normalizedRepo = normalizeDescriptionLine(repo);
-  const normalizedBaseRef = normalizeDescriptionLine(baseRef);
+  const normalizedRepo = normalizeWhitespace(repo);
+  const normalizedBaseRef = normalizeWhitespace(baseRef);
+  const normalizedProblemStatement = normalizeDescriptionBlock(problemStatement);
+  const normalizedOptionalDescription = normalizeDescriptionBlock(optionalDescription);
   const sections = [
     `Repository: ${normalizedRepo}`,
     `Base branch: ${normalizedBaseRef}`,
   ];
 
-  if (problemStatement) {
-    sections.push(`Problem statement:\n${problemStatement}`);
+  if (normalizedProblemStatement) {
+    sections.push(`Problem statement:\n${normalizedProblemStatement}`);
   }
 
-  if (optionalDescription) {
-    sections.push(`Additional context:\n${optionalDescription}`);
+  if (normalizedOptionalDescription) {
+    sections.push(`Additional context:\n${normalizedOptionalDescription}`);
   }
 
   return sections.join("\n\n");
