@@ -112,7 +112,7 @@ interface ActionResult {
   message: string;
 }
 
-interface PullRequestAgentAssignment {
+interface BranchAgentAssignment {
   taskId: string;
   url: string;
   count: number;
@@ -152,22 +152,30 @@ function buildAssignedTaskUrl(repo: string, task: TaskSummary): string {
   return `/agent-tasks?repo=${encodeURIComponent(repo)}&taskId=${encodeURIComponent(task.id)}`;
 }
 
-function buildPullRequestAgentAssignments(
+function resolveTaskBranchName(task: TaskSummary): string | undefined {
+  const headRef = task.headRef.trim();
+  if (headRef) return headRef;
+
+  const branch = task.branch.trim();
+  return branch || undefined;
+}
+
+function buildBranchAgentAssignments(
   repo: string,
   tasks: TaskSummary[],
-  pullRequestNumbers: Set<number>
-): Record<number, PullRequestAgentAssignment> {
+  branchNames: Set<string>
+): Record<string, BranchAgentAssignment> {
   const assignments = new Map<
-    number,
-    PullRequestAgentAssignment & { timestamp: number | undefined }
+    string,
+    BranchAgentAssignment & { timestamp: number | undefined }
   >();
 
   for (const task of tasks) {
-    if (task.pullRequestNumber === undefined) continue;
-    if (!pullRequestNumbers.has(task.pullRequestNumber)) continue;
+    const branchName = resolveTaskBranchName(task);
+    if (!branchName || !branchNames.has(branchName)) continue;
 
     const timestamp = parseTaskTimestamp(task);
-    const existing = assignments.get(task.pullRequestNumber);
+    const existing = assignments.get(branchName);
     const nextCount = (existing?.count ?? 0) + 1;
     const shouldReplace =
       !existing ||
@@ -175,7 +183,7 @@ function buildPullRequestAgentAssignments(
         (existing.timestamp === undefined || timestamp > existing.timestamp));
 
     if (shouldReplace) {
-      assignments.set(task.pullRequestNumber, {
+      assignments.set(branchName, {
         taskId: task.id,
         url: buildAssignedTaskUrl(repo, task),
         count: nextCount,
@@ -184,15 +192,15 @@ function buildPullRequestAgentAssignments(
       continue;
     }
 
-    assignments.set(task.pullRequestNumber, {
+    assignments.set(branchName, {
       ...existing,
       count: nextCount,
     });
   }
 
   return Object.fromEntries(
-    Array.from(assignments.entries()).map(([pullRequestNumber, assignment]) => [
-      pullRequestNumber,
+    Array.from(assignments.entries()).map(([branchName, assignment]) => [
+      branchName,
       {
         taskId: assignment.taskId,
         url: assignment.url,
@@ -236,8 +244,8 @@ export default function BranchesPage() {
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [actionResults, setActionResults] = useState<ActionResult[]>([]);
-  const [pullRequestAgentAssignments, setPullRequestAgentAssignments] =
-    useState<Record<number, PullRequestAgentAssignment>>({});
+  const [branchAgentAssignments, setBranchAgentAssignments] =
+    useState<Record<string, BranchAgentAssignment>>({});
   const [mergeMethod, setMergeMethod] = useState<MergeMethod>("merge");
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
     loadAutoRefreshEnabled
@@ -270,7 +278,7 @@ export default function BranchesPage() {
 
       setIsLoading(true);
       setError("");
-      setPullRequestAgentAssignments({});
+      setBranchAgentAssignments({});
       if (clearActionResults) {
         setActionResults([]);
       }
@@ -282,7 +290,7 @@ export default function BranchesPage() {
           setLoadedRepo(repo);
         } else {
           setBranches([]);
-          setPullRequestAgentAssignments({});
+          setBranchAgentAssignments({});
           setLoadedRepo("");
           setSelectedBranches(new Set());
         }
@@ -294,18 +302,11 @@ export default function BranchesPage() {
           controller.signal
         );
         const sorted = sortBranchesByNewestCommit(result);
-        const pullRequestNumbers = new Set(
-          sorted
-            .map((branch) => branch.pullRequest?.number)
-            .filter((pullNumber): pullNumber is number => pullNumber !== undefined)
-        );
-        let nextPullRequestAgentAssignments: Record<
-          number,
-          PullRequestAgentAssignment
-        > = {};
+        const branchNames = new Set(sorted.map((branch) => branch.name));
+        let nextBranchAgentAssignments: Record<string, BranchAgentAssignment> = {};
 
         const ownerRepo = splitOwnerRepo(repo);
-        if (ownerRepo && bearerToken.trim() && pullRequestNumbers.size > 0) {
+        if (ownerRepo && bearerToken.trim() && branchNames.size > 0) {
           try {
             const agentTasks = await requestAgentTasks(
               ownerRepo.owner,
@@ -314,21 +315,21 @@ export default function BranchesPage() {
               controller.signal
             );
             if (!controller.signal.aborted) {
-              nextPullRequestAgentAssignments = buildPullRequestAgentAssignments(
+              nextBranchAgentAssignments = buildBranchAgentAssignments(
                 repo,
                 extractTaskSummaries(agentTasks),
-                pullRequestNumbers
+                branchNames
               );
             }
           } catch {
             if (!controller.signal.aborted) {
-              nextPullRequestAgentAssignments = {};
+              nextBranchAgentAssignments = {};
             }
           }
         }
 
         setBranches(sorted);
-        setPullRequestAgentAssignments(nextPullRequestAgentAssignments);
+        setBranchAgentAssignments(nextBranchAgentAssignments);
         setLoadedRepo(repo);
         saveCachedBranches(repo, sorted);
         saveLastRepo(repo);
@@ -405,7 +406,7 @@ export default function BranchesPage() {
 
   useEffect(() => {
     if (!bearerToken.trim()) {
-      setPullRequestAgentAssignments({});
+      setBranchAgentAssignments({});
     }
   }, [bearerToken]);
 
@@ -900,9 +901,7 @@ export default function BranchesPage() {
           <div className="branches-page__branch-list">
             {branches.map((branch) => {
               const isSelected = selectedBranches.has(branch.ref);
-              const agentAssignment = branch.pullRequest
-                ? pullRequestAgentAssignments[branch.pullRequest.number]
-                : undefined;
+              const agentAssignment = branchAgentAssignments[branch.name];
 
               return (
                 <div
