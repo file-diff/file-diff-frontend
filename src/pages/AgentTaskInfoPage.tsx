@@ -41,6 +41,28 @@ function asNumber(value: unknown): number | undefined {
     : undefined;
 }
 
+function asNumberLike(value: unknown): number | undefined {
+  const numericValue = asNumber(value);
+  if (numericValue !== undefined) return numericValue;
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function readStringField(
+  value: Record<string, unknown>,
+  ...keys: string[]
+): string | undefined {
+  for (const key of keys) {
+    const candidate = asString(value[key]);
+    if (candidate !== undefined) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
 interface TaskCreator {
   login: string;
   profileUrl: string;
@@ -84,14 +106,18 @@ function extractArtifacts(artifacts: unknown): {
     const data = isRecord(artifact.data) ? artifact.data : undefined;
     if (!data) continue;
 
-    if (artType === "github_resource" && asString(data.type) === "pull") {
-      pullRequestNumber = asNumber(data.id);
-      pullRequestUrl = asString(data.html_url);
+    if (
+      artType === "github_resource" &&
+      ["pull", "pull_request"].includes(asString(data.type) ?? "")
+    ) {
+      pullRequestNumber = asNumberLike(data.id);
+      pullRequestUrl =
+        readStringField(data, "html_url", "htmlUrl", "url") ?? pullRequestUrl;
     }
 
     if (artType === "branch") {
-      headRef = asString(data.head_ref) ?? headRef;
-      baseRef = asString(data.base_ref) ?? baseRef;
+      headRef = readStringField(data, "head_ref", "headRef") ?? headRef;
+      baseRef = readStringField(data, "base_ref", "baseRef") ?? baseRef;
     }
   }
 
@@ -101,7 +127,14 @@ function extractArtifacts(artifacts: unknown): {
 function extractCreator(creator: unknown): TaskCreator | undefined {
   if (!isRecord(creator)) return undefined;
   const login = asString(creator.login);
-  const profileUrl = asString(creator.url);
+  const profileUrl = readStringField(
+    creator,
+    "html_url",
+    "htmlUrl",
+    "profile_url",
+    "profileUrl",
+    "url"
+  );
   if (!login) return undefined;
   return { login, profileUrl: profileUrl ?? "" };
 }
@@ -111,8 +144,14 @@ function extractTaskSummaries(data: unknown): TaskSummary[] {
 
   if (Array.isArray(data)) {
     items = data;
-  } else if (isRecord(data) && Array.isArray(data.tasks)) {
-    items = data.tasks as unknown[];
+  } else if (isRecord(data)) {
+    const nestedData = isRecord(data.data) ? data.data : null;
+    const taskCollection =
+      data.tasks ??
+      data.items ??
+      nestedData?.tasks ??
+      nestedData?.items;
+    items = Array.isArray(taskCollection) ? taskCollection : [];
   } else {
     items = [];
   }
@@ -133,14 +172,14 @@ function extractTaskSummaries(data: unknown): TaskSummary[] {
       asString(item.event_content) ??
       asString(item.title) ??
       name;
-    const createdAt =
-      asString(item.created_at) ?? asString(item.createdAt) ?? "";
-    const updatedAt =
-      asString(item.updated_at) ?? asString(item.updatedAt) ?? "";
-    const archivedAt = asString(item.archived_at) ?? "";
+    const createdAt = readStringField(item, "created_at", "createdAt") ?? "";
+    const updatedAt = readStringField(item, "updated_at", "updatedAt") ?? "";
+    const archivedAt =
+      readStringField(item, "archived_at", "archivedAt") ?? "";
     const model = asString(item.model) ?? "";
-    const htmlUrl = asString(item.html_url) ?? "";
-    const sessionCount = asNumber(item.session_count);
+    const htmlUrl = readStringField(item, "html_url", "htmlUrl", "url") ?? "";
+    const sessionCount =
+      asNumber(item.session_count) ?? asNumber(item.sessionCount);
 
     const creator = extractCreator(item.creator);
 
@@ -156,17 +195,16 @@ function extractTaskSummaries(data: unknown): TaskSummary[] {
 
     const pr = item.pull_request ?? item.pullRequest;
     if (isRecord(pr)) {
-      pullRequestNumber = asNumber(pr.number) ?? pullRequestNumber;
-      pullRequestUrl = asString(pr.html_url) ?? asString(pr.url) ?? pullRequestUrl;
+      pullRequestNumber = asNumberLike(pr.number) ?? pullRequestNumber;
+      pullRequestUrl =
+        readStringField(pr, "html_url", "htmlUrl", "url") ?? pullRequestUrl;
     }
 
     const branch =
-      asString(item.branch) ??
-      asString(item.head_branch) ??
-      asString(item.base_ref) ??
+      readStringField(item, "branch", "head_branch", "headBranch", "base_ref", "baseRef") ??
       artBaseRef;
 
-    const headRef = artHeadRef;
+    const headRef = artHeadRef || readStringField(item, "head_ref", "headRef") || "";
 
     summaries.push({
       id,
@@ -479,7 +517,22 @@ export default function AgentTaskInfoPage() {
                     <span>Created: {formatDateSafe(task.createdAt)}</span>
                   )}
                   {task.pullRequestNumber !== undefined && (
-                    <span>PR #{task.pullRequestNumber}</span>
+                    <span>
+                      PR{" "}
+                      {task.pullRequestUrl ? (
+                        <a
+                          href={task.pullRequestUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="agent-task-info-page__meta-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          #{task.pullRequestNumber}
+                        </a>
+                      ) : (
+                        `#${task.pullRequestNumber}`
+                      )}
+                    </span>
                   )}
                 </div>
               </button>
