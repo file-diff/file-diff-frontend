@@ -258,10 +258,6 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
       setSubmitError("Please enter a repository.");
       return;
     }
-    if (!eventContent.trim()) {
-      setSubmitError("Please enter a task description.");
-      return;
-    }
     if (!bearerToken.trim()) {
       setSubmitError("Please enter a bearer token.");
       return;
