@@ -66,7 +66,7 @@ function extractArtifacts(artifacts: unknown): {
     if (!data) continue;
 
     if (artType === "github_resource" && asString(data.type) === "pull") {
-      pullRequestNumber = asNumber(data.id);
+      pullRequestNumber = asNumber(data.number) ?? asNumber(data.id);
       pullRequestUrl = asString(data.html_url);
     }
 
