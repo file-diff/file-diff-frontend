@@ -7,8 +7,14 @@ import {
   requestPullRequestReady,
   requestPullRequestMerge,
   requestPullRequestOpen,
+  requestAgentTasks,
 } from "../utils/repositorySelection";
 import type { RepositoryBranch } from "../utils/repositorySelection";
+import {
+  extractTaskSummaries,
+  splitOwnerRepo,
+  type TaskSummary,
+} from "../utils/agentTasks";
 import {
   loadCachedBranches,
   loadCachedBranchesFetchedAt,
@@ -106,6 +112,12 @@ interface ActionResult {
   message: string;
 }
 
+interface PullRequestAgentAssignment {
+  taskId: string;
+  url: string;
+  count: number;
+}
+
 type MergeMethod = "merge" | "squash" | "rebase";
 
 interface LoadBranchesOptions {
@@ -125,6 +137,69 @@ function formatConfirmList(items: string[], maxDisplay: number = 10): string {
 function getDefaultBranch(branches: RepositoryBranch[]): string {
   const defaultBranch = branches.find((b) => b.isDefault);
   return defaultBranch ? defaultBranch.name : "main";
+}
+
+function parseTaskTimestamp(task: TaskSummary): number | undefined {
+  const updatedAt = Date.parse(task.updatedAt);
+  if (!Number.isNaN(updatedAt)) return updatedAt;
+  const createdAt = Date.parse(task.createdAt);
+  if (!Number.isNaN(createdAt)) return createdAt;
+  return undefined;
+}
+
+function buildAssignedTaskUrl(repo: string, task: TaskSummary): string {
+  if (task.htmlUrl) return task.htmlUrl;
+  return `/agent-tasks?repo=${encodeURIComponent(repo)}&taskId=${encodeURIComponent(task.id)}`;
+}
+
+function buildPullRequestAgentAssignments(
+  repo: string,
+  tasks: TaskSummary[],
+  pullRequestNumbers: Set<number>
+): Record<number, PullRequestAgentAssignment> {
+  const assignments = new Map<
+    number,
+    PullRequestAgentAssignment & { timestamp: number | undefined }
+  >();
+
+  for (const task of tasks) {
+    if (task.pullRequestNumber === undefined) continue;
+    if (!pullRequestNumbers.has(task.pullRequestNumber)) continue;
+
+    const timestamp = parseTaskTimestamp(task);
+    const existing = assignments.get(task.pullRequestNumber);
+    const nextCount = (existing?.count ?? 0) + 1;
+    const shouldReplace =
+      !existing ||
+      (timestamp !== undefined &&
+        (existing.timestamp === undefined || timestamp > existing.timestamp));
+
+    if (shouldReplace) {
+      assignments.set(task.pullRequestNumber, {
+        taskId: task.id,
+        url: buildAssignedTaskUrl(repo, task),
+        count: nextCount,
+        timestamp,
+      });
+      continue;
+    }
+
+    assignments.set(task.pullRequestNumber, {
+      ...existing,
+      count: nextCount,
+    });
+  }
+
+  return Object.fromEntries(
+    Array.from(assignments.entries()).map(([pullRequestNumber, assignment]) => [
+      pullRequestNumber,
+      {
+        taskId: assignment.taskId,
+        url: assignment.url,
+        count: assignment.count,
+      },
+    ])
+  );
 }
 
 function resolveInitialRepo(queryRepo: string): string {
@@ -161,6 +236,8 @@ export default function BranchesPage() {
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [actionResults, setActionResults] = useState<ActionResult[]>([]);
+  const [pullRequestAgentAssignments, setPullRequestAgentAssignments] =
+    useState<Record<number, PullRequestAgentAssignment>>({});
   const [mergeMethod, setMergeMethod] = useState<MergeMethod>("merge");
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
     loadAutoRefreshEnabled
@@ -193,6 +270,7 @@ export default function BranchesPage() {
 
       setIsLoading(true);
       setError("");
+      setPullRequestAgentAssignments({});
       if (clearActionResults) {
         setActionResults([]);
       }
@@ -204,6 +282,7 @@ export default function BranchesPage() {
           setLoadedRepo(repo);
         } else {
           setBranches([]);
+          setPullRequestAgentAssignments({});
           setLoadedRepo("");
           setSelectedBranches(new Set());
         }
@@ -215,7 +294,41 @@ export default function BranchesPage() {
           controller.signal
         );
         const sorted = sortBranchesByNewestCommit(result);
+        const pullRequestNumbers = new Set(
+          sorted
+            .map((branch) => branch.pullRequest?.number)
+            .filter((pullNumber): pullNumber is number => pullNumber !== undefined)
+        );
+        let nextPullRequestAgentAssignments: Record<
+          number,
+          PullRequestAgentAssignment
+        > = {};
+
+        const ownerRepo = splitOwnerRepo(repo);
+        if (ownerRepo && bearerToken.trim() && pullRequestNumbers.size > 0) {
+          try {
+            const agentTasks = await requestAgentTasks(
+              ownerRepo.owner,
+              ownerRepo.name,
+              bearerToken.trim(),
+              controller.signal
+            );
+            if (!controller.signal.aborted) {
+              nextPullRequestAgentAssignments = buildPullRequestAgentAssignments(
+                repo,
+                extractTaskSummaries(agentTasks),
+                pullRequestNumbers
+              );
+            }
+          } catch {
+            if (!controller.signal.aborted) {
+              nextPullRequestAgentAssignments = {};
+            }
+          }
+        }
+
         setBranches(sorted);
+        setPullRequestAgentAssignments(nextPullRequestAgentAssignments);
         setLoadedRepo(repo);
         saveCachedBranches(repo, sorted);
         saveLastRepo(repo);
@@ -254,7 +367,7 @@ export default function BranchesPage() {
         }
       }
     },
-    [setSearchParams]
+    [bearerToken, setSearchParams]
   );
 
   useEffect(() => {
@@ -289,6 +402,12 @@ export default function BranchesPage() {
       window.clearTimeout(refreshTimer);
     };
   }, [loadBranchesForRepo, initialRepo, resolveRepoInput]);
+
+  useEffect(() => {
+    if (!bearerToken.trim()) {
+      setPullRequestAgentAssignments({});
+    }
+  }, [bearerToken]);
 
   useEffect(() => {
     return () => {
@@ -696,7 +815,7 @@ export default function BranchesPage() {
               type="password"
               value={bearerToken}
               onChange={(e) => handleBearerTokenChange(e.target.value)}
-              placeholder="Required for write operations"
+              placeholder="Required for write operations and agent task links"
               spellCheck={false}
               autoComplete="off"
             />
@@ -779,94 +898,119 @@ export default function BranchesPage() {
           </div>
 
           <div className="branches-page__branch-list">
-            {branches.map((branch) => (
-              <div
-                key={branch.ref}
-                className={
-                  "branches-page__branch" +
-                  (branch.isDefault ? " branches-page__branch--default" : "") +
-                  (selectedBranches.has(branch.ref)
-                    ? " branches-page__branch--selected"
-                    : "")
-                }
-              >
-                <label className="branches-page__branch-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selectedBranches.has(branch.ref)}
-                    onChange={() => toggleBranchSelection(branch.ref)}
-                  />
-                </label>
-                <div className="branches-page__branch-main">
-                  <div className="branches-page__branch-name-row">
-                    <a
-                      href={buildGitHubBranchUrl(loadedRepo, branch.name)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="branches-page__branch-name"
-                    >
-                      {branch.name}
-                    </a>
-                    {branch.isDefault && (
-                      <span className="branches-page__default-badge">
-                        default
-                      </span>
-                    )}
-                    {branch.pullRequestStatus !== "none" && (
-                      <span
-                        className={
-                          "branches-page__pr-status " +
-                          getPrStatusClass(branch.pullRequestStatus)
-                        }
+            {branches.map((branch) => {
+              const isSelected = selectedBranches.has(branch.ref);
+              const agentAssignment = branch.pullRequest
+                ? pullRequestAgentAssignments[branch.pullRequest.number]
+                : undefined;
+
+              return (
+                <div
+                  key={branch.ref}
+                  className={
+                    "branches-page__branch" +
+                    (branch.isDefault ? " branches-page__branch--default" : "") +
+                    (isSelected ? " branches-page__branch--selected" : "")
+                  }
+                >
+                  <label className="branches-page__branch-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleBranchSelection(branch.ref)}
+                    />
+                  </label>
+                  <div className="branches-page__branch-main">
+                    <div className="branches-page__branch-name-row">
+                      <a
+                        href={buildGitHubBranchUrl(loadedRepo, branch.name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="branches-page__branch-name"
                       >
-                        PR {branch.pullRequestStatus}
+                        {branch.name}
+                      </a>
+                      {branch.isDefault && (
+                        <span className="branches-page__default-badge">
+                          default
+                        </span>
+                      )}
+                      {branch.pullRequestStatus !== "none" && (
+                        <span
+                          className={
+                            "branches-page__pr-status " +
+                            getPrStatusClass(branch.pullRequestStatus)
+                          }
+                        >
+                          PR {branch.pullRequestStatus}
+                        </span>
+                      )}
+                    </div>
+                    <div className="branches-page__branch-commit-info">
+                      <a
+                        href={buildGitHubCommitUrl(loadedRepo, branch.commit)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="branches-page__commit-sha"
+                      >
+                        {branch.commitShort}
+                      </a>
+                      <span className="branches-page__commit-title">
+                        {branch.title}
                       </span>
+                    </div>
+                    <div className="branches-page__branch-meta">
+                      <span className="branches-page__branch-author">
+                        {branch.author}
+                      </span>
+                      <span
+                        className="branches-page__branch-date"
+                        title={formatBranchDate(branch.date)}
+                      >
+                        {formatRelativeTime(branch.date)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="branches-page__branch-badges">
+                    {branch.tags.map((tag) => (
+                      <span key={tag} className="branches-page__tag-badge">
+                        {tag}
+                      </span>
+                    ))}
+                    {branch.pullRequest && (
+                      <>
+                        <a
+                          href={branch.pullRequest.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="branches-page__pr-badge"
+                        >
+                          #{branch.pullRequest.number}
+                        </a>
+                        {agentAssignment && (
+                          <a
+                            href={agentAssignment.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="branches-page__agent-task-badge"
+                            title={
+                              agentAssignment.count > 1
+                                ? `${agentAssignment.count} assigned agent tasks`
+                                : `Assigned agent task ${agentAssignment.taskId}`
+                            }
+                          >
+                            🤖
+                            {agentAssignment.count > 1
+                              ? ` ${agentAssignment.count}`
+                              : ""}
+                          </a>
+                        )}
+                      </>
                     )}
                   </div>
-                  <div className="branches-page__branch-commit-info">
-                    <a
-                      href={buildGitHubCommitUrl(loadedRepo, branch.commit)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="branches-page__commit-sha"
-                    >
-                      {branch.commitShort}
-                    </a>
-                    <span className="branches-page__commit-title">
-                      {branch.title}
-                    </span>
-                  </div>
-                  <div className="branches-page__branch-meta">
-                    <span className="branches-page__branch-author">
-                      {branch.author}
-                    </span>
-                    <span
-                      className="branches-page__branch-date"
-                      title={formatBranchDate(branch.date)}
-                    >
-                      {formatRelativeTime(branch.date)}
-                    </span>
-                  </div>
                 </div>
-                <div className="branches-page__branch-badges">
-                  {branch.tags.map((tag) => (
-                    <span key={tag} className="branches-page__tag-badge">
-                      {tag}
-                    </span>
-                  ))}
-                  {branch.pullRequest && (
-                    <a
-                      href={branch.pullRequest.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="branches-page__pr-badge"
-                    >
-                      #{branch.pullRequest.number}
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

@@ -372,6 +372,22 @@
   text-decoration: underline;
 }
 
+.branches-page__agent-task-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.branches-page__agent-task-badge:hover {
+  text-decoration: underline;
+}
+
 .branches-page__empty {
   text-align: center;
   padding: 60px 24px;
