@@ -41,9 +41,16 @@ function asNumber(value: unknown): number | undefined {
     : undefined;
 }
 
+interface TaskCreator {
+  login: string;
+  profileUrl: string;
+}
+
 interface TaskSummary {
   id: string;
+  name: string;
   status: string;
+  state: string;
   description: string;
   createdAt: string;
   updatedAt: string;
@@ -51,10 +58,65 @@ interface TaskSummary {
   pullRequestNumber: number | undefined;
   pullRequestUrl: string | undefined;
   branch: string;
+  headRef: string;
+  htmlUrl: string;
+  creator: TaskCreator | undefined;
+  sessionCount: number | undefined;
+  archivedAt: string;
+}
+
+function extractArtifacts(artifacts: unknown): {
+  pullRequestNumber: number | undefined;
+  pullRequestUrl: string | undefined;
+  headRef: string;
+  baseRef: string;
+} {
+  let pullRequestNumber: number | undefined;
+  let pullRequestUrl: string | undefined;
+  let headRef = "";
+  let baseRef = "";
+
+  if (!Array.isArray(artifacts)) return { pullRequestNumber, pullRequestUrl, headRef, baseRef };
+
+  for (const artifact of artifacts) {
+    if (!isRecord(artifact)) continue;
+    const artType = asString(artifact.type);
+    const data = isRecord(artifact.data) ? artifact.data : undefined;
+    if (!data) continue;
+
+    if (artType === "github_resource" && asString(data.type) === "pull") {
+      pullRequestNumber = asNumber(data.id);
+      pullRequestUrl = asString(data.html_url);
+    }
+
+    if (artType === "branch") {
+      headRef = asString(data.head_ref) ?? headRef;
+      baseRef = asString(data.base_ref) ?? baseRef;
+    }
+  }
+
+  return { pullRequestNumber, pullRequestUrl, headRef, baseRef };
+}
+
+function extractCreator(creator: unknown): TaskCreator | undefined {
+  if (!isRecord(creator)) return undefined;
+  const login = asString(creator.login);
+  const profileUrl = asString(creator.url);
+  if (!login) return undefined;
+  return { login, profileUrl: profileUrl ?? "" };
 }
 
 function extractTaskSummaries(data: unknown): TaskSummary[] {
-  const items = Array.isArray(data) ? data : [];
+  let items: unknown[];
+
+  if (Array.isArray(data)) {
+    items = data;
+  } else if (isRecord(data) && Array.isArray(data.tasks)) {
+    items = data.tasks as unknown[];
+  } else {
+    items = [];
+  }
+
   const summaries: TaskSummary[] = [];
 
   for (const item of items) {
@@ -63,37 +125,54 @@ function extractTaskSummaries(data: unknown): TaskSummary[] {
     const id = asString(item.id) ?? asString(item.task_id) ?? "";
     if (!id) continue;
 
+    const name = asString(item.name) ?? "";
     const status = asString(item.status) ?? "unknown";
+    const state = asString(item.state) ?? "";
     const description =
       asString(item.description) ??
       asString(item.event_content) ??
       asString(item.title) ??
-      "";
+      name;
     const createdAt =
       asString(item.created_at) ?? asString(item.createdAt) ?? "";
     const updatedAt =
       asString(item.updated_at) ?? asString(item.updatedAt) ?? "";
+    const archivedAt = asString(item.archived_at) ?? "";
     const model = asString(item.model) ?? "";
+    const htmlUrl = asString(item.html_url) ?? "";
+    const sessionCount = asNumber(item.session_count);
 
-    let pullRequestNumber: number | undefined;
-    let pullRequestUrl: string | undefined;
-    let branch = "";
+    const creator = extractCreator(item.creator);
+
+    const {
+      pullRequestNumber: artPrNumber,
+      pullRequestUrl: artPrUrl,
+      headRef: artHeadRef,
+      baseRef: artBaseRef,
+    } = extractArtifacts(item.artifacts);
+
+    let pullRequestNumber: number | undefined = artPrNumber;
+    let pullRequestUrl: string | undefined = artPrUrl;
 
     const pr = item.pull_request ?? item.pullRequest;
     if (isRecord(pr)) {
-      pullRequestNumber = asNumber(pr.number);
-      pullRequestUrl = asString(pr.html_url) ?? asString(pr.url);
+      pullRequestNumber = asNumber(pr.number) ?? pullRequestNumber;
+      pullRequestUrl = asString(pr.html_url) ?? asString(pr.url) ?? pullRequestUrl;
     }
 
-    branch =
+    const branch =
       asString(item.branch) ??
       asString(item.head_branch) ??
       asString(item.base_ref) ??
-      "";
+      artBaseRef;
+
+    const headRef = artHeadRef;
 
     summaries.push({
       id,
+      name,
       status,
+      state,
       description,
       createdAt,
       updatedAt,
@@ -101,6 +180,11 @@ function extractTaskSummaries(data: unknown): TaskSummary[] {
       pullRequestNumber,
       pullRequestUrl,
       branch,
+      headRef,
+      htmlUrl,
+      creator,
+      sessionCount,
+      archivedAt,
     });
   }
 
@@ -124,6 +208,7 @@ function statusClassName(status: string): string {
   if (lower === "failed" || lower === "error") return "agent-task-info-page__status--failed";
   if (lower === "active" || lower === "in_progress" || lower === "running") return "agent-task-info-page__status--active";
   if (lower === "waiting" || lower === "queued" || lower === "pending") return "agent-task-info-page__status--waiting";
+  if (lower === "cancelled" || lower === "canceled") return "agent-task-info-page__status--cancelled";
   return "";
 }
 
@@ -341,19 +426,57 @@ export default function AgentTaskInfoPage() {
                   >
                     {task.status}
                   </span>
+                  {task.htmlUrl && (
+                    <a
+                      href={task.htmlUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="agent-task-info-page__task-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      🔗 GitHub
+                    </a>
+                  )}
                 </div>
-                {task.description && (
+                {(task.name || task.description) && (
                   <div className="agent-task-info-page__task-description">
-                    {task.description.length > MAX_DESCRIPTION_DISPLAY_LENGTH
-                      ? `${task.description.slice(0, MAX_DESCRIPTION_DISPLAY_LENGTH)}…`
-                      : task.description}
+                    {(() => {
+                      const displayText = task.name || task.description;
+                      return displayText.length > MAX_DESCRIPTION_DISPLAY_LENGTH
+                        ? `${displayText.slice(0, MAX_DESCRIPTION_DISPLAY_LENGTH)}…`
+                        : displayText;
+                    })()}
                   </div>
                 )}
                 <div className="agent-task-info-page__task-meta">
+                  {task.creator && (
+                    <span>
+                      Creator:{" "}
+                      {task.creator.profileUrl ? (
+                        <a
+                          href={task.creator.profileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="agent-task-info-page__meta-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {task.creator.login}
+                        </a>
+                      ) : (
+                        task.creator.login
+                      )}
+                    </span>
+                  )}
                   {task.model && <span>Model: {task.model}</span>}
-                  {task.branch && <span>Branch: {task.branch}</span>}
+                  {task.headRef && <span>Branch: {task.headRef}</span>}
+                  {!task.headRef && task.branch && (
+                    <span>Base: {task.branch}</span>
+                  )}
+                  {task.sessionCount !== undefined && (
+                    <span>Sessions: {task.sessionCount}</span>
+                  )}
                   {task.createdAt && (
-                    <span>{formatDateSafe(task.createdAt)}</span>
+                    <span>Created: {formatDateSafe(task.createdAt)}</span>
                   )}
                   {task.pullRequestNumber !== undefined && (
                     <span>PR #{task.pullRequestNumber}</span>

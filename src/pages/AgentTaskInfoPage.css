@@ -221,6 +221,11 @@
   color: #ffa657;
 }
 
+.agent-task-info-page__status--cancelled {
+  background: rgba(139, 148, 158, 0.2);
+  color: #8b949e;
+}
+
 .agent-task-info-page__task-description {
   font-size: 0.85rem;
   color: #ccc;
@@ -235,6 +240,29 @@
   font-size: 0.78rem;
   color: #6e7681;
   flex-wrap: wrap;
+}
+
+.agent-task-info-page__task-link {
+  font-size: 0.75rem;
+  color: #58a6ff;
+  text-decoration: none;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.agent-task-info-page__task-link:hover {
+  text-decoration: underline;
+  color: #79c0ff;
+}
+
+.agent-task-info-page__meta-link {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.agent-task-info-page__meta-link:hover {
+  text-decoration: underline;
+  color: #79c0ff;
 }
 
 .agent-task-info-page__empty {
