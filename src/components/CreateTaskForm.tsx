@@ -54,6 +54,10 @@ function resolveRepoInput(input: string): string {
   return trimmed;
 }
 
+function normalizeDescriptionLine(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 function buildTaskDescription({
   repo,
   baseRef,
@@ -65,7 +69,12 @@ function buildTaskDescription({
   problemStatement: string;
   optionalDescription: string;
 }): string {
-  const sections = [`Repository: ${repo}`, `Base branch: ${baseRef}`];
+  const normalizedRepo = normalizeDescriptionLine(repo);
+  const normalizedBaseRef = normalizeDescriptionLine(baseRef);
+  const sections = [
+    `Repository: ${normalizedRepo}`,
+    `Base branch: ${normalizedBaseRef}`,
+  ];
 
   if (problemStatement) {
     sections.push(`Problem statement:\n${problemStatement}`);
