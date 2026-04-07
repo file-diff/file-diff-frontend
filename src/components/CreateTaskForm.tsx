@@ -65,14 +65,14 @@ function buildTaskDescription({
   problemStatement: string;
   optionalDescription: string;
 }): string {
-  const sections = [`Repository: ${repo}`, `Base branch: ${baseRef || DEFAULT_BRANCH_NAME}`];
+  const sections = [`Repository: ${repo}`, `Base branch: ${baseRef}`];
 
   if (problemStatement) {
     sections.push(`Problem statement:\n${problemStatement}`);
   }
 
   if (optionalDescription) {
-    sections.push(`Optional description:\n${optionalDescription}`);
+    sections.push(`Additional context:\n${optionalDescription}`);
   }
 
   return sections.join("\n\n");
