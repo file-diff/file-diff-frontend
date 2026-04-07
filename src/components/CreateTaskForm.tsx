@@ -328,7 +328,6 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
   const canSubmit =
     !isSubmitting &&
     repoInput.trim() !== "" &&
-    eventContent.trim() !== "" &&
     bearerToken.trim() !== "";
   const resolvedRepo = useMemo(() => resolveRepoInput(repoInput), [repoInput]);
   const githubTaskInfo = useMemo(
