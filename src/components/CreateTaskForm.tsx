@@ -5,6 +5,10 @@ import {
   requestCreateTask,
 } from "../utils/repositorySelection";
 import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
+import {
+  loadCreateTaskDraft,
+  saveCreateTaskDraft,
+} from "../utils/createTaskStorage";
 import type {
   RepositoryBranch,
   CreateTaskRequest,
@@ -33,6 +37,9 @@ const TASK_ID_KEYS = new Set([
 export interface CreateTaskFormProps {
   initialRepo?: string;
 }
+
+const DEFAULT_CREATE_PULL_REQUEST = true;
+const DEFAULT_BRANCH_NAME = "main";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -162,13 +169,20 @@ function getGitHubTaskInfo(
 }
 
 export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps) {
-  const [repoInput, setRepoInput] = useState(initialRepo);
-  const [eventContent, setEventContent] = useState("");
-  const [problemStatement, setProblemStatement] = useState("");
-  const [model, setModel] = useState(MODEL_OPTIONS[0].value);
+  const [savedDraft] = useState(() => loadCreateTaskDraft());
+  const [repoInput, setRepoInput] = useState(
+    initialRepo || savedDraft?.repoInput || ""
+  );
+  const [eventContent, setEventContent] = useState(savedDraft?.eventContent || "");
+  const [problemStatement, setProblemStatement] = useState(
+    savedDraft?.problemStatement || ""
+  );
+  const [model, setModel] = useState(savedDraft?.model || MODEL_OPTIONS[0].value);
   const [bearerToken, setBearerToken] = useState(loadBearerToken);
-  const [createPullRequest, setCreatePullRequest] = useState(true);
-  const [baseRef, setBaseRef] = useState("main");
+  const [createPullRequest, setCreatePullRequest] = useState(
+    savedDraft?.createPullRequest ?? DEFAULT_CREATE_PULL_REQUEST
+  );
+  const [baseRef, setBaseRef] = useState(savedDraft?.baseRef || DEFAULT_BRANCH_NAME);
 
   const [branches, setBranches] = useState<RepositoryBranch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
@@ -196,14 +210,20 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
       setBranches(result);
       setLoadedBranchesRepo(repo);
 
-      const defaultBranch = result.find((b) => b.isDefault);
-      if (defaultBranch) {
-        setBaseRef(defaultBranch.name);
-      } else if (result.some((b) => b.name === "main")) {
-        setBaseRef("main");
-      } else if (result.length > 0) {
-        setBaseRef(result[0].name);
-      }
+      setBaseRef((currentBaseRef) => {
+        if (currentBaseRef && result.some((b) => b.name === currentBaseRef)) {
+          return currentBaseRef;
+        }
+
+        const defaultBranch = result.find((b) => b.isDefault);
+        if (defaultBranch) {
+          return defaultBranch.name;
+        }
+        if (result.some((b) => b.name === DEFAULT_BRANCH_NAME)) {
+          return DEFAULT_BRANCH_NAME;
+        }
+        return result[0]?.name || "";
+      });
     } catch (err) {
       if (controller.signal.aborted) return;
       setBranchesError(
@@ -283,6 +303,24 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
     createPullRequest,
     baseRef,
     problemStatement,
+  ]);
+
+  useEffect(() => {
+    saveCreateTaskDraft({
+      repoInput,
+      eventContent,
+      problemStatement,
+      model,
+      createPullRequest,
+      baseRef,
+    });
+  }, [
+    repoInput,
+    eventContent,
+    problemStatement,
+    model,
+    createPullRequest,
+    baseRef,
   ]);
 
   useEffect(() => {
