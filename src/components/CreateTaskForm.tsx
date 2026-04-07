@@ -54,6 +54,30 @@ function resolveRepoInput(input: string): string {
   return trimmed;
 }
 
+function buildTaskDescription({
+  repo,
+  baseRef,
+  problemStatement,
+  optionalDescription,
+}: {
+  repo: string;
+  baseRef: string;
+  problemStatement: string;
+  optionalDescription: string;
+}): string {
+  const sections = [`Repository: ${repo}`, `Base branch: ${baseRef || DEFAULT_BRANCH_NAME}`];
+
+  if (problemStatement) {
+    sections.push(`Problem statement:\n${problemStatement}`);
+  }
+
+  if (optionalDescription) {
+    sections.push(`Optional description:\n${optionalDescription}`);
+  }
+
+  return sections.join("\n\n");
+}
+
 function isTaskIdKey(key: string): boolean {
   const normalizedKey = key
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
@@ -267,16 +291,23 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
     setSubmitError("");
     setSubmitResult(null);
 
+    const trimmedProblemStatement = problemStatement.trim();
+    const trimmedOptionalDescription = eventContent.trim();
     const request: CreateTaskRequest = {
       repo,
-      event_content: eventContent.trim(),
+      event_content: buildTaskDescription({
+        repo,
+        baseRef: baseRef || "main",
+        problemStatement: trimmedProblemStatement,
+        optionalDescription: trimmedOptionalDescription,
+      }),
       model,
       create_pull_request: createPullRequest,
       base_ref: baseRef || "main",
     };
 
-    if (problemStatement.trim()) {
-      request.problem_statement = problemStatement.trim();
+    if (trimmedProblemStatement) {
+      request.problem_statement = trimmedProblemStatement;
     }
 
     try {
@@ -417,12 +448,14 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
       </div>
 
       <div className="create-task-form__field">
-        <label htmlFor="create-task-event-content">Task description</label>
+        <label htmlFor="create-task-event-content">
+          Optional description <span className="create-task-form__optional">(optional)</span>
+        </label>
         <textarea
           id="create-task-event-content"
           value={eventContent}
           onChange={(e) => setEventContent(e.target.value)}
-          placeholder="Describe what the agent should do…"
+          placeholder="Extra context to include in the generated task description…"
           rows={4}
           spellCheck={false}
         />
