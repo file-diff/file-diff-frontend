@@ -139,12 +139,12 @@ function getDefaultBranch(branches: RepositoryBranch[]): string {
   return defaultBranch ? defaultBranch.name : "main";
 }
 
-function parseTaskTimestamp(task: TaskSummary): number {
+function parseTaskTimestamp(task: TaskSummary): number | undefined {
   const updatedAt = Date.parse(task.updatedAt);
   if (!Number.isNaN(updatedAt)) return updatedAt;
   const createdAt = Date.parse(task.createdAt);
   if (!Number.isNaN(createdAt)) return createdAt;
-  return 0;
+  return undefined;
 }
 
 function buildAssignedTaskUrl(repo: string, task: TaskSummary): string {
@@ -159,7 +159,7 @@ function buildPullRequestAgentAssignments(
 ): Record<number, PullRequestAgentAssignment> {
   const assignments = new Map<
     number,
-    PullRequestAgentAssignment & { timestamp: number }
+    PullRequestAgentAssignment & { timestamp: number | undefined }
   >();
 
   for (const task of tasks) {
@@ -168,11 +168,17 @@ function buildPullRequestAgentAssignments(
 
     const timestamp = parseTaskTimestamp(task);
     const existing = assignments.get(task.pullRequestNumber);
-    if (!existing || timestamp > existing.timestamp) {
+    const nextCount = (existing?.count ?? 0) + 1;
+    const shouldReplace =
+      !existing ||
+      (timestamp !== undefined &&
+        (existing.timestamp === undefined || timestamp > existing.timestamp));
+
+    if (shouldReplace) {
       assignments.set(task.pullRequestNumber, {
         taskId: task.id,
         url: buildAssignedTaskUrl(repo, task),
-        count: (existing?.count ?? 0) + 1,
+        count: nextCount,
         timestamp,
       });
       continue;
@@ -180,7 +186,7 @@ function buildPullRequestAgentAssignments(
 
     assignments.set(task.pullRequestNumber, {
       ...existing,
-      count: existing.count + 1,
+      count: nextCount,
     });
   }
 
