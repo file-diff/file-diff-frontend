@@ -106,6 +106,83 @@ function getPrStatusClass(status: string): string {
   }
 }
 
+function prettifyStatusLabel(value: string): string {
+  return value
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function getAgentTaskStatusPresentation(task: TaskSummary): {
+  label: string;
+  tone: "completed" | "failed" | "active" | "waiting" | "cancelled" | "neutral";
+} {
+  const normalizedStatus = prettifyStatusLabel(task.status);
+  const normalizedState = prettifyStatusLabel(task.state);
+  const value = normalizedStatus || normalizedState;
+
+  if (
+    value === "completed" ||
+    value === "finished" ||
+    value === "succeeded" ||
+    value === "success"
+  ) {
+    return { label: "finished", tone: "completed" };
+  }
+  if (value === "failed" || value === "error") {
+    return { label: "failed", tone: "failed" };
+  }
+  if (
+    value === "active" ||
+    value === "in progress" ||
+    value === "running" ||
+    value === "working"
+  ) {
+    return { label: "working", tone: "active" };
+  }
+  if (value === "waiting" || value === "queued" || value === "pending") {
+    return { label: "queued", tone: "waiting" };
+  }
+  if (value === "cancelled" || value === "canceled") {
+    return { label: "cancelled", tone: "cancelled" };
+  }
+  return { label: value || "unknown", tone: "neutral" };
+}
+
+function getPullRequestBadgeState(
+  pullRequest: RepositoryBranch["pullRequest"]
+):
+  | {
+      label: string;
+      tone: "draft" | "ready";
+    }
+  | null {
+  if (!pullRequest || pullRequest.state !== "open") {
+    return null;
+  }
+
+  const rawMergeState = (pullRequest.mergeStateStatus ?? "").trim().toLowerCase();
+  const mergeState = prettifyStatusLabel(rawMergeState);
+  if (pullRequest.draft || mergeState === "draft") {
+    return { label: "draft", tone: "draft" };
+  }
+
+  if (
+    pullRequest.readyToMerge === true ||
+    mergeState === "ready to merge" ||
+    mergeState === "clean" ||
+    rawMergeState === "has_hooks" ||
+    mergeState === "has hooks" ||
+    mergeState === "unstable" ||
+    (pullRequest.mergeable === true && !mergeState)
+  ) {
+    return { label: "ready to merge", tone: "ready" };
+  }
+
+  return null;
+}
+
 interface ActionResult {
   branch: string;
   success: boolean;
@@ -116,6 +193,14 @@ interface BranchAgentAssignment {
   taskId: string;
   url: string;
   count: number;
+  statusLabel: string;
+  statusTone:
+    | "completed"
+    | "failed"
+    | "active"
+    | "waiting"
+    | "cancelled"
+    | "neutral";
 }
 
 type MergeMethod = "merge" | "squash" | "rebase";
@@ -183,10 +268,13 @@ function buildBranchAgentAssignments(
         (existing.timestamp === undefined || timestamp > existing.timestamp));
 
     if (shouldReplace) {
+      const { label, tone } = getAgentTaskStatusPresentation(task);
       assignments.set(branchName, {
         taskId: task.id,
         url: buildAssignedTaskUrl(repo, task),
         count: nextCount,
+        statusLabel: label,
+        statusTone: tone,
         timestamp,
       });
       continue;
@@ -205,6 +293,8 @@ function buildBranchAgentAssignments(
         taskId: assignment.taskId,
         url: assignment.url,
         count: assignment.count,
+        statusLabel: assignment.statusLabel,
+        statusTone: assignment.statusTone,
       },
     ])
   );
@@ -902,6 +992,9 @@ export default function BranchesPage() {
             {branches.map((branch) => {
               const isSelected = selectedBranches.has(branch.ref);
               const agentAssignment = branchAgentAssignments[branch.name];
+              const pullRequestBadgeState = getPullRequestBadgeState(
+                branch.pullRequest
+              );
 
               return (
                 <div
@@ -977,34 +1070,45 @@ export default function BranchesPage() {
                       </span>
                     ))}
                     {branch.pullRequest && (
-                      <>
-                        <a
-                          href={branch.pullRequest.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="branches-page__pr-badge"
-                        >
-                          #{branch.pullRequest.number}
-                        </a>
-                        {agentAssignment && (
-                          <a
-                            href={agentAssignment.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="branches-page__agent-task-badge"
-                            title={
-                              agentAssignment.count > 1
-                                ? `${agentAssignment.count} assigned agent tasks`
-                                : `Assigned agent task ${agentAssignment.taskId}`
-                            }
-                          >
-                            🤖
-                            {agentAssignment.count > 1
-                              ? ` ${agentAssignment.count}`
-                              : ""}
-                          </a>
-                        )}
-                      </>
+                      <a
+                        href={branch.pullRequest.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="branches-page__pr-badge"
+                      >
+                        #{branch.pullRequest.number}
+                      </a>
+                    )}
+                    {pullRequestBadgeState && (
+                      <span
+                        className={
+                          "branches-page__pr-state-badge branches-page__pr-state-badge--" +
+                          pullRequestBadgeState.tone
+                        }
+                      >
+                        {pullRequestBadgeState.label}
+                      </span>
+                    )}
+                    {agentAssignment && (
+                      <a
+                        href={agentAssignment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={
+                          "branches-page__agent-task-badge branches-page__agent-task-badge--" +
+                          agentAssignment.statusTone
+                        }
+                        title={
+                          agentAssignment.count > 1
+                            ? `${agentAssignment.count} assigned agent tasks — latest status: ${agentAssignment.statusLabel}`
+                            : `Assigned agent task ${agentAssignment.taskId} — status: ${agentAssignment.statusLabel}`
+                        }
+                      >
+                        🤖 {agentAssignment.statusLabel}
+                        {agentAssignment.count > 1
+                          ? ` · ${agentAssignment.count}`
+                          : ""}
+                      </a>
                     )}
                   </div>
                 </div>
