@@ -38,8 +38,8 @@ export interface CreateTaskFormProps {
   initialRepo?: string;
 }
 
-const INITIAL_CREATE_PULL_REQUEST = true;
-const INITIAL_BASE_REF = "main";
+const DEFAULT_CREATE_PULL_REQUEST = true;
+const DEFAULT_BRANCH_NAME = "main";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -184,10 +184,10 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
   );
   const [bearerToken, setBearerToken] = useState(loadBearerToken);
   const [createPullRequest, setCreatePullRequest] = useState(
-    savedDraftRef.current?.createPullRequest ?? INITIAL_CREATE_PULL_REQUEST
+    savedDraftRef.current?.createPullRequest ?? DEFAULT_CREATE_PULL_REQUEST
   );
   const [baseRef, setBaseRef] = useState(
-    savedDraftRef.current?.baseRef || INITIAL_BASE_REF
+    savedDraftRef.current?.baseRef || DEFAULT_BRANCH_NAME
   );
 
   const [branches, setBranches] = useState<RepositoryBranch[]>([]);
@@ -225,8 +225,8 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
         if (defaultBranch) {
           return defaultBranch.name;
         }
-        if (result.some((b) => b.name === INITIAL_BASE_REF)) {
-          return INITIAL_BASE_REF;
+        if (result.some((b) => b.name === DEFAULT_BRANCH_NAME)) {
+          return DEFAULT_BRANCH_NAME;
         }
         return result[0]?.name || currentBaseRef;
       });

@@ -10,7 +10,7 @@ const TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY =
   "tree-compare2-file-name-filter-value";
 const TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY =
   "tree-compare2-scroll-path";
-const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
+import { CREATE_TASK_DRAFT_STORAGE_KEY } from "./createTaskStorage";
 
 export interface LastSelectedParams {
   leftRepo: string;

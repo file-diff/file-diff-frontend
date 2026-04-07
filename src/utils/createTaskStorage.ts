@@ -1,4 +1,4 @@
-const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
+export const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
 
 export interface CreateTaskDraft {
   repoInput: string;
