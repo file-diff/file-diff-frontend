@@ -222,7 +222,7 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
         if (result.some((b) => b.name === DEFAULT_BRANCH_NAME)) {
           return DEFAULT_BRANCH_NAME;
         }
-        return result[0]?.name || DEFAULT_BRANCH_NAME;
+        return result[0]?.name || "";
       });
     } catch (err) {
       if (controller.signal.aborted) return;
