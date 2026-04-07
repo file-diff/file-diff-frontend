@@ -145,7 +145,7 @@ function getAgentTaskStatusPresentation(task: TaskSummary): {
     return { label: "queued", tone: "waiting" };
   }
   if (value === "cancelled" || value === "canceled") {
-    return { label: "canceled", tone: "cancelled" };
+    return { label: "cancelled", tone: "cancelled" };
   }
   return { label: value || "unknown", tone: "neutral" };
 }
