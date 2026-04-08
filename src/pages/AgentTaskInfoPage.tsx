@@ -203,10 +203,8 @@ export default function AgentTaskInfoPage({
 
   useEffect(() => {
     setSelectedTaskId(queryTaskId);
-    if (!queryTaskId) {
-      setTaskDetail(null);
-      setTaskDetailError("");
-    }
+    setTaskDetail(null);
+    setTaskDetailError("");
   }, [queryTaskId]);
 
   useEffect(() => {
