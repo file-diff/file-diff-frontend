@@ -88,6 +88,7 @@ export default function AgentTaskInfoPage({
   const [taskDetailError, setTaskDetailError] = useState("");
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
   const currentSearchRef = useRef("");
   const autoLoadedRepoRef = useRef("");
 
@@ -371,6 +372,15 @@ export default function AgentTaskInfoPage({
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectAllRef.current) {
+      return;
+    }
+
+    selectAllRef.current.indeterminate =
+      selectedTaskIds.size > 0 && selectedTaskIds.size < tasks.length;
+  }, [selectedTaskIds, tasks.length]);
+
   return (
     <div className="agent-task-info-page">
       <div className="page-header">
@@ -435,9 +445,11 @@ export default function AgentTaskInfoPage({
             <div className="agent-task-info-page__tasks-header-left">
               <label className="agent-task-info-page__select-all">
                 <input
+                  ref={selectAllRef}
                   type="checkbox"
                   checked={tasks.length > 0 && selectedTaskIds.size === tasks.length}
                   onChange={toggleSelectAll}
+                  aria-label="Select all tasks"
                 />
               </label>
               <span className="agent-task-info-page__tasks-title">
@@ -471,8 +483,12 @@ export default function AgentTaskInfoPage({
                   className="agent-task-info-page__task-main"
                   role="button"
                   tabIndex={0}
+                  aria-label={`View details for task ${task.id}`}
                   onClick={() => void handleSelectTask(task.id)}
                   onKeyDown={(event) => {
+                    if (event.key === " ") {
+                      event.preventDefault();
+                    }
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
                       void handleSelectTask(task.id);
