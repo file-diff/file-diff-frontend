@@ -67,6 +67,8 @@ export default function AgentTaskInfoPage() {
   const [taskDetailError, setTaskDetailError] = useState("");
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const currentSearchRef = useRef("");
+  const autoLoadedRepoRef = useRef("");
 
   const resolvedRepo = useMemo(() => resolveRepoInput(repoInput), [repoInput]);
   const ownerRepo = useMemo(() => splitOwnerRepo(resolvedRepo), [resolvedRepo]);
@@ -75,6 +77,75 @@ export default function AgentTaskInfoPage() {
     setBearerToken(value);
     saveBearerToken(value);
   }, []);
+
+  const updateSearchParams = useCallback(
+    (update: (params: URLSearchParams) => void) => {
+      const params = new URLSearchParams(currentSearchRef.current);
+      update(params);
+
+      const nextSearch = params.toString();
+      if (nextSearch === currentSearchRef.current) {
+        return;
+      }
+
+      currentSearchRef.current = nextSearch;
+      setSearchParams(params, { replace: true });
+    },
+    [setSearchParams]
+  );
+
+  const loadTasksForRepo = useCallback(
+    async (
+      repo: string,
+      currentOwnerRepo: { owner: string; name: string }
+    ) => {
+      if (!bearerToken.trim()) {
+        setTasksError("Please enter a bearer token.");
+        return;
+      }
+
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      setTasksLoading(true);
+      setTasksError("");
+      setTasks([]);
+      setTasksRaw(null);
+      setSelectedTaskId("");
+      setTaskDetail(null);
+      setTaskDetailError("");
+
+      try {
+        const result = await requestAgentTasks(
+          currentOwnerRepo.owner,
+          currentOwnerRepo.name,
+          bearerToken.trim(),
+          controller.signal
+        );
+        if (controller.signal.aborted) return;
+        setTasksRaw(result);
+        setTasks(extractTaskSummaries(result));
+
+        updateSearchParams((params) => {
+          params.set("repo", repo);
+          params.delete("taskId");
+        });
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setTasksError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Unable to fetch agent tasks"
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setTasksLoading(false);
+        }
+      }
+    },
+    [bearerToken, updateSearchParams]
+  );
 
   const handleLoadTasks = useCallback(async () => {
     if (!ownerRepo) {
@@ -86,45 +157,8 @@ export default function AgentTaskInfoPage() {
       return;
     }
 
-    abortControllerRef.current?.abort();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    setTasksLoading(true);
-    setTasksError("");
-    setTasks([]);
-    setTasksRaw(null);
-    setSelectedTaskId("");
-    setTaskDetail(null);
-    setTaskDetailError("");
-
-    try {
-      const result = await requestAgentTasks(
-        ownerRepo.owner,
-        ownerRepo.name,
-        bearerToken.trim(),
-        controller.signal
-      );
-      if (controller.signal.aborted) return;
-      setTasksRaw(result);
-      setTasks(extractTaskSummaries(result));
-
-      const params = new URLSearchParams();
-      params.set("repo", resolvedRepo);
-      setSearchParams(params, { replace: true });
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setTasksError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Unable to fetch agent tasks"
-      );
-    } finally {
-      if (!controller.signal.aborted) {
-        setTasksLoading(false);
-      }
-    }
-  }, [ownerRepo, bearerToken, resolvedRepo, setSearchParams]);
+    await loadTasksForRepo(resolvedRepo, ownerRepo);
+  }, [ownerRepo, bearerToken, resolvedRepo, loadTasksForRepo]);
 
   const handleSelectTask = useCallback(
     async (taskId: string) => {
@@ -135,10 +169,10 @@ export default function AgentTaskInfoPage() {
       setTaskDetailError("");
       setTaskDetailLoading(true);
 
-      const params = new URLSearchParams();
-      params.set("repo", resolvedRepo);
-      params.set("taskId", taskId);
-      setSearchParams(params, { replace: true });
+      updateSearchParams((params) => {
+        params.set("repo", resolvedRepo);
+        params.set("taskId", taskId);
+      });
 
       try {
         const result = await requestAgentTask(
@@ -158,8 +192,31 @@ export default function AgentTaskInfoPage() {
         setTaskDetailLoading(false);
       }
     },
-    [ownerRepo, bearerToken, resolvedRepo, setSearchParams]
+    [ownerRepo, bearerToken, resolvedRepo, updateSearchParams]
   );
+
+  useEffect(() => {
+    currentSearchRef.current = searchParams.toString();
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (queryRepo && queryRepo !== repoInput) {
+      setRepoInput(queryRepo);
+    }
+  }, [queryRepo, repoInput]);
+
+  useEffect(() => {
+    if (!ownerRepo || !bearerToken.trim()) {
+      return;
+    }
+
+    if (autoLoadedRepoRef.current === resolvedRepo) {
+      return;
+    }
+
+    autoLoadedRepoRef.current = resolvedRepo;
+    void loadTasksForRepo(resolvedRepo, ownerRepo);
+  }, [ownerRepo, bearerToken, resolvedRepo, loadTasksForRepo]);
 
   useEffect(() => {
     return () => {
