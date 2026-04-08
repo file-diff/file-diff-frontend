@@ -581,7 +581,12 @@ function normalizePullRequest(value: unknown): BranchPullRequest | null {
     asNumber(value.pullNumber) ??
     asNumber(value.pull_number);
   const url =
-    asString(value.url)?.trim() ?? asString(value.html_url)?.trim() ?? "";
+    asString(value.url)?.trim() ??
+    asString(value.htmlUrl)?.trim() ??
+    asString(value.html_url)?.trim() ??
+    asString(value.pullRequestUrl)?.trim() ??
+    asString(value.pull_request_url)?.trim() ??
+    "";
 
   if (!number || !url) {
     return null;
