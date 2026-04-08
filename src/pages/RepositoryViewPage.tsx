@@ -1,5 +1,7 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import RepositorySelector from "../components/RepositorySelector";
+import { resolveRepositoryInput } from "../utils/repositorySelection";
 import RepositoryBrowserPage from "./RepositoryBrowserPage";
 import BranchesPage from "./BranchesPage";
 import AgentTaskInfoPage from "./AgentTaskInfoPage";
@@ -7,9 +9,33 @@ import CreateTaskPage from "./CreateTaskPage";
 import "./RepositoryViewPage.css";
 
 export default function RepositoryViewPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const repo = searchParams.get("repo") ?? "";
+  const [repoInput, setRepoInput] = useState(repo);
   const repoKey = useMemo(() => repo.trim() || "no-repo", [repo]);
+
+  useEffect(() => {
+    setRepoInput(repo);
+  }, [repo]);
+
+  const handleLoadRepository = useCallback(() => {
+    const resolvedRepo = resolveRepositoryInput(repoInput);
+    const nextParams = new URLSearchParams(searchParams);
+
+    nextParams.delete("leftCommit");
+    nextParams.delete("rightCommit");
+    nextParams.delete("lc");
+    nextParams.delete("rc");
+    nextParams.delete("taskId");
+
+    if (resolvedRepo) {
+      nextParams.set("repo", resolvedRepo);
+    } else {
+      nextParams.delete("repo");
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  }, [repoInput, searchParams, setSearchParams]);
 
   return (
     <div className="repository-view-page">
@@ -21,18 +47,40 @@ export default function RepositoryViewPage() {
         </p>
       </div>
 
+      <RepositorySelector
+        inputId="repository-view-input"
+        value={repoInput}
+        onChange={setRepoInput}
+        onSubmit={handleLoadRepository}
+        buttonLabel="Load repository"
+        disabled={!repoInput.trim()}
+        className="repository-view-page__selector"
+      />
+
       <div className="repository-view-page__columns">
         <div className="repository-view-page__column">
-          <RepositoryBrowserPage key={`commits-${repoKey}`} />
+          <RepositoryBrowserPage
+            key={`commits-${repoKey}`}
+            showRepositorySelector={false}
+          />
         </div>
         <div className="repository-view-page__column">
-          <BranchesPage key={`branches-${repoKey}`} />
+          <BranchesPage
+            key={`branches-${repoKey}`}
+            showRepositorySelector={false}
+          />
         </div>
         <div className="repository-view-page__column">
-          <AgentTaskInfoPage key={`tasks-${repoKey}`} />
+          <AgentTaskInfoPage
+            key={`tasks-${repoKey}`}
+            showRepositorySelector={false}
+          />
         </div>
         <div className="repository-view-page__column repository-view-page__column--full">
-          <CreateTaskPage key={`create-task-${repoKey}`} />
+          <CreateTaskPage
+            key={`create-task-${repoKey}`}
+            showRepositorySelector={false}
+          />
         </div>
       </div>
     </div>

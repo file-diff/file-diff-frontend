@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  parseRepositoryLocation,
+  resolveRepositoryInput,
   requestRepositoryBranches,
   requestDeleteRemoteBranch,
   requestPullRequestReady,
@@ -32,6 +32,7 @@ import {
   formatRelativeDateTime,
   formatAbsoluteDateTime,
 } from "../utils/organizationBrowserPresentation";
+import RepositorySelector from "../components/RepositorySelector";
 import "./BranchesPage.css";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
@@ -311,7 +312,13 @@ function loadInitialBranches(repo: string): RepositoryBranch[] {
   return sortBranchesByNewestCommit(cached);
 }
 
-export default function BranchesPage() {
+interface BranchesPageProps {
+  showRepositorySelector?: boolean;
+}
+
+export default function BranchesPage({
+  showRepositorySelector = true,
+}: BranchesPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
   const initialRepo = resolveInitialRepo(queryRepo);
@@ -344,20 +351,6 @@ export default function BranchesPage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoLoadedRepoRef = useRef<string>("");
   const currentSearchRef = useRef(searchParams.toString());
-
-  const resolveRepoInput = useCallback((input: string): string => {
-    const trimmed = input.trim();
-    if (!trimmed) return "";
-
-    const parsed = parseRepositoryLocation(trimmed);
-    if (parsed) return parsed.repo;
-
-    if (/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(trimmed)) {
-      return trimmed;
-    }
-
-    return trimmed;
-  }, []);
 
   const loadBranchesForRepo = useCallback(
     async (repo: string, options: LoadBranchesOptions = {}) => {
@@ -466,7 +459,7 @@ export default function BranchesPage() {
   }, [searchParams]);
 
   const handleLoadBranches = useCallback(async () => {
-    const repo = resolveRepoInput(repoInput);
+    const repo = resolveRepositoryInput(repoInput);
     if (!repo) {
       setError("Please enter a repository in owner/repo format.");
       return;
@@ -474,10 +467,10 @@ export default function BranchesPage() {
 
     autoLoadedRepoRef.current = repo;
     await loadBranchesForRepo(repo);
-  }, [loadBranchesForRepo, repoInput, resolveRepoInput]);
+  }, [loadBranchesForRepo, repoInput]);
 
   useEffect(() => {
-    const repo = resolveRepoInput(initialRepo);
+    const repo = resolveRepositoryInput(initialRepo);
     if (!repo || autoLoadedRepoRef.current === repo) {
       return;
     }
@@ -492,7 +485,7 @@ export default function BranchesPage() {
     return () => {
       window.clearTimeout(refreshTimer);
     };
-  }, [loadBranchesForRepo, initialRepo, resolveRepoInput]);
+  }, [loadBranchesForRepo, initialRepo]);
 
   useEffect(() => {
     if (!bearerToken.trim()) {
@@ -842,37 +835,30 @@ export default function BranchesPage() {
         </p>
       </div>
 
+      {showRepositorySelector && (
+        <RepositorySelector
+          inputId="branches-page-input"
+          value={repoInput}
+          onChange={setRepoInput}
+          onSubmit={handleLoadBranches}
+          buttonLabel="Load branches"
+          loadingButtonLabel="Loading…"
+          isLoading={isLoading && !loadedRepo}
+          disabled={isLoading || !repoInput.trim()}
+          actions={
+            loadedRepo ? (
+              <button
+                type="button"
+                onClick={() => void loadBranchesForRepo(loadedRepo)}
+                disabled={isLoading}
+              >
+                {isLoading ? "Refreshing…" : "Refresh"}
+              </button>
+            ) : null
+          }
+        />
+      )}
       <div className="branches-page__input-section">
-        <label htmlFor="branches-page-input">Repository</label>
-        <div className="branches-page__input-row">
-          <input
-            id="branches-page-input"
-            type="text"
-            value={repoInput}
-            onChange={(e) => setRepoInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void handleLoadBranches();
-            }}
-            placeholder="owner/repo or paste full GitHub URL"
-            spellCheck={false}
-          />
-          <button
-            type="button"
-            onClick={() => void handleLoadBranches()}
-            disabled={isLoading || !repoInput.trim()}
-          >
-            {isLoading && !loadedRepo ? "Loading…" : "Load branches"}
-          </button>
-          {loadedRepo && (
-            <button
-              type="button"
-              onClick={() => void loadBranchesForRepo(loadedRepo)}
-              disabled={isLoading}
-            >
-              {isLoading ? "Refreshing…" : "Refresh"}
-            </button>
-          )}
-        </div>
         {loadedRepo && (
           <div className="branches-page__nav-links">
             <Link

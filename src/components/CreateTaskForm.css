@@ -10,6 +10,10 @@
   gap: 6px;
 }
 
+.create-task-form__repository-selector {
+  margin-bottom: 0;
+}
+
 .create-task-form__field > label {
   color: #bbb;
   font-size: 0.85rem;

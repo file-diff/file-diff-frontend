@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  parseRepositoryLocation,
+  resolveRepositoryInput,
   requestAgentTasks,
   requestAgentTask,
 } from "../utils/repositorySelection";
@@ -11,20 +11,10 @@ import {
   type TaskSummary,
 } from "../utils/agentTasks";
 import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
+import RepositorySelector from "../components/RepositorySelector";
 import "./AgentTaskInfoPage.css";
-
-const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
 const MAX_TASK_ID_DISPLAY_LENGTH = 12;
 const MAX_DESCRIPTION_DISPLAY_LENGTH = 120;
-
-function resolveRepoInput(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return "";
-  const parsed = parseRepositoryLocation(trimmed);
-  if (parsed) return parsed.repo;
-  if (REPO_PATTERN.test(trimmed)) return trimmed;
-  return trimmed;
-}
 
 function formatDateSafe(dateStr: string): string {
   if (!dateStr) return "";
@@ -47,7 +37,13 @@ function statusClassName(status: string): string {
   return "";
 }
 
-export default function AgentTaskInfoPage() {
+interface AgentTaskInfoPageProps {
+  showRepositorySelector?: boolean;
+}
+
+export default function AgentTaskInfoPage({
+  showRepositorySelector = true,
+}: AgentTaskInfoPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
   const queryTaskId = searchParams.get("taskId") ?? "";
@@ -70,7 +66,7 @@ export default function AgentTaskInfoPage() {
   const currentSearchRef = useRef("");
   const autoLoadedRepoRef = useRef("");
 
-  const resolvedRepo = useMemo(() => resolveRepoInput(repoInput), [repoInput]);
+  const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const ownerRepo = useMemo(() => splitOwnerRepo(resolvedRepo), [resolvedRepo]);
 
   const handleBearerTokenChange = useCallback((value: string) => {
@@ -206,6 +202,14 @@ export default function AgentTaskInfoPage() {
   }, [queryRepo, repoInput]);
 
   useEffect(() => {
+    setSelectedTaskId(queryTaskId);
+    if (!queryTaskId) {
+      setTaskDetail(null);
+      setTaskDetailError("");
+    }
+  }, [queryTaskId]);
+
+  useEffect(() => {
     if (!ownerRepo || !bearerToken.trim()) {
       return;
     }
@@ -233,29 +237,18 @@ export default function AgentTaskInfoPage() {
         </p>
       </div>
 
-      <div className="agent-task-info-page__input-section">
-        <label htmlFor="agent-task-repo">Repository</label>
-        <div className="agent-task-info-page__input-row">
-          <input
-            id="agent-task-repo"
-            type="text"
-            value={repoInput}
-            onChange={(e) => setRepoInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void handleLoadTasks();
-            }}
-            placeholder="owner/repo or paste full GitHub URL"
-            spellCheck={false}
-          />
-          <button
-            type="button"
-            onClick={() => void handleLoadTasks()}
-            disabled={tasksLoading || !repoInput.trim() || !bearerToken.trim()}
-          >
-            {tasksLoading ? "Loading…" : "Load tasks"}
-          </button>
-        </div>
-      </div>
+      {showRepositorySelector && (
+        <RepositorySelector
+          inputId="agent-task-repo"
+          value={repoInput}
+          onChange={setRepoInput}
+          onSubmit={handleLoadTasks}
+          buttonLabel="Load tasks"
+          loadingButtonLabel="Loading…"
+          isLoading={tasksLoading}
+          disabled={tasksLoading || !repoInput.trim() || !bearerToken.trim()}
+        />
+      )}
 
       <div className="agent-task-info-page__input-section">
         <div className="agent-task-info-page__token-label-row">
