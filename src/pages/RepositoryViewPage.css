@@ -1,0 +1,40 @@
+.repository-view-page {
+  width: 100%;
+  padding: 24px;
+}
+
+.repository-view-page__columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.repository-view-page__column {
+  flex: 1 1 24rem;
+  min-width: min(100%, 24rem);
+}
+
+.repository-view-page__column--full {
+  flex-basis: 100%;
+}
+
+.repository-view-page .repo-browser-page,
+.repository-view-page .branches-page,
+.repository-view-page .agent-task-info-page,
+.repository-view-page .create-task-page {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 900px) {
+  .repository-view-page__columns {
+    flex-direction: column;
+  }
+
+  .repository-view-page__column {
+    width: 100%;
+    min-width: 0;
+  }
+}

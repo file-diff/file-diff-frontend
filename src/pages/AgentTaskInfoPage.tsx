@@ -67,6 +67,8 @@ export default function AgentTaskInfoPage() {
   const [taskDetailError, setTaskDetailError] = useState("");
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const currentSearchRef = useRef(searchParams.toString());
+  const autoLoadedRepoRef = useRef("");
 
   const resolvedRepo = useMemo(() => resolveRepoInput(repoInput), [repoInput]);
   const ownerRepo = useMemo(() => splitOwnerRepo(resolvedRepo), [resolvedRepo]);
@@ -75,6 +77,22 @@ export default function AgentTaskInfoPage() {
     setBearerToken(value);
     saveBearerToken(value);
   }, []);
+
+  const updateSearchParams = useCallback(
+    (update: (params: URLSearchParams) => void) => {
+      const params = new URLSearchParams(currentSearchRef.current);
+      update(params);
+
+      const nextSearch = params.toString();
+      if (nextSearch === currentSearchRef.current) {
+        return;
+      }
+
+      currentSearchRef.current = nextSearch;
+      setSearchParams(params, { replace: true });
+    },
+    [setSearchParams]
+  );
 
   const handleLoadTasks = useCallback(async () => {
     if (!ownerRepo) {
@@ -109,9 +127,10 @@ export default function AgentTaskInfoPage() {
       setTasksRaw(result);
       setTasks(extractTaskSummaries(result));
 
-      const params = new URLSearchParams();
-      params.set("repo", resolvedRepo);
-      setSearchParams(params, { replace: true });
+      updateSearchParams((params) => {
+        params.set("repo", resolvedRepo);
+        params.delete("taskId");
+      });
     } catch (err) {
       if (controller.signal.aborted) return;
       setTasksError(
@@ -124,7 +143,7 @@ export default function AgentTaskInfoPage() {
         setTasksLoading(false);
       }
     }
-  }, [ownerRepo, bearerToken, resolvedRepo, setSearchParams]);
+  }, [ownerRepo, bearerToken, resolvedRepo, updateSearchParams]);
 
   const handleSelectTask = useCallback(
     async (taskId: string) => {
@@ -135,10 +154,10 @@ export default function AgentTaskInfoPage() {
       setTaskDetailError("");
       setTaskDetailLoading(true);
 
-      const params = new URLSearchParams();
-      params.set("repo", resolvedRepo);
-      params.set("taskId", taskId);
-      setSearchParams(params, { replace: true });
+      updateSearchParams((params) => {
+        params.set("repo", resolvedRepo);
+        params.set("taskId", taskId);
+      });
 
       try {
         const result = await requestAgentTask(
@@ -158,8 +177,31 @@ export default function AgentTaskInfoPage() {
         setTaskDetailLoading(false);
       }
     },
-    [ownerRepo, bearerToken, resolvedRepo, setSearchParams]
+    [ownerRepo, bearerToken, resolvedRepo, updateSearchParams]
   );
+
+  useEffect(() => {
+    currentSearchRef.current = searchParams.toString();
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (queryRepo && queryRepo !== repoInput) {
+      setRepoInput(queryRepo);
+    }
+  }, [queryRepo, repoInput]);
+
+  useEffect(() => {
+    if (!ownerRepo || !bearerToken.trim()) {
+      return;
+    }
+
+    if (autoLoadedRepoRef.current === resolvedRepo) {
+      return;
+    }
+
+    autoLoadedRepoRef.current = resolvedRepo;
+    void handleLoadTasks();
+  }, [ownerRepo, bearerToken, resolvedRepo, handleLoadTasks]);
 
   useEffect(() => {
     return () => {

@@ -16,6 +16,7 @@ import BranchesPage from "./pages/BranchesPage";
 import OrganizationBrowserPage from "./pages/OrganizationBrowserPage";
 import CreateTaskPage from "./pages/CreateTaskPage";
 import AgentTaskInfoPage from "./pages/AgentTaskInfoPage";
+import RepositoryViewPage from "./pages/RepositoryViewPage";
 import FontSelector from "./components/FontSelector";
 import { DEFAULT_FONT_ID } from "./config/fonts";
 import { applyFont } from "./utils/fontInit";
@@ -62,6 +63,9 @@ function AppShell() {
             <Link to="/commits" className="nav-link">
               🔀 Commits
             </Link>
+            <Link to="/repository" className="nav-link">
+              🗂️ Repository
+            </Link>
             <Link to="/branches" className="nav-link">
               🌿 Branches
             </Link>
@@ -97,6 +101,7 @@ function AppShell() {
           <Route path="/files" element={<FileComparePage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/commits" element={<RepositoryBrowserPage />} />
+          <Route path="/repository" element={<RepositoryViewPage />} />
           <Route path="/branches" element={<BranchesPage />} />
           <Route path="/browse" element={<OrganizationBrowserPage />} />
           <Route path="/create-task" element={<CreateTaskPage />} />
