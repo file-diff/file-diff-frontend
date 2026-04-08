@@ -477,6 +477,7 @@ export default function AgentTaskInfoPage({
                     type="checkbox"
                     checked={selectedTaskIds.has(task.id)}
                     onChange={() => toggleTaskSelection(task.id)}
+                    aria-label={`Select task ${task.id}`}
                   />
                 </label>
                 <div
@@ -486,9 +487,6 @@ export default function AgentTaskInfoPage({
                   aria-label={`View details for task ${task.id}`}
                   onClick={() => void handleSelectTask(task.id)}
                   onKeyDown={(event) => {
-                    if (event.key === " ") {
-                      event.preventDefault();
-                    }
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
                       void handleSelectTask(task.id);
