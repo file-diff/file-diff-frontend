@@ -67,7 +67,7 @@ export default function AgentTaskInfoPage() {
   const [taskDetailError, setTaskDetailError] = useState("");
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const currentSearchRef = useRef(searchParams.toString());
+  const currentSearchRef = useRef("");
   const autoLoadedRepoRef = useRef("");
 
   const resolvedRepo = useMemo(() => resolveRepoInput(repoInput), [repoInput]);

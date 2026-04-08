@@ -9,7 +9,7 @@ import "./RepositoryViewPage.css";
 export default function RepositoryViewPage() {
   const [searchParams] = useSearchParams();
   const repo = searchParams.get("repo") ?? "";
-  const repoKey = useMemo(() => repo.trim() || "empty", [repo]);
+  const repoKey = useMemo(() => repo.trim() || "no-repo", [repo]);
 
   return (
     <div className="repository-view-page">
