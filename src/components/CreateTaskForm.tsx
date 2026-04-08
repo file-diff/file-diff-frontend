@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  parseRepositoryLocation,
+  resolveRepositoryInput,
   requestRepositoryBranches,
   requestCreateTask,
 } from "../utils/repositorySelection";
@@ -13,6 +13,7 @@ import type {
   RepositoryBranch,
   CreateTaskRequest,
 } from "../utils/repositorySelection";
+import RepositorySelector from "./RepositorySelector";
 import "./CreateTaskForm.css";
 
 const MODEL_OPTIONS = [
@@ -36,6 +37,7 @@ const TASK_ID_KEYS = new Set([
 
 export interface CreateTaskFormProps {
   initialRepo?: string;
+  showRepositorySelector?: boolean;
 }
 
 const DEFAULT_CREATE_PULL_REQUEST = true;
@@ -43,15 +45,6 @@ const DEFAULT_BRANCH_NAME = "main";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function resolveRepoInput(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return "";
-  const parsed = parseRepositoryLocation(trimmed);
-  if (parsed) return parsed.repo;
-  if (REPO_PATTERN.test(trimmed)) return trimmed;
-  return trimmed;
 }
 
 function normalizeWhitespace(value: string): string {
@@ -207,11 +200,15 @@ function getGitHubTaskInfo(
   };
 }
 
-export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps) {
+export default function CreateTaskForm({
+  initialRepo = "",
+  showRepositorySelector = true,
+}: CreateTaskFormProps) {
   const [savedDraft] = useState(() => loadCreateTaskDraft());
-  const [repoInput, setRepoInput] = useState(
-    initialRepo || savedDraft?.repoInput || ""
-  );
+  const initialRepoInput = showRepositorySelector
+    ? initialRepo || savedDraft?.repoInput || ""
+    : initialRepo;
+  const [repoInput, setRepoInput] = useState(initialRepoInput);
   const [eventContent, setEventContent] = useState(savedDraft?.eventContent || "");
   const [problemStatement, setProblemStatement] = useState(
     savedDraft?.problemStatement || ""
@@ -278,7 +275,7 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
   }, []);
 
   const handleLoadBranches = useCallback(() => {
-    const repo = resolveRepoInput(repoInput);
+    const repo = resolveRepositoryInput(repoInput);
     if (!repo) {
       setBranchesError("Please enter a repository in owner/repo format.");
       return;
@@ -292,7 +289,7 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    const repo = resolveRepoInput(repoInput);
+    const repo = resolveRepositoryInput(repoInput);
     if (!repo) {
       setSubmitError("Please enter a repository.");
       return;
@@ -371,11 +368,17 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
     };
   }, []);
 
+  useEffect(() => {
+    if (!showRepositorySelector) {
+      setRepoInput(initialRepo);
+    }
+  }, [initialRepo, showRepositorySelector]);
+
   const canSubmit =
     !isSubmitting &&
     repoInput.trim() !== "" &&
     bearerToken.trim() !== "";
-  const resolvedRepo = useMemo(() => resolveRepoInput(repoInput), [repoInput]);
+  const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const githubTaskInfo = useMemo(
     () =>
       submitResult !== null
@@ -386,33 +389,24 @@ export default function CreateTaskForm({ initialRepo = "" }: CreateTaskFormProps
 
   return (
     <div className="create-task-form">
-      <div className="create-task-form__field">
-        <label htmlFor="create-task-repo">Repository</label>
-        <div className="create-task-form__input-row">
-          <input
-            id="create-task-repo"
-            type="text"
+      {showRepositorySelector && (
+        <div className="create-task-form__field">
+          <RepositorySelector
+            inputId="create-task-repo"
             value={repoInput}
-            onChange={(e) => setRepoInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleLoadBranches();
-            }}
-            placeholder="owner/repo or paste full GitHub URL"
-            spellCheck={false}
-          />
-          <button
-            type="button"
-            onClick={handleLoadBranches}
+            onChange={setRepoInput}
+            onSubmit={handleLoadBranches}
+            buttonLabel="Load branches"
+            loadingButtonLabel="Loading…"
+            isLoading={branchesLoading}
             disabled={branchesLoading || !repoInput.trim()}
-            className="create-task-form__secondary-btn"
-          >
-            {branchesLoading ? "Loading…" : "Load branches"}
-          </button>
+            className="create-task-form__repository-selector"
+          />
+          {branchesError && (
+            <div className="create-task-form__field-error">{branchesError}</div>
+          )}
         </div>
-        {branchesError && (
-          <div className="create-task-form__field-error">{branchesError}</div>
-        )}
-      </div>
+      )}
 
       <div className="create-task-form__field">
         <label htmlFor="create-task-branch">Target branch</label>

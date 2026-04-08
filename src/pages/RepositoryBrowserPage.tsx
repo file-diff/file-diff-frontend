@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { JOBS_API_URL } from "../config/api";
 import {
-  parseRepositoryLocation,
+  resolveRepositoryInput,
   requestRepositoryCommits,
 } from "../utils/repositorySelection";
 import type { RepositoryCommit } from "../utils/repositorySelection";
+import RepositorySelector from "../components/RepositorySelector";
 import { buildTreeComparisonLink } from "../utils/storage";
 import "./RepositoryBrowserPage.css";
 
@@ -63,7 +64,13 @@ function applySelectedCommitParams(
   }
 }
 
-export default function RepositoryBrowserPage() {
+interface RepositoryBrowserPageProps {
+  showRepositorySelector?: boolean;
+}
+
+export default function RepositoryBrowserPage({
+  showRepositorySelector = true,
+}: RepositoryBrowserPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
   const queryLeftCommit = getOptionalQueryParam(searchParams, "leftCommit", "lc");
@@ -91,20 +98,6 @@ export default function RepositoryBrowserPage() {
   const startedIndexingKeysRef = useRef<Set<string>>(new Set());
   const legacyCommitSelectionSearch =
     searchParams.has("lc") || searchParams.has("rc") ? searchParams.toString() : "";
-
-  const resolveRepoInput = useCallback((input: string): string => {
-    const trimmed = input.trim();
-    if (!trimmed) return "";
-
-    const parsed = parseRepositoryLocation(trimmed);
-    if (parsed) return parsed.repo;
-
-    if (/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(trimmed)) {
-      return trimmed;
-    }
-
-    return trimmed;
-  }, []);
 
   const updateSearchParams = useCallback(
     (update: (params: URLSearchParams) => void) => {
@@ -161,7 +154,7 @@ export default function RepositoryBrowserPage() {
   }, [searchParams]);
 
   const handleLoadCommits = useCallback(async () => {
-    const repo = resolveRepoInput(repoInput);
+    const repo = resolveRepositoryInput(repoInput);
     if (!repo) {
       setError("Please enter a repository in owner/repo format.");
       return;
@@ -169,10 +162,10 @@ export default function RepositoryBrowserPage() {
 
     autoLoadedRepoRef.current = repo;
     await loadCommitsForRepo(repo);
-  }, [loadCommitsForRepo, repoInput, resolveRepoInput]);
+  }, [loadCommitsForRepo, repoInput]);
 
   useEffect(() => {
-    const repo = resolveRepoInput(queryRepo);
+    const repo = resolveRepositoryInput(queryRepo);
     if (!repo || autoLoadedRepoRef.current === repo) {
       return;
     }
@@ -180,7 +173,7 @@ export default function RepositoryBrowserPage() {
     autoLoadedRepoRef.current = repo;
     setRepoInput(repo);
     void loadCommitsForRepo(repo);
-  }, [loadCommitsForRepo, queryRepo, resolveRepoInput]);
+  }, [loadCommitsForRepo, queryRepo]);
 
   useEffect(() => {
     setLeftCommit(queryLeftCommit);
@@ -269,7 +262,7 @@ export default function RepositoryBrowserPage() {
   }, [leftCommit, loadedRepo, rightCommit]);
 
   const handleLoadMore = useCallback(async () => {
-    const repo = resolveRepoInput(repoInput);
+    const repo = resolveRepositoryInput(repoInput);
     if (!repo) return;
 
     abortControllerRef.current?.abort();
@@ -300,7 +293,7 @@ export default function RepositoryBrowserPage() {
         setIsLoading(false);
       }
     }
-  }, [repoInput, resolveRepoInput, commits.length]);
+  }, [repoInput, commits.length]);
 
   const handleSelectCommit = useCallback(
     (commit: string) => {
@@ -353,39 +346,30 @@ export default function RepositoryBrowserPage() {
         </p>
       </div>
 
-      <div className="repo-browser__input-section">
-        <label htmlFor="repo-browser-input">Repository</label>
-        <div className="repo-browser__input-row">
-          <input
-            id="repo-browser-input"
-            type="text"
-            value={repoInput}
-            onChange={(e) => setRepoInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void handleLoadCommits();
-            }}
-            placeholder="owner/repo or paste full GitHub URL"
-            spellCheck={false}
-          />
-          <button
-            type="button"
-            onClick={() => void handleLoadCommits()}
-            disabled={isLoading || !repoInput.trim()}
-          >
-            {isLoading && commits.length === 0 ? "Loading…" : "Load commits"}
-          </button>
-        </div>
-        {loadedRepo && (
-          <div className="repo-browser__nav-links">
-            <Link
-              to={`/branches?repo=${encodeURIComponent(loadedRepo)}`}
-              className="repo-browser__nav-link"
-            >
-              View branches →
-            </Link>
-          </div>
-        )}
-      </div>
+      {showRepositorySelector && (
+        <RepositorySelector
+          inputId="repo-browser-input"
+          value={repoInput}
+          onChange={setRepoInput}
+          onSubmit={handleLoadCommits}
+          buttonLabel="Load commits"
+          loadingButtonLabel="Loading…"
+          isLoading={isLoading && commits.length === 0}
+          disabled={isLoading || !repoInput.trim()}
+          footer={
+            loadedRepo ? (
+              <div className="repo-browser__nav-links">
+                <Link
+                  to={`/branches?repo=${encodeURIComponent(loadedRepo)}`}
+                  className="repo-browser__nav-link"
+                >
+                  View branches →
+                </Link>
+              </div>
+            ) : null
+          }
+        />
+      )}
 
       {error && <div className="repo-browser__error">{error}</div>}
 

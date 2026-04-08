@@ -2,7 +2,13 @@ import { useSearchParams } from "react-router-dom";
 import CreateTaskForm from "../components/CreateTaskForm";
 import "./CreateTaskPage.css";
 
-export default function CreateTaskPage() {
+interface CreateTaskPageProps {
+  showRepositorySelector?: boolean;
+}
+
+export default function CreateTaskPage({
+  showRepositorySelector = true,
+}: CreateTaskPageProps) {
   const [searchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
 
@@ -15,7 +21,10 @@ export default function CreateTaskPage() {
         </p>
       </div>
 
-      <CreateTaskForm initialRepo={queryRepo} />
+      <CreateTaskForm
+        initialRepo={queryRepo}
+        showRepositorySelector={showRepositorySelector}
+      />
     </div>
   );
 }

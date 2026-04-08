@@ -5,6 +5,7 @@ const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
 const RESOLVE_PULL_REQUEST_URL = `${JOBS_API_URL}/pull-request/resolve`;
 const API_DEBOUNCE_MS = 300;
+const REPOSITORY_SLUG_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
 
 interface ListRefsRequest {
   repo: string;
@@ -441,6 +442,24 @@ export function parseRepositoryLocation(
   } catch {
     return null;
   }
+}
+
+export function resolveRepositoryInput(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const parsed = parseRepositoryLocation(trimmed);
+  if (parsed) {
+    return parsed.repo;
+  }
+
+  if (REPOSITORY_SLUG_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  return trimmed;
 }
 
 export async function requestOrganizationRepositories(
