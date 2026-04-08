@@ -36,13 +36,13 @@ function resolveRepoInput(input: string): string {
 
 function formatCommitDate(isoDate: string): string {
   const date = new Date(isoDate);
-  if (isNaN(date.getTime())) return isoDate;
+  if (Number.isNaN(date.getTime())) return isoDate;
   return date.toLocaleString();
 }
 
 function formatRelativeTime(isoDate: string): string {
   const date = new Date(isoDate);
-  if (isNaN(date.getTime())) return "";
+  if (Number.isNaN(date.getTime())) return "";
   const now = Date.now();
   const diffMs = now - date.getTime();
   const diffSeconds = Math.floor(diffMs / 1000);
@@ -74,9 +74,9 @@ function sortBranchesByNewestCommit(branches: RepositoryBranch[]): RepositoryBra
   return [...branches].sort((a, b) => {
     const dateA = new Date(a.date).getTime();
     const dateB = new Date(b.date).getTime();
-    if (isNaN(dateA) && isNaN(dateB)) return 0;
-    if (isNaN(dateA)) return 1;
-    if (isNaN(dateB)) return -1;
+    if (Number.isNaN(dateA) && Number.isNaN(dateB)) return 0;
+    if (Number.isNaN(dateA)) return 1;
+    if (Number.isNaN(dateB)) return -1;
     return dateB - dateA;
   });
 }
@@ -395,7 +395,6 @@ export default function RepositoryViewPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="repo-view-page__branch-pr"
-                          style={{ marginLeft: 6 }}
                         >
                           PR #{branch.pullRequest.number}
                         </a>
@@ -588,11 +587,11 @@ export default function RepositoryViewPage() {
         commits.length === 0 &&
         tasks.length === 0 &&
         !loadedRepo && (
-          <div className="repo-view-page__panel-empty" style={{ padding: "60px 24px", textAlign: "center" }}>
-            <div style={{ fontSize: "3rem", marginBottom: 12 }}>📦</div>
-            <h2 style={{ color: "#e0e0e0", margin: "0 0 8px" }}>Enter a repository</h2>
-            <p style={{ color: "#999", margin: 0, lineHeight: 1.5 }}>
-              Type a repository name (e.g. <code style={{ color: "#58a6ff" }}>facebook/react</code>) and
+          <div className="repo-view-page__empty">
+            <div className="repo-view-page__empty-icon">📦</div>
+            <h2>Enter a repository</h2>
+            <p>
+              Type a repository name (e.g. <code>facebook/react</code>) and
               click &quot;Load&quot; to see branches, commits, and agent tasks.
             </p>
           </div>

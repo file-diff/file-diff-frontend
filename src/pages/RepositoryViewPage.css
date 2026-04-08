@@ -236,6 +236,7 @@
 
 .repo-view-page__branch-pr {
   display: inline-block;
+  margin-left: 6px;
   padding: 1px 6px;
   border-radius: 10px;
   font-size: 0.68rem;
@@ -517,6 +518,36 @@
 .repo-view-page__load-more button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* --- Empty state --- */
+.repo-view-page__empty {
+  text-align: center;
+  padding: 60px 24px;
+  border: 1px solid #333;
+  border-radius: 12px;
+  background: #191a1c;
+}
+
+.repo-view-page__empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.repo-view-page__empty h2 {
+  margin: 0 0 8px;
+  color: #e0e0e0;
+}
+
+.repo-view-page__empty p {
+  color: #999;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.repo-view-page__empty code {
+  color: #58a6ff;
+  font-family: var(--code-font-family);
 }
 
 /* --- Responsive: stack panels vertically on smaller screens --- */
