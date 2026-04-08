@@ -80,3 +80,11 @@ export function buildAgentTasksUrl(owner: string, repo: string): string {
 export function buildAgentTaskUrl(owner: string, repo: string, taskId: string): string {
   return `${trimmedDefaultApiBaseUrl}/agents/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/${encodeURIComponent(taskId)}`;
 }
+
+export function buildAgentTaskArchiveUrl(
+  owner: string,
+  repo: string,
+  taskId: string
+): string {
+  return `${buildAgentTaskUrl(owner, repo, taskId)}/archive`;
+}
