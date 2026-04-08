@@ -4,6 +4,7 @@ import {
   resolveRepositoryInput,
   requestAgentTasks,
   requestAgentTask,
+  requestArchiveAgentTask,
 } from "../utils/repositorySelection";
 import {
   extractTaskSummaries,
@@ -15,6 +16,12 @@ import RepositorySelector from "../components/RepositorySelector";
 import "./AgentTaskInfoPage.css";
 const MAX_TASK_ID_DISPLAY_LENGTH = 12;
 const MAX_DESCRIPTION_DISPLAY_LENGTH = 120;
+const MAX_CONFIRM_LIST_LENGTH = 10;
+
+interface ActionFeedback {
+  tone: "success" | "error";
+  message: string;
+}
 
 function formatDateSafe(dateStr: string): string {
   if (!dateStr) return "";
@@ -37,6 +44,20 @@ function statusClassName(status: string): string {
   return "";
 }
 
+function formatConfirmList(items: string[]): string {
+  if (items.length <= MAX_CONFIRM_LIST_LENGTH) {
+    return items.join("\n");
+  }
+
+  const visibleItems = items.slice(0, MAX_CONFIRM_LIST_LENGTH);
+  const remainingCount = items.length - MAX_CONFIRM_LIST_LENGTH;
+  return `${visibleItems.join("\n")}\n... and ${String(remainingCount)} more`;
+}
+
+function getTaskDisplayLabel(task: TaskSummary): string {
+  return task.name || task.description || task.id;
+}
+
 interface AgentTaskInfoPageProps {
   showRepositorySelector?: boolean;
 }
@@ -56,14 +77,18 @@ export default function AgentTaskInfoPage({
   const [tasksRaw, setTasksRaw] = useState<unknown>(null);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [tasksError, setTasksError] = useState("");
+  const [actionFeedback, setActionFeedback] = useState<ActionFeedback | null>(null);
+  const [archiveInProgress, setArchiveInProgress] = useState(false);
 
   const [selectedTaskId, setSelectedTaskId] = useState(queryTaskId);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [taskDetail, setTaskDetail] = useState<unknown>(null);
   const [taskDetailTaskId, setTaskDetailTaskId] = useState("");
   const [taskDetailLoading, setTaskDetailLoading] = useState(false);
   const [taskDetailError, setTaskDetailError] = useState("");
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
   const currentSearchRef = useRef("");
   const autoLoadedRepoRef = useRef("");
 
@@ -109,6 +134,8 @@ export default function AgentTaskInfoPage({
       setTasksError("");
       setTasks([]);
       setTasksRaw(null);
+      setActionFeedback(null);
+      setSelectedTaskIds(new Set());
       setSelectedTaskId("");
       setTaskDetail(null);
       setTaskDetailError("");
@@ -194,6 +221,122 @@ export default function AgentTaskInfoPage({
     [ownerRepo, bearerToken, resolvedRepo, updateSearchParams]
   );
 
+  const toggleTaskSelection = useCallback((taskId: string) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedTaskIds((prev) => {
+      if (prev.size === tasks.length) {
+        return new Set();
+      }
+      return new Set(tasks.map((task) => task.id));
+    });
+  }, [tasks]);
+
+  const selectedTasks = tasks.filter((task) => selectedTaskIds.has(task.id));
+
+  const handleArchiveTasks = useCallback(async () => {
+    if (!ownerRepo || selectedTasks.length === 0) {
+      return;
+    }
+    if (!bearerToken.trim()) {
+      setActionFeedback({
+        tone: "error",
+        message: "Please enter a bearer token.",
+      });
+      return;
+    }
+
+    const archivableTasks = selectedTasks.filter((task) => !task.archivedAt);
+    if (archivableTasks.length === 0) {
+      setActionFeedback({
+        tone: "error",
+        message: "All selected tasks are already archived.",
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Archive ${String(archivableTasks.length)} task${archivableTasks.length !== 1 ? "s" : ""}?\n\n${formatConfirmList(
+        archivableTasks.map(getTaskDisplayLabel)
+      )}`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setArchiveInProgress(true);
+    setActionFeedback(null);
+
+    const archivedTaskIds = new Set<string>();
+    const failedTaskLabels: string[] = [];
+
+    for (const task of archivableTasks) {
+      try {
+        await requestArchiveAgentTask(
+          ownerRepo.owner,
+          ownerRepo.name,
+          task.id,
+          bearerToken.trim()
+        );
+        archivedTaskIds.add(task.id);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error && error.message
+            ? ` (${error.message})`
+            : "";
+        failedTaskLabels.push(`${getTaskDisplayLabel(task)}${errorMessage}`);
+      }
+    }
+
+    if (archivedTaskIds.size > 0) {
+      setTasks((prev) => prev.filter((task) => !archivedTaskIds.has(task.id)));
+      setSelectedTaskIds((prev) => {
+        const next = new Set(prev);
+        for (const taskId of archivedTaskIds) {
+          next.delete(taskId);
+        }
+        return next;
+      });
+
+      if (selectedTaskId && archivedTaskIds.has(selectedTaskId)) {
+        setSelectedTaskId("");
+        setTaskDetail(null);
+        setTaskDetailTaskId("");
+        setTaskDetailError("");
+        updateSearchParams((params) => {
+          params.set("repo", resolvedRepo);
+          params.delete("taskId");
+        });
+      }
+    }
+
+    setActionFeedback({
+      tone: failedTaskLabels.length === 0 ? "success" : "error",
+      message:
+        failedTaskLabels.length === 0
+          ? `Archived ${String(archivedTaskIds.size)} task${archivedTaskIds.size !== 1 ? "s" : ""}.`
+          : `Archived ${String(archivedTaskIds.size)} task${archivedTaskIds.size !== 1 ? "s" : ""}. Failed to archive ${String(failedTaskLabels.length)}: ${failedTaskLabels.join("; ")}`,
+    });
+    setArchiveInProgress(false);
+  }, [
+    bearerToken,
+    ownerRepo,
+    resolvedRepo,
+    selectedTaskId,
+    selectedTasks,
+    updateSearchParams,
+  ]);
+
   useEffect(() => {
     currentSearchRef.current = searchParams.toString();
   }, [searchParams]);
@@ -231,6 +374,15 @@ export default function AgentTaskInfoPage({
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!selectAllRef.current) {
+      return;
+    }
+
+    selectAllRef.current.indeterminate =
+      selectedTaskIds.size > 0 && selectedTaskIds.size < tasks.length;
+  }, [selectedTaskIds, tasks.length]);
 
   return (
     <div className="agent-task-info-page">
@@ -282,97 +434,157 @@ export default function AgentTaskInfoPage({
         <div className="agent-task-info-page__error">{tasksError}</div>
       )}
 
+      {actionFeedback && (
+        <div
+          className={`agent-task-info-page__notice agent-task-info-page__notice--${actionFeedback.tone}`}
+        >
+          {actionFeedback.message}
+        </div>
+      )}
+
       {tasks.length > 0 && (
         <div className="agent-task-info-page__tasks">
           <div className="agent-task-info-page__tasks-header">
-            <span className="agent-task-info-page__tasks-title">
-              Tasks for {resolvedRepo}
-            </span>
+            <div className="agent-task-info-page__tasks-header-left">
+              <label className="agent-task-info-page__select-all">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={tasks.length > 0 && selectedTaskIds.size === tasks.length}
+                  onChange={toggleSelectAll}
+                  aria-label="Select all tasks"
+                />
+              </label>
+              <span className="agent-task-info-page__tasks-title">
+                Tasks for {resolvedRepo}
+              </span>
+            </div>
             <span className="agent-task-info-page__tasks-count">
-              {tasks.length} task{tasks.length !== 1 ? "s" : ""}
+              {selectedTaskIds.size > 0
+                ? `${String(selectedTaskIds.size)} of ${String(tasks.length)} selected`
+                : `${String(tasks.length)} task${tasks.length !== 1 ? "s" : ""}`}
             </span>
           </div>
           <div className="agent-task-info-page__task-list">
             {tasks.map((task) => (
-              <button
+              <div
                 key={task.id}
-                type="button"
                 className={`agent-task-info-page__task${
-                  selectedTaskId === task.id
+                  selectedTaskId === task.id || selectedTaskIds.has(task.id)
                     ? " agent-task-info-page__task--selected"
                     : ""
                 }`}
-                onClick={() => void handleSelectTask(task.id)}
               >
-                <div className="agent-task-info-page__task-top-row">
-                  <code className="agent-task-info-page__task-id">
-                    {task.id.length > MAX_TASK_ID_DISPLAY_LENGTH
-                      ? `${task.id.slice(0, MAX_TASK_ID_DISPLAY_LENGTH)}…`
-                      : task.id}
-                  </code>
-                  <span
-                    className={`agent-task-info-page__status ${statusClassName(task.status)}`}
-                  >
-                    {task.status}
-                  </span>
-                  {task.htmlUrl && (
-                    <a
-                      href={task.htmlUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="agent-task-info-page__task-link"
-                      onClick={(e) => e.stopPropagation()}
+                <label className="agent-task-info-page__task-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedTaskIds.has(task.id)}
+                    onChange={() => toggleTaskSelection(task.id)}
+                    aria-label={`Select task ${task.id}`}
+                  />
+                </label>
+                <div
+                  className="agent-task-info-page__task-main"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`View details for task ${task.id}`}
+                  onClick={() => void handleSelectTask(task.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      void handleSelectTask(task.id);
+                    }
+                  }}
+                >
+                  <div className="agent-task-info-page__task-top-row">
+                    <code className="agent-task-info-page__task-id">
+                      {task.id.length > MAX_TASK_ID_DISPLAY_LENGTH
+                        ? `${task.id.slice(0, MAX_TASK_ID_DISPLAY_LENGTH)}…`
+                        : task.id}
+                    </code>
+                    <span
+                      className={`agent-task-info-page__status ${statusClassName(task.status)}`}
                     >
-                      🔗 GitHub
-                    </a>
-                  )}
-                </div>
-                {(task.name || task.description) && (
-                  <div className="agent-task-info-page__task-description">
-                    {(() => {
-                      const displayText = task.name || task.description;
-                      return displayText.length > MAX_DESCRIPTION_DISPLAY_LENGTH
-                        ? `${displayText.slice(0, MAX_DESCRIPTION_DISPLAY_LENGTH)}…`
-                        : displayText;
-                    })()}
-                  </div>
-                )}
-                <div className="agent-task-info-page__task-meta">
-                  {task.creator && (
-                    <span>
-                      Creator:{" "}
-                      {task.creator.profileUrl ? (
-                        <a
-                          href={task.creator.profileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="agent-task-info-page__meta-link"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {task.creator.login}
-                        </a>
-                      ) : (
-                        task.creator.login
-                      )}
+                      {task.status}
                     </span>
+                    {task.htmlUrl && (
+                      <a
+                        href={task.htmlUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="agent-task-info-page__task-link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        🔗 GitHub
+                      </a>
+                    )}
+                  </div>
+                  {(task.name || task.description) && (
+                    <div className="agent-task-info-page__task-description">
+                      {(() => {
+                        const displayText = task.name || task.description;
+                        return displayText.length > MAX_DESCRIPTION_DISPLAY_LENGTH
+                          ? `${displayText.slice(0, MAX_DESCRIPTION_DISPLAY_LENGTH)}…`
+                          : displayText;
+                      })()}
+                    </div>
                   )}
-                  {task.model && <span>Model: {task.model}</span>}
-                  {task.headRef && <span>Branch: {task.headRef}</span>}
-                  {!task.headRef && task.branch && (
-                    <span>Base: {task.branch}</span>
-                  )}
-                  {task.sessionCount !== undefined && (
-                    <span>Sessions: {task.sessionCount}</span>
-                  )}
-                  {task.createdAt && (
-                    <span>Created: {formatDateSafe(task.createdAt)}</span>
-                  )}
-                  {task.pullRequestNumber !== undefined && (
-                    <span>PR #{task.pullRequestNumber}</span>
-                  )}
+                  <div className="agent-task-info-page__task-meta">
+                    {task.creator && (
+                      <span>
+                        Creator:{" "}
+                        {task.creator.profileUrl ? (
+                          <a
+                            href={task.creator.profileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="agent-task-info-page__meta-link"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {task.creator.login}
+                          </a>
+                        ) : (
+                          task.creator.login
+                        )}
+                      </span>
+                    )}
+                    {task.model && <span>Model: {task.model}</span>}
+                    {task.headRef && <span>Branch: {task.headRef}</span>}
+                    {!task.headRef && task.branch && (
+                      <span>Base: {task.branch}</span>
+                    )}
+                    {task.sessionCount !== undefined && (
+                      <span>Sessions: {task.sessionCount}</span>
+                    )}
+                    {task.createdAt && (
+                      <span>Created: {formatDateSafe(task.createdAt)}</span>
+                    )}
+                    {task.pullRequestNumber !== undefined && (
+                      <span>PR #{task.pullRequestNumber}</span>
+                    )}
+                  </div>
                 </div>
-              </button>
+              </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {selectedTaskIds.size > 0 && (
+        <div className="agent-task-info-page__action-bar">
+          <span className="agent-task-info-page__action-bar-count">
+            {String(selectedTaskIds.size)} selected
+          </span>
+          <div className="agent-task-info-page__action-bar-actions">
+            <button
+              type="button"
+              className="agent-task-info-page__action-btn agent-task-info-page__action-btn--archive"
+              onClick={() => void handleArchiveTasks()}
+              disabled={archiveInProgress}
+              title="Archive selected tasks"
+            >
+              {archiveInProgress ? "Archiving…" : "Archive"}
+            </button>
           </div>
         </div>
       )}

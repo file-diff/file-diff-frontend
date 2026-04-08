@@ -115,6 +115,22 @@
   font-size: 0.85rem;
 }
 
+.agent-task-info-page__notice {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid #2f5d31;
+  border-radius: 6px;
+  background: rgba(46, 160, 67, 0.1);
+  color: #7ee787;
+  font-size: 0.85rem;
+}
+
+.agent-task-info-page__notice--error {
+  border-color: #6e3630;
+  background: rgba(218, 54, 51, 0.1);
+  color: #ffa198;
+}
+
 .agent-task-info-page__tasks {
   border: 1px solid #333;
   border-radius: 10px;
@@ -127,9 +143,24 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 12px 16px;
   background: #2d2d2d;
   border-bottom: 1px solid #444;
+}
+
+.agent-task-info-page__tasks-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.agent-task-info-page__select-all,
+.agent-task-info-page__task-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .agent-task-info-page__tasks-title {
@@ -149,16 +180,12 @@
 }
 
 .agent-task-info-page__task {
-  display: block;
-  width: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
   padding: 12px 16px;
-  border: none;
   border-bottom: 1px solid #2a2a2a;
   background: transparent;
-  text-align: left;
-  cursor: pointer;
-  color: inherit;
-  font-family: inherit;
   transition: background 0.1s;
 }
 
@@ -176,6 +203,18 @@
 
 .agent-task-info-page__task--selected:hover {
   background: rgba(88, 166, 255, 0.12);
+}
+
+.agent-task-info-page__task-main {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.agent-task-info-page__task-main:focus {
+  outline: 1px solid #58a6ff;
+  outline-offset: 4px;
+  border-radius: 6px;
 }
 
 .agent-task-info-page__task-top-row {
@@ -263,6 +302,62 @@
 .agent-task-info-page__meta-link:hover {
   text-decoration: underline;
   color: #79c0ff;
+}
+
+.agent-task-info-page__action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border: 1px solid #333;
+  border-radius: 10px;
+  background: #191a1c;
+}
+
+.agent-task-info-page__action-bar-count {
+  color: #d4d4d4;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.agent-task-info-page__action-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-task-info-page__action-btn {
+  padding: 8px 14px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #22272e;
+  color: #f0f6fc;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.agent-task-info-page__action-btn:hover:not(:disabled) {
+  background: #2d333b;
+  border-color: #57606a;
+}
+
+.agent-task-info-page__action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.agent-task-info-page__action-btn--archive {
+  background: #8250df;
+  border-color: #986ee2;
+}
+
+.agent-task-info-page__action-btn--archive:hover:not(:disabled) {
+  background: #986ee2;
+  border-color: #b392f0;
 }
 
 .agent-task-info-page__empty {
