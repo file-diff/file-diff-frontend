@@ -205,9 +205,10 @@ export default function CreateTaskForm({
   showRepositorySelector = true,
 }: CreateTaskFormProps) {
   const [savedDraft] = useState(() => loadCreateTaskDraft());
-  const [repoInput, setRepoInput] = useState(
-    initialRepo || (showRepositorySelector && savedDraft?.repoInput) || ""
-  );
+  const initialRepoInput = showRepositorySelector
+    ? initialRepo || savedDraft?.repoInput || ""
+    : initialRepo;
+  const [repoInput, setRepoInput] = useState(initialRepoInput);
   const [eventContent, setEventContent] = useState(savedDraft?.eventContent || "");
   const [problemStatement, setProblemStatement] = useState(
     savedDraft?.problemStatement || ""

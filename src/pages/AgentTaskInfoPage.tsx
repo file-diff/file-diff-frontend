@@ -59,6 +59,7 @@ export default function AgentTaskInfoPage({
 
   const [selectedTaskId, setSelectedTaskId] = useState(queryTaskId);
   const [taskDetail, setTaskDetail] = useState<unknown>(null);
+  const [taskDetailTaskId, setTaskDetailTaskId] = useState("");
   const [taskDetailLoading, setTaskDetailLoading] = useState(false);
   const [taskDetailError, setTaskDetailError] = useState("");
 
@@ -162,6 +163,7 @@ export default function AgentTaskInfoPage({
 
       setSelectedTaskId(taskId);
       setTaskDetail(null);
+      setTaskDetailTaskId("");
       setTaskDetailError("");
       setTaskDetailLoading(true);
 
@@ -178,6 +180,7 @@ export default function AgentTaskInfoPage({
           bearerToken.trim()
         );
         setTaskDetail(result);
+        setTaskDetailTaskId(taskId);
       } catch (err) {
         setTaskDetailError(
           err instanceof Error && err.message
@@ -203,8 +206,11 @@ export default function AgentTaskInfoPage({
 
   useEffect(() => {
     setSelectedTaskId(queryTaskId);
-    setTaskDetail(null);
     setTaskDetailError("");
+    if (!queryTaskId) {
+      setTaskDetail(null);
+      setTaskDetailTaskId("");
+    }
   }, [queryTaskId]);
 
   useEffect(() => {
@@ -405,7 +411,7 @@ export default function AgentTaskInfoPage({
             <div className="agent-task-info-page__error">{taskDetailError}</div>
           )}
 
-          {taskDetail !== null && (
+          {taskDetail !== null && taskDetailTaskId === selectedTaskId && (
             <pre className="agent-task-info-page__detail-json">
               {JSON.stringify(taskDetail, null, 2)}
             </pre>
