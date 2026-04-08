@@ -249,7 +249,10 @@ export default function AgentTaskInfoPage({
       return;
     }
     if (!bearerToken.trim()) {
-      setTasksError("Please enter a bearer token.");
+      setActionFeedback({
+        tone: "error",
+        message: "Please enter a bearer token.",
+      });
       return;
     }
 
