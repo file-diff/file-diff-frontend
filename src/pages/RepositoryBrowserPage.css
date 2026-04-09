@@ -199,6 +199,34 @@
   gap: 14px;
 }
 
+.repo-browser__limit-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #8b949e;
+}
+
+.repo-browser__limit-select {
+  padding: 2px 6px;
+  background: #161616;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #d4d4d4;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.repo-browser__limit-select:focus {
+  outline: none;
+  border-color: #58a6ff;
+}
+
+.repo-browser__limit-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .repo-browser__commit-list {
   display: flex;
   flex-direction: column;

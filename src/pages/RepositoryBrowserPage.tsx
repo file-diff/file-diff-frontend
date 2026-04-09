@@ -10,8 +10,9 @@ import RepositorySelector from "../components/RepositorySelector";
 import { buildTreeComparisonLink } from "../utils/storage";
 import "./RepositoryBrowserPage.css";
 
-const DEFAULT_COMMIT_LIMIT = 50;
+const DEFAULT_COMMIT_LIMIT = 20;
 const MAX_COMMIT_LIMIT = 200;
+const COMMIT_LIMIT_OPTIONS = [20, 50, 100, 200] as const;
 const INDEXING_TRIGGER_URL = JOBS_API_URL;
 
 interface JobRequest {
@@ -85,6 +86,7 @@ export default function RepositoryBrowserPage({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [loadedRepo, setLoadedRepo] = useState("");
+  const [commitLimit, setCommitLimit] = useState(DEFAULT_COMMIT_LIMIT);
 
   const [leftCommit, setLeftCommit] = useState<string | null>(queryLeftCommit);
   const [rightCommit, setRightCommit] = useState<string | null>(queryRightCommit);
@@ -115,7 +117,7 @@ export default function RepositoryBrowserPage({
     [setSearchParams]
   );
 
-  const loadCommitsForRepo = useCallback(async (repo: string) => {
+  const loadCommitsForRepo = useCallback(async (repo: string, limit: number) => {
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -130,7 +132,7 @@ export default function RepositoryBrowserPage({
     try {
       const result = await requestRepositoryCommits(
         repo,
-        DEFAULT_COMMIT_LIMIT,
+        limit,
         controller.signal
       );
       setCommits(result);
@@ -161,8 +163,8 @@ export default function RepositoryBrowserPage({
     }
 
     autoLoadedRepoRef.current = repo;
-    await loadCommitsForRepo(repo);
-  }, [loadCommitsForRepo, repoInput]);
+    await loadCommitsForRepo(repo, commitLimit);
+  }, [loadCommitsForRepo, repoInput, commitLimit]);
 
   useEffect(() => {
     const repo = resolveRepositoryInput(queryRepo);
@@ -172,8 +174,8 @@ export default function RepositoryBrowserPage({
 
     autoLoadedRepoRef.current = repo;
     setRepoInput(repo);
-    void loadCommitsForRepo(repo);
-  }, [loadCommitsForRepo, queryRepo]);
+    void loadCommitsForRepo(repo, commitLimit);
+  }, [loadCommitsForRepo, queryRepo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setLeftCommit(queryLeftCommit);
@@ -261,39 +263,45 @@ export default function RepositoryBrowserPage({
     });
   }, [leftCommit, loadedRepo, rightCommit]);
 
-  const handleLoadMore = useCallback(async () => {
-    const repo = resolveRepositoryInput(repoInput);
-    if (!repo) return;
+  const reloadCommits = useCallback(
+    async (limit: number) => {
+      const repo = resolveRepositoryInput(repoInput);
+      if (!repo || !loadedRepo) return;
 
-    abortControllerRef.current?.abort();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
-    const nextLimit = Math.min(commits.length + DEFAULT_COMMIT_LIMIT, MAX_COMMIT_LIMIT);
+      setIsLoading(true);
+      setError("");
 
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const result = await requestRepositoryCommits(
-        repo,
-        nextLimit,
-        controller.signal
-      );
-      setCommits(result);
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Unable to load commits"
-      );
-    } finally {
-      if (!controller.signal.aborted) {
-        setIsLoading(false);
+      try {
+        const result = await requestRepositoryCommits(
+          repo,
+          limit,
+          controller.signal
+        );
+        setCommits(result);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Unable to load commits"
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       }
-    }
-  }, [repoInput, commits.length]);
+    },
+    [repoInput, loadedRepo]
+  );
+
+  const handleLoadMore = useCallback(async () => {
+    const nextLimit = Math.min(commits.length + commitLimit, MAX_COMMIT_LIMIT);
+    await reloadCommits(nextLimit);
+  }, [reloadCommits, commits.length, commitLimit]);
 
   const handleSelectCommit = useCallback(
     (commit: string) => {
@@ -316,6 +324,14 @@ export default function RepositoryBrowserPage({
       }
     },
     [leftCommit, rightCommit]
+  );
+
+  const handleCommitLimitChange = useCallback(
+    async (newLimit: number) => {
+      setCommitLimit(newLimit);
+      await reloadCommits(newLimit);
+    },
+    [reloadCommits]
   );
 
   const compareLink = useMemo(() => {
@@ -424,6 +440,24 @@ export default function RepositoryBrowserPage({
               </a>
             </span>
             <div className="repo-browser__commits-header-right">
+              <label className="repo-browser__limit-label">
+                Show
+                <select
+                  className="repo-browser__limit-select"
+                  value={commitLimit}
+                  onChange={(e) =>
+                    void handleCommitLimitChange(Number(e.target.value))
+                  }
+                  disabled={isLoading}
+                >
+                  {COMMIT_LIMIT_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                commits
+              </label>
               <span className="repo-browser__commits-count">
                 {commits.length} commit{commits.length !== 1 ? "s" : ""}
               </span>
@@ -577,7 +611,7 @@ export default function RepositoryBrowserPage({
             })}
           </div>
 
-          {commits.length >= DEFAULT_COMMIT_LIMIT &&
+          {commits.length >= commitLimit &&
             commits.length < MAX_COMMIT_LIMIT && (
               <div className="repo-browser__load-more">
                 <button
