@@ -717,6 +717,15 @@ export async function requestRepositoryBranches(
     : [];
 }
 
+export const PULL_REQUEST_COMPLETION_MODE_VALUES = [
+  "None",
+  "AutoReady",
+  "AutoMerge",
+] as const;
+
+export type PullRequestCompletionMode =
+  (typeof PULL_REQUEST_COMPLETION_MODE_VALUES)[number];
+
 export interface CreateTaskRequest {
   repo: string;
   event_content: string;
@@ -724,6 +733,7 @@ export interface CreateTaskRequest {
   problem_statement?: string;
   custom_agent?: string;
   create_pull_request?: boolean;
+  pull_request_completion_mode?: PullRequestCompletionMode;
   base_ref?: string;
 }
 
