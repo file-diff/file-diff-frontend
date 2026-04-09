@@ -90,6 +90,10 @@ function getPullRequestActions(
   return actions;
 }
 
+function formatPullRequestActions(actions: string[]): string {
+  return actions.map((action) => `- ${action}`).join("\n");
+}
+
 function buildTaskDescription({
   repo,
   baseRef,
@@ -121,9 +125,7 @@ function buildTaskDescription({
   }
 
   if (pullRequestActions.length > 0) {
-    sections.push(
-      `Pull request actions:\n${pullRequestActions.map((action) => `- ${action}`).join("\n")}`
-    );
+    sections.push(`Pull request actions:\n${formatPullRequestActions(pullRequestActions)}`);
   }
 
   return sections.join("\n\n");
