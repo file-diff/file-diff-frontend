@@ -347,6 +347,12 @@
   flex-wrap: wrap;
 }
 
+.repo-browser__commit-parent-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .repo-browser__commit-parent {
   color: #7ee787;
   text-decoration: none;
@@ -355,6 +361,24 @@
 
 .repo-browser__commit-parent:hover {
   text-decoration: underline;
+}
+
+.repo-browser__compare-parent-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  color: #8b949e;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.repo-browser__compare-parent-btn:hover {
+  background: rgba(88, 166, 255, 0.2);
+  color: #58a6ff;
 }
 
 .repo-browser__commit-sha {
