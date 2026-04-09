@@ -41,6 +41,21 @@ export interface CreateTaskFormProps {
 }
 
 const DEFAULT_CREATE_PULL_REQUEST = true;
+type PullRequestCompletionMode = "None" | "AutoReady" | "AutoMerge";
+const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
+const PULL_REQUEST_COMPLETION_MODE_VALUES: PullRequestCompletionMode[] = [
+  "None",
+  "AutoReady",
+  "AutoMerge",
+];
+const PULL_REQUEST_COMPLETION_MODE_LABELS: Record<
+  PullRequestCompletionMode,
+  string
+> = {
+  None: "None",
+  AutoReady: "Auto ready",
+  AutoMerge: "Auto merge",
+};
 const DEFAULT_BRANCH_NAME = "main";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -218,6 +233,13 @@ export default function CreateTaskForm({
   const [createPullRequest, setCreatePullRequest] = useState(
     savedDraft?.createPullRequest ?? DEFAULT_CREATE_PULL_REQUEST
   );
+  const [pullRequestCompletionMode, setPullRequestCompletionMode] =
+    useState<PullRequestCompletionMode>(
+      savedDraft?.createPullRequest === false
+        ? DEFAULT_PULL_REQUEST_COMPLETION_MODE
+        : savedDraft?.pullRequestCompletionMode ??
+            DEFAULT_PULL_REQUEST_COMPLETION_MODE
+    );
   const [baseRef, setBaseRef] = useState(savedDraft?.baseRef || DEFAULT_BRANCH_NAME);
 
   const [branches, setBranches] = useState<RepositoryBranch[]>([]);
@@ -288,6 +310,13 @@ export default function CreateTaskForm({
     saveBearerToken(value);
   }, []);
 
+  const handleCreatePullRequestChange = useCallback((checked: boolean) => {
+    setCreatePullRequest(checked);
+    if (!checked) {
+      setPullRequestCompletionMode(DEFAULT_PULL_REQUEST_COMPLETION_MODE);
+    }
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     const repo = resolveRepositoryInput(repoInput);
     if (!repo) {
@@ -305,6 +334,9 @@ export default function CreateTaskForm({
 
     const trimmedProblemStatement = problemStatement.trim();
     const trimmedOptionalDescription = eventContent.trim();
+    const effectivePullRequestCompletionMode = createPullRequest
+      ? pullRequestCompletionMode
+      : DEFAULT_PULL_REQUEST_COMPLETION_MODE;
     const request: CreateTaskRequest = {
       repo,
       event_content: buildTaskDescription({
@@ -315,6 +347,7 @@ export default function CreateTaskForm({
       }),
       model,
       create_pull_request: createPullRequest,
+      pull_request_completion_mode: effectivePullRequestCompletionMode,
       base_ref: baseRef || "main",
     };
 
@@ -340,6 +373,7 @@ export default function CreateTaskForm({
     bearerToken,
     model,
     createPullRequest,
+    pullRequestCompletionMode,
     baseRef,
     problemStatement,
   ]);
@@ -351,6 +385,7 @@ export default function CreateTaskForm({
       problemStatement,
       model,
       createPullRequest,
+      pullRequestCompletionMode,
       baseRef,
     });
   }, [
@@ -359,6 +394,7 @@ export default function CreateTaskForm({
     problemStatement,
     model,
     createPullRequest,
+    pullRequestCompletionMode,
     baseRef,
   ]);
 
@@ -501,10 +537,37 @@ export default function CreateTaskForm({
           <input
             type="checkbox"
             checked={createPullRequest}
-            onChange={(e) => setCreatePullRequest(e.target.checked)}
+            onChange={(e) => handleCreatePullRequestChange(e.target.checked)}
           />
           Create pull request
         </label>
+      </div>
+
+      <div className="create-task-form__field">
+        <label htmlFor="create-task-pr-completion-mode">
+          Pull request completion mode
+        </label>
+        <select
+          id="create-task-pr-completion-mode"
+          value={pullRequestCompletionMode}
+          onChange={(e) =>
+            setPullRequestCompletionMode(
+              e.target.value as PullRequestCompletionMode
+            )
+          }
+          disabled={!createPullRequest}
+        >
+          {PULL_REQUEST_COMPLETION_MODE_VALUES.map((mode) => (
+            <option key={mode} value={mode}>
+              {PULL_REQUEST_COMPLETION_MODE_LABELS[mode]}
+            </option>
+          ))}
+        </select>
+        <div className="create-task-form__field-hint">
+          {createPullRequest
+            ? "Choose what happens after a successful run."
+            : 'Enable "Create pull request" to use AutoReady or AutoMerge.'}
+        </div>
       </div>
 
       {submitError && (

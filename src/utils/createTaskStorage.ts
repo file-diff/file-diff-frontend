@@ -1,4 +1,11 @@
 export const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
+const DEFAULT_PULL_REQUEST_COMPLETION_MODE = "None";
+
+function isPullRequestCompletionMode(
+  value: unknown
+): value is CreateTaskDraft["pullRequestCompletionMode"] {
+  return value === "None" || value === "AutoReady" || value === "AutoMerge";
+}
 
 export interface CreateTaskDraft {
   repoInput: string;
@@ -6,6 +13,7 @@ export interface CreateTaskDraft {
   problemStatement: string;
   model: string;
   createPullRequest: boolean;
+  pullRequestCompletionMode: "None" | "AutoReady" | "AutoMerge";
   baseRef: string;
 }
 
@@ -43,6 +51,11 @@ export function loadCreateTaskDraft(): CreateTaskDraft | null {
       problemStatement: candidate.problemStatement,
       model: candidate.model,
       createPullRequest: candidate.createPullRequest,
+      pullRequestCompletionMode: isPullRequestCompletionMode(
+        candidate.pullRequestCompletionMode
+      )
+        ? candidate.pullRequestCompletionMode
+        : DEFAULT_PULL_REQUEST_COMPLETION_MODE,
       baseRef: candidate.baseRef,
     };
   } catch {

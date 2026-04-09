@@ -724,6 +724,7 @@ export interface CreateTaskRequest {
   problem_statement?: string;
   custom_agent?: string;
   create_pull_request?: boolean;
+  pull_request_completion_mode?: "None" | "AutoReady" | "AutoMerge";
   base_ref?: string;
 }
 
