@@ -1,4 +1,11 @@
+import {
+  PULL_REQUEST_COMPLETION_MODE_VALUES,
+  type PullRequestCompletionMode,
+} from "./repositorySelection";
+
 export const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
+
+const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 
 export interface CreateTaskDraft {
   repoInput: string;
@@ -6,11 +13,23 @@ export interface CreateTaskDraft {
   problemStatement: string;
   model: string;
   createPullRequest: boolean;
+  pullRequestCompletionMode: PullRequestCompletionMode;
   baseRef: string;
 }
 
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
+}
+
+function isPullRequestCompletionMode(
+  value: unknown
+): value is PullRequestCompletionMode {
+  return (
+    typeof value === "string" &&
+    PULL_REQUEST_COMPLETION_MODE_VALUES.includes(
+      value as PullRequestCompletionMode
+    )
+  );
 }
 
 export function loadCreateTaskDraft(): CreateTaskDraft | null {
@@ -37,12 +56,19 @@ export function loadCreateTaskDraft(): CreateTaskDraft | null {
       return null;
     }
 
+    const pullRequestCompletionMode = isPullRequestCompletionMode(
+      candidate.pullRequestCompletionMode
+    )
+      ? candidate.pullRequestCompletionMode
+      : DEFAULT_PULL_REQUEST_COMPLETION_MODE;
+
     return {
       repoInput: candidate.repoInput,
       eventContent: candidate.eventContent,
       problemStatement: candidate.problemStatement,
       model: candidate.model,
       createPullRequest: candidate.createPullRequest,
+      pullRequestCompletionMode,
       baseRef: candidate.baseRef,
     };
   } catch {
