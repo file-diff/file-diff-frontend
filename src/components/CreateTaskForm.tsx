@@ -66,16 +66,42 @@ function normalizeDescriptionBlock(value: string): string {
   return value.trim().replace(/\r\n?/g, "\n");
 }
 
+function getPullRequestActions(
+  createPullRequest: boolean,
+  pullRequestCompletionMode: PullRequestCompletionMode
+): string[] {
+  if (!createPullRequest) {
+    return [];
+  }
+
+  const actions = ["Create pull request"];
+
+  if (
+    pullRequestCompletionMode === "AutoReady" ||
+    pullRequestCompletionMode === "AutoMerge"
+  ) {
+    actions.push("Mark pull request as ready for review");
+  }
+
+  if (pullRequestCompletionMode === "AutoMerge") {
+    actions.push("Enable auto-merge");
+  }
+
+  return actions;
+}
+
 function buildTaskDescription({
   repo,
   baseRef,
   problemStatement,
   optionalDescription,
+  pullRequestActions,
 }: {
   repo: string;
   baseRef: string;
   problemStatement: string;
   optionalDescription: string;
+  pullRequestActions: string[];
 }): string {
   const normalizedRepo = normalizeWhitespace(repo);
   const normalizedBaseRef = normalizeWhitespace(baseRef);
@@ -92,6 +118,12 @@ function buildTaskDescription({
 
   if (normalizedOptionalDescription) {
     sections.push(`Additional context:\n${normalizedOptionalDescription}`);
+  }
+
+  if (pullRequestActions.length > 0) {
+    sections.push(
+      `Pull request actions:\n${pullRequestActions.map((action) => `- ${action}`).join("\n")}`
+    );
   }
 
   return sections.join("\n\n");
@@ -333,6 +365,10 @@ export default function CreateTaskForm({
     const effectivePullRequestCompletionMode = createPullRequest
       ? pullRequestCompletionMode
       : DEFAULT_PULL_REQUEST_COMPLETION_MODE;
+    const pullRequestActions = getPullRequestActions(
+      createPullRequest,
+      effectivePullRequestCompletionMode
+    );
     const request: CreateTaskRequest = {
       repo,
       event_content: buildTaskDescription({
@@ -340,6 +376,7 @@ export default function CreateTaskForm({
         baseRef: baseRef || "main",
         problemStatement: trimmedProblemStatement,
         optionalDescription: trimmedOptionalDescription,
+        pullRequestActions,
       }),
       model,
       create_pull_request: createPullRequest,
