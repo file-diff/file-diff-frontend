@@ -355,13 +355,16 @@ export default function BranchesPage({
   const loadBranchesForRepo = useCallback(
     async (repo: string, options: LoadBranchesOptions = {}) => {
       const { clearActionResults = true, useCachedBranches = true } = options;
+      const isRefreshingCurrentRepo = loadedRepo === repo;
       abortControllerRef.current?.abort();
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
       setIsLoading(true);
       setError("");
-      setBranchAgentAssignments({});
+      if (!isRefreshingCurrentRepo) {
+        setBranchAgentAssignments({});
+      }
       if (clearActionResults) {
         setActionResults([]);
       }
@@ -380,35 +383,41 @@ export default function BranchesPage({
       }
 
       try {
-        const result = await requestRepositoryBranches(
+        const ownerRepo = splitOwnerRepo(repo);
+        const branchRequest = requestRepositoryBranches(
           repo,
           controller.signal
         );
+        const agentTasksRequest =
+          ownerRepo && bearerToken.trim()
+            ? requestAgentTasks(
+                ownerRepo.owner,
+                ownerRepo.name,
+                bearerToken.trim(),
+                controller.signal
+              ).catch(() => null)
+            : Promise.resolve(null);
+
+        const [result, agentTasks] = await Promise.all([
+          branchRequest,
+          agentTasksRequest,
+        ]);
         const sorted = sortBranchesByNewestCommit(result);
         const branchNames = new Set(sorted.map((branch) => branch.name));
         let nextBranchAgentAssignments: Record<string, BranchAgentAssignment> = {};
 
-        const ownerRepo = splitOwnerRepo(repo);
-        if (ownerRepo && bearerToken.trim() && branchNames.size > 0) {
-          try {
-            const agentTasks = await requestAgentTasks(
-              ownerRepo.owner,
-              ownerRepo.name,
-              bearerToken.trim(),
-              controller.signal
-            );
-            if (!controller.signal.aborted) {
-              nextBranchAgentAssignments = buildBranchAgentAssignments(
-                repo,
-                extractTaskSummaries(agentTasks),
-                branchNames
-              );
-            }
-          } catch {
-            if (!controller.signal.aborted) {
-              nextBranchAgentAssignments = {};
-            }
-          }
+        if (agentTasks && branchNames.size > 0) {
+          nextBranchAgentAssignments = buildBranchAgentAssignments(
+            repo,
+            extractTaskSummaries(agentTasks),
+            branchNames
+          );
+        } else if (isRefreshingCurrentRepo) {
+          nextBranchAgentAssignments = Object.fromEntries(
+            Object.entries(branchAgentAssignments).filter(([branchName]) =>
+              branchNames.has(branchName)
+            )
+          );
         }
 
         setBranches(sorted);
@@ -451,7 +460,7 @@ export default function BranchesPage({
         }
       }
     },
-    [bearerToken, setSearchParams]
+    [bearerToken, branchAgentAssignments, loadedRepo, setSearchParams]
   );
 
   useEffect(() => {
