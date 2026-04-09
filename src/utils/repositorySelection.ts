@@ -575,6 +575,15 @@ export interface RepositoryBranch {
   tags: string[];
 }
 
+export const PULL_REQUEST_COMPLETION_MODES = [
+  "None",
+  "AutoReady",
+  "AutoMerge",
+] as const;
+
+export type PullRequestCompletionMode =
+  (typeof PULL_REQUEST_COMPLETION_MODES)[number];
+
 interface ListBranchesRequest {
   repo: string;
 }
@@ -724,7 +733,7 @@ export interface CreateTaskRequest {
   problem_statement?: string;
   custom_agent?: string;
   create_pull_request?: boolean;
-  pull_request_completion_mode?: "None" | "AutoReady" | "AutoMerge";
+  pull_request_completion_mode?: PullRequestCompletionMode;
   base_ref?: string;
 }
 

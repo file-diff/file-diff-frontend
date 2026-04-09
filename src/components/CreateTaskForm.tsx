@@ -3,6 +3,7 @@ import {
   resolveRepositoryInput,
   requestRepositoryBranches,
   requestCreateTask,
+  PULL_REQUEST_COMPLETION_MODES,
 } from "../utils/repositorySelection";
 import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
 import {
@@ -12,6 +13,7 @@ import {
 import type {
   RepositoryBranch,
   CreateTaskRequest,
+  PullRequestCompletionMode,
 } from "../utils/repositorySelection";
 import RepositorySelector from "./RepositorySelector";
 import "./CreateTaskForm.css";
@@ -41,13 +43,7 @@ export interface CreateTaskFormProps {
 }
 
 const DEFAULT_CREATE_PULL_REQUEST = true;
-type PullRequestCompletionMode = "None" | "AutoReady" | "AutoMerge";
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
-const PULL_REQUEST_COMPLETION_MODE_VALUES: PullRequestCompletionMode[] = [
-  "None",
-  "AutoReady",
-  "AutoMerge",
-];
 const PULL_REQUEST_COMPLETION_MODE_LABELS: Record<
   PullRequestCompletionMode,
   string
@@ -557,7 +553,7 @@ export default function CreateTaskForm({
           }
           disabled={!createPullRequest}
         >
-          {PULL_REQUEST_COMPLETION_MODE_VALUES.map((mode) => (
+          {PULL_REQUEST_COMPLETION_MODES.map((mode) => (
             <option key={mode} value={mode}>
               {PULL_REQUEST_COMPLETION_MODE_LABELS[mode]}
             </option>

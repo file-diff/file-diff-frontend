@@ -1,10 +1,18 @@
+import {
+  PULL_REQUEST_COMPLETION_MODES,
+  type PullRequestCompletionMode,
+} from "./repositorySelection";
+
 export const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
-const DEFAULT_PULL_REQUEST_COMPLETION_MODE = "None";
+const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 
 function isPullRequestCompletionMode(
   value: unknown
-): value is CreateTaskDraft["pullRequestCompletionMode"] {
-  return value === "None" || value === "AutoReady" || value === "AutoMerge";
+): value is PullRequestCompletionMode {
+  return (
+    typeof value === "string" &&
+    PULL_REQUEST_COMPLETION_MODES.includes(value as PullRequestCompletionMode)
+  );
 }
 
 export interface CreateTaskDraft {
@@ -13,7 +21,7 @@ export interface CreateTaskDraft {
   problemStatement: string;
   model: string;
   createPullRequest: boolean;
-  pullRequestCompletionMode: "None" | "AutoReady" | "AutoMerge";
+  pullRequestCompletionMode: PullRequestCompletionMode;
   baseRef: string;
 }
 
