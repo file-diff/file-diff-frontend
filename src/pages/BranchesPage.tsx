@@ -412,6 +412,12 @@ export default function BranchesPage({
             extractTaskSummaries(agentTasks),
             branchNames
           );
+        } else if (isRefreshingCurrentRepo) {
+          nextBranchAgentAssignments = Object.fromEntries(
+            Object.entries(branchAgentAssignments).filter(([branchName]) =>
+              branchNames.has(branchName)
+            )
+          );
         }
 
         setBranches(sorted);
@@ -454,7 +460,7 @@ export default function BranchesPage({
         }
       }
     },
-    [bearerToken, loadedRepo, setSearchParams]
+    [bearerToken, branchAgentAssignments, loadedRepo, setSearchParams]
   );
 
   useEffect(() => {
