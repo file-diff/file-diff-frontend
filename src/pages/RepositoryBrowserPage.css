@@ -208,13 +208,19 @@
 }
 
 .repo-browser__limit-select {
-  padding: 2px 6px;
+  padding: 4px 8px;
   background: #161616;
   border: 1px solid #444;
-  border-radius: 4px;
+  border-radius: 6px;
   color: #d4d4d4;
   font-size: 0.8rem;
   cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.repo-browser__limit-select:hover:not(:disabled) {
+  border-color: #666;
+  background: #1e1e1e;
 }
 
 .repo-browser__limit-select:focus {
