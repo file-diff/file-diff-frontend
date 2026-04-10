@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { JOBS_API_URL } from "../config/api";
 import {
   resolveRepositoryInput,
@@ -72,6 +72,7 @@ interface RepositoryBrowserPageProps {
 export default function RepositoryBrowserPage({
   showRepositorySelector = true,
 }: RepositoryBrowserPageProps) {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
   const queryLeftCommit = getOptionalQueryParam(searchParams, "leftCommit", "lc");
@@ -87,6 +88,7 @@ export default function RepositoryBrowserPage({
   const [error, setError] = useState("");
   const [loadedRepo, setLoadedRepo] = useState("");
   const [commitLimit, setCommitLimit] = useState(DEFAULT_COMMIT_LIMIT);
+  const [isStartingComparison, setIsStartingComparison] = useState(false);
 
   const [leftCommit, setLeftCommit] = useState<string | null>(queryLeftCommit);
   const [rightCommit, setRightCommit] = useState<string | null>(queryRightCommit);
@@ -98,6 +100,7 @@ export default function RepositoryBrowserPage({
   const autoLoadedRepoRef = useRef<string>("");
   const currentSearchRef = useRef(searchParams.toString());
   const startedIndexingKeysRef = useRef<Set<string>>(new Set());
+  const pendingIndexingRequestsRef = useRef<Map<string, Promise<void>>>(new Map());
   const legacyCommitSelectionSearch =
     searchParams.has("lc") || searchParams.has("rc") ? searchParams.toString() : "";
 
@@ -191,6 +194,40 @@ export default function RepositoryBrowserPage({
     };
   }, []);
 
+  const ensureIndexingJobStarted = useCallback(async (repo: string, commit: string) => {
+    const indexingKey = `${repo}\n${commit}`;
+    if (startedIndexingKeysRef.current.has(indexingKey)) {
+      return;
+    }
+
+    const pendingRequest = pendingIndexingRequestsRef.current.get(indexingKey);
+    if (pendingRequest) {
+      return pendingRequest;
+    }
+
+    const request: JobRequest = { repo, commit };
+    const requestPromise = fetch(INDEXING_TRIGGER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Unable to start indexing job");
+        }
+
+        startedIndexingKeysRef.current.add(indexingKey);
+      })
+      .finally(() => {
+        pendingIndexingRequestsRef.current.delete(indexingKey);
+      });
+
+    pendingIndexingRequestsRef.current.set(indexingKey, requestPromise);
+    return requestPromise;
+  }, []);
+
   useEffect(() => {
     if (!loadedRepo) {
       return;
@@ -234,26 +271,7 @@ export default function RepositoryBrowserPage({
     const uniqueCommits = new Set(selectedCommits);
 
     uniqueCommits.forEach((commit) => {
-      const indexingKey = `${repo}\n${commit}`;
-      if (startedIndexingKeysRef.current.has(indexingKey)) {
-        return;
-      }
-
-      startedIndexingKeysRef.current.add(indexingKey);
-
-      const request: JobRequest = { repo, commit };
-      void fetch(INDEXING_TRIGGER_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(request),
-      }).then((response) => {
-        if (!response.ok) {
-          throw new Error("Unable to start indexing job");
-        }
-      }).catch((error: unknown) => {
-        startedIndexingKeysRef.current.delete(indexingKey);
+      void ensureIndexingJobStarted(repo, commit).catch((error: unknown) => {
         console.error("[RepositoryBrowserPage] failed to start indexing job", {
           repo,
           commit,
@@ -261,7 +279,7 @@ export default function RepositoryBrowserPage({
         });
       });
     });
-  }, [leftCommit, loadedRepo, rightCommit]);
+  }, [ensureIndexingJobStarted, leftCommit, loadedRepo, rightCommit]);
 
   const reloadCommits = useCallback(
     async (limit: number) => {
@@ -353,6 +371,49 @@ export default function RepositoryBrowserPage({
     return query ? `/tree?${query}` : null;
   }, [leftCommit, rightCommit, loadedRepo]);
 
+  const startComparisonAndNavigate = useCallback(async (
+    leftComparisonCommit: string,
+    rightComparisonCommit: string,
+    nextLink: string
+  ) => {
+    const repo = loadedRepo.trim();
+    if (!nextLink || !repo || !leftComparisonCommit || !rightComparisonCommit) {
+      return;
+    }
+
+    setIsStartingComparison(true);
+    setError("");
+
+    try {
+      await Promise.all(
+        Array.from(new Set([leftComparisonCommit, rightComparisonCommit])).map((commit) =>
+          ensureIndexingJobStarted(repo, commit)
+        )
+      );
+      navigate(nextLink);
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Unable to start indexing jobs for the selected commits."
+      );
+    } finally {
+      setIsStartingComparison(false);
+    }
+  }, [
+    ensureIndexingJobStarted,
+    loadedRepo,
+    navigate,
+  ]);
+
+  const handleCompareSelectedCommits = useCallback(async () => {
+    if (!compareLink || !leftCommit || !rightCommit) {
+      return;
+    }
+
+    await startComparisonAndNavigate(leftCommit, rightCommit, compareLink);
+  }, [compareLink, leftCommit, rightCommit, startComparisonAndNavigate]);
+
   return (
     <div className="repo-browser-page">
       <div className="page-header">
@@ -407,9 +468,16 @@ export default function RepositoryBrowserPage({
           </div>
           <div className="repo-browser__selection-actions">
             {compareLink && (
-              <Link to={compareLink} className="repo-browser__compare-btn">
-                Compare selected commits
-              </Link>
+              <button
+                type="button"
+                className="repo-browser__compare-btn"
+                onClick={() => {
+                  void handleCompareSelectedCommits();
+                }}
+                disabled={isStartingComparison}
+              >
+                {isStartingComparison ? "Starting comparison…" : "Compare selected commits"}
+              </button>
             )}
             <button
               type="button"
@@ -418,6 +486,7 @@ export default function RepositoryBrowserPage({
                 setLeftCommit(null);
                 setRightCommit(null);
               }}
+              disabled={isStartingComparison}
             >
               Clear selection
             </button>
@@ -559,14 +628,22 @@ export default function RepositoryBrowserPage({
                                   {parent.slice(0, 7)}
                                 </a>
                                 {parentCompareQuery && (
-                                  <Link
-                                    to={`/tree?${parentCompareQuery}`}
+                                  <button
+                                    type="button"
                                     className="repo-browser__compare-parent-btn"
                                     title={`Compare ${parent.slice(0, 7)} → ${entry.commit.slice(0, 7)}`}
-                                    onClick={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void startComparisonAndNavigate(
+                                        parent,
+                                        entry.commit,
+                                        `/tree?${parentCompareQuery}`
+                                      );
+                                    }}
+                                    disabled={isStartingComparison}
                                   >
                                     ⇔
-                                  </Link>
+                                  </button>
                                 )}
                               </span>
                             );
