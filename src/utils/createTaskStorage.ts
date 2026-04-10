@@ -15,6 +15,8 @@ export interface CreateTaskDraft {
   createPullRequest: boolean;
   pullRequestCompletionMode: PullRequestCompletionMode;
   baseRef: string;
+  taskDelayEnabled: boolean;
+  taskDelayMinutes: string;
 }
 
 function isBoolean(value: unknown): value is boolean {
@@ -70,6 +72,13 @@ export function loadCreateTaskDraft(): CreateTaskDraft | null {
       createPullRequest: candidate.createPullRequest,
       pullRequestCompletionMode,
       baseRef: candidate.baseRef,
+      taskDelayEnabled: isBoolean(candidate.taskDelayEnabled)
+        ? candidate.taskDelayEnabled
+        : false,
+      taskDelayMinutes:
+        typeof candidate.taskDelayMinutes === "string"
+          ? candidate.taskDelayMinutes
+          : "",
     };
   } catch {
     return null;

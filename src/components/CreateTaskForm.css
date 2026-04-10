@@ -35,6 +35,7 @@
 }
 
 .create-task-form input[type="text"],
+.create-task-form input[type="number"],
 .create-task-form input[type="password"],
 .create-task-form textarea,
 .create-task-form select {
@@ -48,6 +49,7 @@
 }
 
 .create-task-form input[type="text"]:focus,
+.create-task-form input[type="number"]:focus,
 .create-task-form input[type="password"]:focus,
 .create-task-form textarea:focus,
 .create-task-form select:focus {
