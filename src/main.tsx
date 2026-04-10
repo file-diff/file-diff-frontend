@@ -19,10 +19,12 @@ import '@fontsource/inconsolata/latin-400.css'
 import '@fontsource/inconsolata/latin-500.css'
 import '@fontsource/inconsolata/latin-600.css'
 import { initializeFont } from './utils/fontInit'
+import { installApiBearerTokenFetch } from './utils/installApiBearerTokenFetch'
 import './index.css'
 import App from './App.tsx'
 
 initializeFont()
+installApiBearerTokenFetch()
 
 createRoot(document.getElementById('root')!).render(
   <App />
