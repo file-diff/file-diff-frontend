@@ -45,6 +45,11 @@ export interface CreateTaskFormProps {
 const DEFAULT_CREATE_PULL_REQUEST = true;
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 const DEFAULT_BRANCH_NAME = "main";
+const MIN_TASK_DELAY_MINUTES = 1;
+const TASK_DELAY_REQUIRED_ERROR = "Please enter how many minutes to delay the task.";
+const TASK_DELAY_NUMBER_ERROR = "Task delay must be a valid number of minutes.";
+const TASK_DELAY_INTEGER_ERROR = "Task delay must be a whole number of minutes.";
+const TASK_DELAY_MINIMUM_ERROR = "Task delay must be at least 1 whole minute.";
 const PULL_REQUEST_COMPLETION_MODE_LABELS: Record<
   PullRequestCompletionMode,
   string
@@ -237,6 +242,12 @@ export default function CreateTaskForm({
             DEFAULT_PULL_REQUEST_COMPLETION_MODE
     );
   const [baseRef, setBaseRef] = useState(savedDraft?.baseRef || DEFAULT_BRANCH_NAME);
+  const [taskDelayEnabled, setTaskDelayEnabled] = useState(
+    savedDraft?.taskDelayEnabled ?? false
+  );
+  const [taskDelayMinutes, setTaskDelayMinutes] = useState(
+    savedDraft?.taskDelayMinutes || ""
+  );
 
   const [branches, setBranches] = useState<RepositoryBranch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
@@ -313,6 +324,13 @@ export default function CreateTaskForm({
     }
   }, []);
 
+  const handleTaskDelayChange = useCallback((checked: boolean) => {
+    setTaskDelayEnabled(checked);
+    if (!checked) {
+      setTaskDelayMinutes("");
+    }
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     const repo = resolveRepositoryInput(repoInput);
     if (!repo) {
@@ -333,6 +351,38 @@ export default function CreateTaskForm({
     const effectivePullRequestCompletionMode = createPullRequest
       ? pullRequestCompletionMode
       : DEFAULT_PULL_REQUEST_COMPLETION_MODE;
+    const trimmedTaskDelayMinutes = taskDelayMinutes.trim();
+
+    let taskDelayMs: number | undefined;
+    if (taskDelayEnabled) {
+      if (!trimmedTaskDelayMinutes) {
+        setSubmitError(TASK_DELAY_REQUIRED_ERROR);
+        setIsSubmitting(false);
+        return;
+      }
+
+      const parsedTaskDelayMinutes = Number(trimmedTaskDelayMinutes);
+      if (!Number.isFinite(parsedTaskDelayMinutes)) {
+        setSubmitError(TASK_DELAY_NUMBER_ERROR);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (parsedTaskDelayMinutes < MIN_TASK_DELAY_MINUTES) {
+        setSubmitError(TASK_DELAY_MINIMUM_ERROR);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!Number.isInteger(parsedTaskDelayMinutes)) {
+        setSubmitError(TASK_DELAY_INTEGER_ERROR);
+        setIsSubmitting(false);
+        return;
+      }
+
+      taskDelayMs = parsedTaskDelayMinutes * 60 * 1000;
+    }
+
     const request: CreateTaskRequest = {
       repo,
       event_content: buildTaskDescription({
@@ -346,6 +396,10 @@ export default function CreateTaskForm({
       pull_request_completion_mode: effectivePullRequestCompletionMode,
       base_ref: baseRef || "main",
     };
+
+    if (typeof taskDelayMs === "number") {
+      request.task_delay_ms = taskDelayMs;
+    }
 
     if (trimmedProblemStatement) {
       request.problem_statement = trimmedProblemStatement;
@@ -372,6 +426,8 @@ export default function CreateTaskForm({
     pullRequestCompletionMode,
     baseRef,
     problemStatement,
+    taskDelayEnabled,
+    taskDelayMinutes,
   ]);
 
   useEffect(() => {
@@ -383,6 +439,8 @@ export default function CreateTaskForm({
       createPullRequest,
       pullRequestCompletionMode,
       baseRef,
+      taskDelayEnabled,
+      taskDelayMinutes,
     });
   }, [
     repoInput,
@@ -392,6 +450,8 @@ export default function CreateTaskForm({
     createPullRequest,
     pullRequestCompletionMode,
     baseRef,
+    taskDelayEnabled,
+    taskDelayMinutes,
   ]);
 
   useEffect(() => {
@@ -411,6 +471,14 @@ export default function CreateTaskForm({
     repoInput.trim() !== "" &&
     bearerToken.trim() !== "";
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
+  const isTaskDelayInvalid =
+    taskDelayEnabled &&
+    [
+      TASK_DELAY_REQUIRED_ERROR,
+      TASK_DELAY_NUMBER_ERROR,
+      TASK_DELAY_INTEGER_ERROR,
+      TASK_DELAY_MINIMUM_ERROR,
+    ].includes(submitError);
   const githubTaskInfo = useMemo(
     () =>
       submitResult !== null
@@ -537,6 +605,43 @@ export default function CreateTaskForm({
           />
           Create pull request
         </label>
+      </div>
+
+      <div className="create-task-form__field create-task-form__checkbox-field">
+        <label>
+          <input
+            type="checkbox"
+            checked={taskDelayEnabled}
+            onChange={(e) => handleTaskDelayChange(e.target.checked)}
+          />
+          Delay task start
+        </label>
+      </div>
+
+      <div className="create-task-form__field">
+        <label htmlFor="create-task-delay-minutes">Delay in minutes</label>
+        <input
+          id="create-task-delay-minutes"
+          type="number"
+          min={MIN_TASK_DELAY_MINUTES}
+          step={1}
+          value={taskDelayMinutes}
+          onChange={(e) => setTaskDelayMinutes(e.target.value)}
+          placeholder="10"
+          disabled={!taskDelayEnabled}
+          inputMode="numeric"
+          aria-required={taskDelayEnabled}
+          aria-describedby="create-task-delay-minutes-hint"
+          aria-invalid={isTaskDelayInvalid}
+        />
+        <div
+          id="create-task-delay-minutes-hint"
+          className="create-task-form__field-hint"
+        >
+          {taskDelayEnabled
+            ? "The remote GitHub task will start after this delay."
+            : 'Enable "Delay task start" to schedule the task for later.'}
+        </div>
       </div>
 
       <div className="create-task-form__field">

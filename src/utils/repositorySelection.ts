@@ -735,6 +735,7 @@ export interface CreateTaskRequest {
   create_pull_request?: boolean;
   pull_request_completion_mode?: PullRequestCompletionMode;
   base_ref?: string;
+  task_delay_ms?: number;
 }
 
 export async function requestCreateTask(
