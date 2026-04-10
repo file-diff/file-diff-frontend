@@ -1022,7 +1022,7 @@ export default function BranchesPage({
                           default
                         </span>
                       )}
-                      {branch.pullRequestStatus !== "none" && (
+                      {!branch.isDefault && branch.pullRequestStatus !== "none" && (
                         <span
                           className={
                             "branches-page__pr-status " +
