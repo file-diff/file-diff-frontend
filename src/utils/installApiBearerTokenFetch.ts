@@ -16,6 +16,7 @@ const protectedApiPrefixes = [configuredApiBaseUrl, configuredJobsApiUrl].map(
 );
 
 let isInstalled = false;
+let originalFetch: typeof window.fetch | null = null;
 
 function isProtectedApiRequest(url: string): boolean {
   return (
@@ -30,30 +31,31 @@ export function installApiBearerTokenFetch(): void {
     return;
   }
 
-  const originalFetch = window.fetch.bind(window);
+  const fetchImpl = originalFetch ?? window.fetch.bind(window);
+  originalFetch = fetchImpl;
 
-  window.fetch = (input, init) => {
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
 
     if (!isProtectedApiRequest(request.url)) {
-      return originalFetch(request);
+      return fetchImpl(request);
     }
 
     const bearerToken = (loadBearerToken() ?? "").trim();
 
     if (!bearerToken) {
-      return originalFetch(request);
+      return fetchImpl(request);
     }
 
     const headers = new Headers(request.headers);
 
     if (headers.has("Authorization")) {
-      return originalFetch(request);
+      return fetchImpl(request);
     }
 
     headers.set("Authorization", `Bearer ${bearerToken}`);
 
-    return originalFetch(new Request(request, { headers }));
+    return fetchImpl(new Request(request, { headers }));
   };
 
   isInstalled = true;
