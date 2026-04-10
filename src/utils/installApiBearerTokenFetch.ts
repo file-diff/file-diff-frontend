@@ -33,13 +33,13 @@ export function installApiBearerTokenFetch(): void {
   const originalFetch = window.fetch.bind(window);
 
   window.fetch = (input, init) => {
-    const request = input instanceof Request ? new Request(input, init) : new Request(input, init);
+    const request = new Request(input, init);
 
     if (!isProtectedApiRequest(request.url)) {
       return originalFetch(request);
     }
 
-    const bearerToken = loadBearerToken().trim();
+    const bearerToken = (loadBearerToken() ?? "").trim();
 
     if (!bearerToken) {
       return originalFetch(request);
