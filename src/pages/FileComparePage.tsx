@@ -1075,7 +1075,7 @@ export default function FileComparePage() {
                 Show only changed lines
               </label>
               <span className="file-compare-checkbox__hint">
-                Keep up to {CHANGED_LINES_CONTEXT} unchanged lines above and below each change
+                Shows up to {CHANGED_LINES_CONTEXT} unchanged lines above and below each change
               </span>
             </div>
           </div>
