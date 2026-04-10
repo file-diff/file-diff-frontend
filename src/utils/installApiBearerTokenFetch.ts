@@ -11,19 +11,27 @@ const configuredApiBaseUrl = trimTrailingSlash(
 const configuredJobsApiUrl = trimTrailingSlash(
   import.meta.env.VITE_JOBS_API_URL?.trim() || `${configuredApiBaseUrl}/jobs`
 );
-const protectedApiPrefixes = [configuredApiBaseUrl, configuredJobsApiUrl].map(
-  (url) => `${url}/`
+const protectedApiBases = [configuredApiBaseUrl, configuredJobsApiUrl].map(
+  (url) => new URL(url)
 );
 
 let isInstalled = false;
 let originalFetch: typeof window.fetch | null = null;
 
 function isProtectedApiRequest(url: string): boolean {
-  return (
-    url === configuredApiBaseUrl ||
-    url === configuredJobsApiUrl ||
-    protectedApiPrefixes.some((prefix) => url.startsWith(prefix))
-  );
+  const requestUrl = new URL(url);
+
+  return protectedApiBases.some((baseUrl) => {
+    const basePath = baseUrl.pathname.endsWith("/")
+      ? baseUrl.pathname
+      : `${baseUrl.pathname}/`;
+
+    return (
+      requestUrl.origin === baseUrl.origin &&
+      (requestUrl.pathname === baseUrl.pathname ||
+        requestUrl.pathname.startsWith(basePath))
+    );
+  });
 }
 
 export function installApiBearerTokenFetch(): void {
