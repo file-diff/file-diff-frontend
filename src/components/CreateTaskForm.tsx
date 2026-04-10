@@ -75,17 +75,14 @@ function buildTaskDescription({
   repo,
   baseRef,
   problemStatement,
-  optionalDescription,
 }: {
   repo: string;
   baseRef: string;
   problemStatement: string;
-  optionalDescription: string;
 }): string {
   const normalizedRepo = normalizeWhitespace(repo);
   const normalizedBaseRef = normalizeWhitespace(baseRef);
   const normalizedProblemStatement = normalizeDescriptionBlock(problemStatement);
-  const normalizedOptionalDescription = normalizeDescriptionBlock(optionalDescription);
   const sections = [
     `Repository: ${normalizedRepo}`,
     `Base branch: ${normalizedBaseRef}`,
@@ -93,10 +90,6 @@ function buildTaskDescription({
 
   if (normalizedProblemStatement) {
     sections.push(`Problem statement:\n${normalizedProblemStatement}`);
-  }
-
-  if (normalizedOptionalDescription) {
-    sections.push(`Additional context:\n${normalizedOptionalDescription}`);
   }
 
   return sections.join("\n\n");
@@ -225,7 +218,6 @@ export default function CreateTaskForm({
     ? initialRepo || savedDraft?.repoInput || ""
     : initialRepo;
   const [repoInput, setRepoInput] = useState(initialRepoInput);
-  const [eventContent, setEventContent] = useState(savedDraft?.eventContent || "");
   const [problemStatement, setProblemStatement] = useState(
     savedDraft?.problemStatement || ""
   );
@@ -347,7 +339,6 @@ export default function CreateTaskForm({
     setSubmitResult(null);
 
     const trimmedProblemStatement = problemStatement.trim();
-    const trimmedOptionalDescription = eventContent.trim();
     const effectivePullRequestCompletionMode = createPullRequest
       ? pullRequestCompletionMode
       : DEFAULT_PULL_REQUEST_COMPLETION_MODE;
@@ -389,7 +380,6 @@ export default function CreateTaskForm({
         repo,
         baseRef: baseRef || "main",
         problemStatement: trimmedProblemStatement,
-        optionalDescription: trimmedOptionalDescription,
       }),
       model,
       create_pull_request: createPullRequest,
@@ -419,7 +409,6 @@ export default function CreateTaskForm({
     }
   }, [
     repoInput,
-    eventContent,
     bearerToken,
     model,
     createPullRequest,
@@ -433,7 +422,6 @@ export default function CreateTaskForm({
   useEffect(() => {
     saveCreateTaskDraft({
       repoInput,
-      eventContent,
       problemStatement,
       model,
       createPullRequest,
@@ -444,7 +432,6 @@ export default function CreateTaskForm({
     });
   }, [
     repoInput,
-    eventContent,
     problemStatement,
     model,
     createPullRequest,
@@ -554,20 +541,6 @@ export default function CreateTaskForm({
             </option>
           ))}
         </select>
-      </div>
-
-      <div className="create-task-form__field">
-        <label htmlFor="create-task-event-content">
-          Optional description <span className="create-task-form__optional">(optional)</span>
-        </label>
-        <textarea
-          id="create-task-event-content"
-          value={eventContent}
-          onChange={(e) => setEventContent(e.target.value)}
-          placeholder="Extra context to include in the generated task description…"
-          rows={4}
-          spellCheck={false}
-        />
       </div>
 
       <div className="create-task-form__field">

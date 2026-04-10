@@ -9,7 +9,6 @@ const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 
 export interface CreateTaskDraft {
   repoInput: string;
-  eventContent: string;
   problemStatement: string;
   model: string;
   createPullRequest: boolean;
@@ -49,7 +48,6 @@ export function loadCreateTaskDraft(): CreateTaskDraft | null {
     const candidate = parsed as Record<string, unknown>;
     if (
       typeof candidate.repoInput !== "string" ||
-      typeof candidate.eventContent !== "string" ||
       typeof candidate.problemStatement !== "string" ||
       typeof candidate.model !== "string" ||
       !isBoolean(candidate.createPullRequest) ||
@@ -66,7 +64,6 @@ export function loadCreateTaskDraft(): CreateTaskDraft | null {
 
     return {
       repoInput: candidate.repoInput,
-      eventContent: candidate.eventContent,
       problemStatement: candidate.problemStatement,
       model: candidate.model,
       createPullRequest: candidate.createPullRequest,
