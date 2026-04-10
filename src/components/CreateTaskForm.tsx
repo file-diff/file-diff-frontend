@@ -368,8 +368,8 @@ export default function CreateTaskForm({
       }
 
       if (
-        !Number.isInteger(parsedTaskDelayMinutes) ||
-        parsedTaskDelayMinutes < MIN_TASK_DELAY_MINUTES
+        parsedTaskDelayMinutes < MIN_TASK_DELAY_MINUTES ||
+        !Number.isInteger(parsedTaskDelayMinutes)
       ) {
         setSubmitError(TASK_DELAY_MINIMUM_ERROR);
         setIsSubmitting(false);
@@ -625,6 +625,7 @@ export default function CreateTaskForm({
           placeholder="10"
           disabled={!taskDelayEnabled}
           inputMode="numeric"
+          aria-required={taskDelayEnabled}
           aria-describedby="create-task-delay-minutes-hint"
           aria-invalid={isTaskDelayInvalid}
         />
