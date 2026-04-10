@@ -19,7 +19,13 @@ let isInstalled = false;
 let originalFetch: typeof window.fetch | null = null;
 
 function isProtectedApiRequest(url: string): boolean {
-  const requestUrl = new URL(url);
+  let requestUrl: URL;
+
+  try {
+    requestUrl = new URL(url);
+  } catch {
+    return false;
+  }
 
   return protectedApiBases.some((baseUrl) => {
     const basePath = baseUrl.pathname.endsWith("/")
@@ -43,7 +49,13 @@ export function installApiBearerTokenFetch(): void {
   originalFetch = fetchImpl;
 
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    const request = new Request(input, init);
+    let request: Request;
+
+    try {
+      request = new Request(input, init);
+    } catch {
+      return fetchImpl(input, init);
+    }
 
     if (!isProtectedApiRequest(request.url)) {
       return fetchImpl(request);
