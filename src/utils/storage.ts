@@ -6,6 +6,8 @@ const FONT_PREFERENCE_STORAGE_KEY = "code-font-preference";
 const TREE_COMPARE2_FILES_CACHE = "tree-compare2-files-v1";
 const TREE_COMPARE2_SHOW_UNCHANGED_STORAGE_KEY =
   "tree-compare2-show-unchanged";
+const FILE_COMPARE_SHOW_ONLY_CHANGED_STORAGE_KEY =
+  "file-compare-show-only-changed";
 const TREE_COMPARE2_FILE_NAME_FILTER_ENABLED_STORAGE_KEY =
   "tree-compare2-file-name-filter-enabled";
 const TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY =
@@ -368,6 +370,7 @@ export async function clearAllStoredData(): Promise<void> {
     window.localStorage.removeItem(INDEXING_HISTORY_STORAGE_KEY);
     window.localStorage.removeItem(FONT_PREFERENCE_STORAGE_KEY);
     window.localStorage.removeItem(TREE_COMPARE2_SHOW_UNCHANGED_STORAGE_KEY);
+    window.localStorage.removeItem(FILE_COMPARE_SHOW_ONLY_CHANGED_STORAGE_KEY);
     window.localStorage.removeItem(
       TREE_COMPARE2_FILE_NAME_FILTER_ENABLED_STORAGE_KEY
     );
@@ -428,6 +431,36 @@ export function writeTreeCompare2ShowUnchanged(value: boolean): void {
   try {
     window.localStorage.setItem(
       TREE_COMPARE2_SHOW_UNCHANGED_STORAGE_KEY,
+      String(value)
+    );
+  } catch {
+    return;
+  }
+}
+
+export function readFileCompareShowOnlyChanged(): boolean | null {
+  try {
+    const raw = window.localStorage.getItem(
+      FILE_COMPARE_SHOW_ONLY_CHANGED_STORAGE_KEY
+    );
+
+    if (raw === "true") {
+      return true;
+    }
+    if (raw === "false") {
+      return false;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeFileCompareShowOnlyChanged(value: boolean): void {
+  try {
+    window.localStorage.setItem(
+      FILE_COMPARE_SHOW_ONLY_CHANGED_STORAGE_KEY,
       String(value)
     );
   } catch {

@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { buildJobFileDiffUrl, buildTokenizeUrl } from "../config/api";
 import { DEFAULT_SHIKI_THEME, SHIKI_THEMES } from "../constants/shikiThemes";
+import {
+  readFileCompareShowOnlyChanged,
+  writeFileCompareShowOnlyChanged,
+} from "../utils/storage";
 import "./FileComparePage.css";
 
 /* ------------------------------------------------------------------ */
@@ -67,6 +71,21 @@ type FontStyleFlag = number;
 const FONT_STYLE_ITALIC: FontStyleFlag = 1;
 const FONT_STYLE_BOLD: FontStyleFlag = 2;
 const FONT_STYLE_UNDERLINE: FontStyleFlag = 4;
+const CHANGED_LINES_CONTEXT = 5;
+
+type DisplayRow =
+  | {
+      type: "line";
+      slot: LineSlot;
+      slotIndex: number;
+    }
+  | {
+      type: "hidden";
+      key: string;
+      hiddenCount: number;
+      firstHiddenLine: number | null;
+      lastHiddenLine: number | null;
+    };
 
 interface MergedToken {
   content: string;
@@ -277,6 +296,71 @@ function buildLineSlotsFromDiff(
         rhsLine !== null ? (lineInfo.rightDiffInfo.get(rhsLine) ?? null) : null,
     };
   });
+}
+
+function buildDisplayRows(
+  slots: LineSlot[],
+  showOnlyChanged: boolean
+): DisplayRow[] {
+  if (!showOnlyChanged) {
+    return slots.map((slot, slotIndex) => ({
+      type: "line" as const,
+      slot,
+      slotIndex,
+    }));
+  }
+
+  const changedIndices = slots.flatMap((slot, index) => (slot.isEqual ? [] : [index]));
+
+  if (changedIndices.length === 0) {
+    return slots.map((slot, slotIndex) => ({
+      type: "line" as const,
+      slot,
+      slotIndex,
+    }));
+  }
+
+  const visible = new Array(slots.length).fill(false);
+
+  for (const changedIndex of changedIndices) {
+    const start = Math.max(0, changedIndex - CHANGED_LINES_CONTEXT);
+    const end = Math.min(slots.length - 1, changedIndex + CHANGED_LINES_CONTEXT);
+
+    for (let i = start; i <= end; i += 1) {
+      visible[i] = true;
+    }
+  }
+
+  const rows: DisplayRow[] = [];
+  let index = 0;
+
+  while (index < slots.length) {
+    if (visible[index]) {
+      rows.push({
+        type: "line",
+        slot: slots[index],
+        slotIndex: index,
+      });
+      index += 1;
+      continue;
+    }
+
+    const hiddenStart = index;
+    while (index < slots.length && !visible[index]) {
+      index += 1;
+    }
+    const hiddenEnd = index - 1;
+
+    rows.push({
+      type: "hidden",
+      key: `hidden-${hiddenStart}-${hiddenEnd}`,
+      hiddenCount: hiddenEnd - hiddenStart + 1,
+      firstHiddenLine: slots[hiddenStart]?.leftLineNumber ?? slots[hiddenStart]?.rightLineNumber ?? null,
+      lastHiddenLine: slots[hiddenEnd]?.leftLineNumber ?? slots[hiddenEnd]?.rightLineNumber ?? null,
+    });
+  }
+
+  return rows;
 }
 
 function downloadTextFile(content: string, filename: string) {
@@ -611,6 +695,39 @@ function LineRow({
   );
 }
 
+function HiddenLinesRow({
+  hiddenCount,
+  firstHiddenLine,
+  lastHiddenLine,
+}: {
+  hiddenCount: number;
+  firstHiddenLine: number | null;
+  lastHiddenLine: number | null;
+}) {
+  const rangeLabel =
+    firstHiddenLine !== null && lastHiddenLine !== null
+      ? `Lines ${firstHiddenLine}–${lastHiddenLine}`
+      : "Hidden unchanged lines";
+
+  return (
+    <div className="file-diff__row file-diff__row--hidden">
+      <div
+        className="file-diff__hidden-marker"
+        aria-label={`${hiddenCount} unchanged lines hidden. ${rangeLabel}.`}
+      >
+        <span className="file-diff__hidden-marker-line" />
+        <span className="file-diff__hidden-marker-text">
+          ⋯ {hiddenCount} unchanged {hiddenCount === 1 ? "line" : "lines"} hidden
+          {firstHiddenLine !== null && lastHiddenLine !== null
+            ? ` (${firstHiddenLine}–${lastHiddenLine})`
+            : ""}
+        </span>
+        <span className="file-diff__hidden-marker-line" />
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Page component                                                     */
 /* ------------------------------------------------------------------ */
@@ -656,10 +773,17 @@ export default function FileComparePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(initialTheme);
+  const [showOnlyChanged, setShowOnlyChanged] = useState(
+    () => readFileCompareShowOnlyChanged() ?? false
+  );
   const [selectedLine, setSelectedLine] = useState<{
     slot: LineSlot;
     rowIndex: number;
   } | null>(null);
+
+  useEffect(() => {
+    writeFileCompareShowOnlyChanged(showOnlyChanged);
+  }, [showOnlyChanged]);
 
   useEffect(() => {
     if (!leftUrl || !rightUrl) return;
@@ -870,6 +994,12 @@ export default function FileComparePage() {
   const rightOnlyCount = slots.filter(
     (s) => s.leftText === null && s.rightText !== null
   ).length;
+  const displayRows = useMemo(
+    () => buildDisplayRows(slots, showOnlyChanged),
+    [showOnlyChanged, slots]
+  );
+  const visibleLineCount = displayRows.filter((row) => row.type === "line").length;
+  const hiddenLineCount = slots.length - visibleLineCount;
 
   return (
     <div className="file-compare-page">
@@ -931,6 +1061,23 @@ export default function FileComparePage() {
                 ))}
               </datalist>
             </div>
+            <div className="file-compare-field file-compare-field--toggle">
+              <label
+                className="file-compare-checkbox"
+                htmlFor="file-compare-show-only-changed"
+              >
+                <input
+                  id="file-compare-show-only-changed"
+                  type="checkbox"
+                  checked={showOnlyChanged}
+                  onChange={(event) => setShowOnlyChanged(event.target.checked)}
+                />
+                Show only changed lines
+              </label>
+              <span className="file-compare-checkbox__hint">
+                Keep up to {CHANGED_LINES_CONTEXT} unchanged lines above and below each change
+              </span>
+            </div>
           </div>
           <div className="file-diff__summary">
             <span className="summary-item summary-item--equal">
@@ -952,6 +1099,16 @@ export default function FileComparePage() {
             <span className="summary-item summary-item--total">
               {slots.length} lines total
             </span>
+            {showOnlyChanged && (
+              <>
+                <span className="summary-item summary-item--visible">
+                  👁 {visibleLineCount} shown
+                </span>
+                <span className="summary-item summary-item--hidden">
+                  ⋯ {hiddenLineCount} hidden
+                </span>
+              </>
+            )}
             {useDiffAlignment && (
               <span className="summary-item summary-item--diff-aligned">
                 ⚡ diff-aligned
@@ -985,14 +1142,25 @@ export default function FileComparePage() {
               </div>
             </div>
             <div className="file-diff__body">
-              {slots.map((slot, i) => (
-                <LineRow
-                  key={i}
-                  slot={slot}
-                  onCopyToRight={handleCopyToRight}
-                  onShowDetails={() => setSelectedLine({ slot, rowIndex: i })}
-                />
-              ))}
+              {displayRows.map((row) =>
+                row.type === "line" ? (
+                  <LineRow
+                    key={row.slotIndex}
+                    slot={row.slot}
+                    onCopyToRight={handleCopyToRight}
+                    onShowDetails={() =>
+                      setSelectedLine({ slot: row.slot, rowIndex: row.slotIndex })
+                    }
+                  />
+                ) : (
+                  <HiddenLinesRow
+                    key={row.key}
+                    hiddenCount={row.hiddenCount}
+                    firstHiddenLine={row.firstHiddenLine}
+                    lastHiddenLine={row.lastHiddenLine}
+                  />
+                )
+              )}
             </div>
           </div>
           <LineDetailsDialog
