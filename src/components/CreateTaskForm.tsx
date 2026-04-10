@@ -362,7 +362,7 @@ export default function CreateTaskForm({
         !Number.isInteger(parsedTaskDelayMinutes) ||
         parsedTaskDelayMinutes < MIN_TASK_DELAY_MINUTES
       ) {
-        setSubmitError("Task delay must be a whole number of minutes.");
+        setSubmitError("Task delay must be at least 1 whole minute.");
         setIsSubmitting(false);
         return;
       }
@@ -458,6 +458,10 @@ export default function CreateTaskForm({
     repoInput.trim() !== "" &&
     bearerToken.trim() !== "";
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
+  const isTaskDelayInvalid =
+    taskDelayEnabled &&
+    (submitError === "Please enter how many minutes to delay the task." ||
+      submitError === "Task delay must be at least 1 whole minute.");
   const githubTaskInfo = useMemo(
     () =>
       submitResult !== null
@@ -609,8 +613,13 @@ export default function CreateTaskForm({
           placeholder="10"
           disabled={!taskDelayEnabled}
           inputMode="numeric"
+          aria-describedby="create-task-delay-minutes-hint"
+          aria-invalid={isTaskDelayInvalid}
         />
-        <div className="create-task-form__field-hint">
+        <div
+          id="create-task-delay-minutes-hint"
+          className="create-task-form__field-hint"
+        >
           {taskDelayEnabled
             ? "The remote GitHub task will start after this delay."
             : 'Enable "Delay task start" to schedule the task for later.'}
