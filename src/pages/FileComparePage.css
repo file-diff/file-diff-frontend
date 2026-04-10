@@ -89,6 +89,10 @@
   flex: 0 0 220px;
 }
 
+.file-compare-field--toggle {
+  flex: 0 1 360px;
+}
+
 .file-compare-field label {
   margin-bottom: 6px;
   color: #8b949e;
@@ -108,6 +112,27 @@
 
 .file-compare-field input::placeholder {
   color: #555;
+}
+
+.file-compare-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  margin-bottom: 0;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.file-compare-checkbox input {
+  margin: 0;
+}
+
+.file-compare-checkbox__hint {
+  color: #8b949e;
+  font-size: 0.8rem;
+  line-height: 1.4;
 }
 
 .file-diff__summary {
@@ -140,6 +165,14 @@
 
 .summary-item--total {
   color: #999;
+}
+
+.summary-item--visible {
+  color: #79c0ff;
+}
+
+.summary-item--hidden {
+  color: #8b949e;
 }
 
 .file-diff {
@@ -191,6 +224,10 @@
   min-height: 22px;
 }
 
+.file-diff__row--hidden {
+  background: rgba(88, 166, 255, 0.05);
+}
+
 .file-diff__cell {
   flex: 1;
   min-width: 0;
@@ -201,6 +238,27 @@
 
 .file-diff__cell--left {
   border-right: 1px solid #333;
+}
+
+.file-diff__hidden-marker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 16px;
+  color: #8b949e;
+  font-size: 12px;
+}
+
+.file-diff__hidden-marker-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(139, 148, 158, 0.35);
+}
+
+.file-diff__hidden-marker-text {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .file-diff__indicator {
