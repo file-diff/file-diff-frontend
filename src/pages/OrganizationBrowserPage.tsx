@@ -391,12 +391,20 @@ export default function OrganizationBrowserPage() {
             <label>Selected repository</label>
             <div className="org-page__selected-repo">
               <code>{selectedRepo}</code>
-              <Link
-                to={`/commits?repo=${encodeURIComponent(selectedRepo)}`}
-                className="org-page__commits-link"
-              >
-                View commits →
-              </Link>
+              <div className="org-page__selected-repo-links">
+                <Link
+                  to={`/repository?repo=${encodeURIComponent(selectedRepo)}`}
+                  className="org-page__nav-link"
+                >
+                  View repository →
+                </Link>
+                <Link
+                  to={`/commits?repo=${encodeURIComponent(selectedRepo)}`}
+                  className="org-page__nav-link"
+                >
+                  View commits →
+                </Link>
+              </div>
             </div>
           </div>
         )}
@@ -478,8 +486,15 @@ export default function OrganizationBrowserPage() {
                       </span>
                     )}
                   <Link
+                    to={`/repository?repo=${encodeURIComponent(repo.repo)}`}
+                    className="org-page__repo-nav-link"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Repository
+                  </Link>
+                  <Link
                     to={`/commits?repo=${encodeURIComponent(repo.repo)}`}
-                    className="org-page__repo-commits-link"
+                    className="org-page__repo-nav-link"
                     onClick={(e) => e.stopPropagation()}
                   >
                     Commits

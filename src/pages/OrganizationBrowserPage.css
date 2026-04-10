@@ -166,15 +166,21 @@
   font-size: 0.85rem;
 }
 
-.org-page__commits-link {
+.org-page__selected-repo-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-left: auto;
+}
+
+.org-page__nav-link {
   color: #58a6ff;
   text-decoration: none;
   font-size: 0.85rem;
   white-space: nowrap;
 }
 
-.org-page__commits-link:hover {
+.org-page__nav-link:hover {
   text-decoration: underline;
 }
 
@@ -279,13 +285,13 @@
   white-space: nowrap;
 }
 
-.org-page__repo-commits-link {
+.org-page__repo-nav-link {
   color: #58a6ff;
   text-decoration: none;
   font-size: 0.8rem;
   white-space: nowrap;
 }
 
-.org-page__repo-commits-link:hover {
+.org-page__repo-nav-link:hover {
   text-decoration: underline;
 }
