@@ -48,6 +48,7 @@ const DEFAULT_BRANCH_NAME = "main";
 const MIN_TASK_DELAY_MINUTES = 1;
 const TASK_DELAY_REQUIRED_ERROR = "Please enter how many minutes to delay the task.";
 const TASK_DELAY_NUMBER_ERROR = "Task delay must be a valid number of minutes.";
+const TASK_DELAY_INTEGER_ERROR = "Task delay must be a whole number of minutes.";
 const TASK_DELAY_MINIMUM_ERROR = "Task delay must be at least 1 whole minute.";
 const PULL_REQUEST_COMPLETION_MODE_LABELS: Record<
   PullRequestCompletionMode,
@@ -367,11 +368,14 @@ export default function CreateTaskForm({
         return;
       }
 
-      if (
-        parsedTaskDelayMinutes < MIN_TASK_DELAY_MINUTES ||
-        !Number.isInteger(parsedTaskDelayMinutes)
-      ) {
+      if (parsedTaskDelayMinutes < MIN_TASK_DELAY_MINUTES) {
         setSubmitError(TASK_DELAY_MINIMUM_ERROR);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!Number.isInteger(parsedTaskDelayMinutes)) {
+        setSubmitError(TASK_DELAY_INTEGER_ERROR);
         setIsSubmitting(false);
         return;
       }
@@ -472,6 +476,7 @@ export default function CreateTaskForm({
     [
       TASK_DELAY_REQUIRED_ERROR,
       TASK_DELAY_NUMBER_ERROR,
+      TASK_DELAY_INTEGER_ERROR,
       TASK_DELAY_MINIMUM_ERROR,
     ].includes(submitError);
   const githubTaskInfo = useMemo(
