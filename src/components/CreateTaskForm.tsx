@@ -46,6 +46,9 @@ const DEFAULT_CREATE_PULL_REQUEST = true;
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 const DEFAULT_BRANCH_NAME = "main";
 const MIN_TASK_DELAY_MINUTES = 1;
+const TASK_DELAY_REQUIRED_ERROR = "Please enter how many minutes to delay the task.";
+const TASK_DELAY_NUMBER_ERROR = "Task delay must be a valid number of minutes.";
+const TASK_DELAY_MINIMUM_ERROR = "Task delay must be at least 1 whole minute.";
 const PULL_REQUEST_COMPLETION_MODE_LABELS: Record<
   PullRequestCompletionMode,
   string
@@ -352,17 +355,23 @@ export default function CreateTaskForm({
     let taskDelayMs: number | undefined;
     if (taskDelayEnabled) {
       if (!trimmedTaskDelayMinutes) {
-        setSubmitError("Please enter how many minutes to delay the task.");
+        setSubmitError(TASK_DELAY_REQUIRED_ERROR);
         setIsSubmitting(false);
         return;
       }
 
       const parsedTaskDelayMinutes = Number(trimmedTaskDelayMinutes);
+      if (!Number.isFinite(parsedTaskDelayMinutes)) {
+        setSubmitError(TASK_DELAY_NUMBER_ERROR);
+        setIsSubmitting(false);
+        return;
+      }
+
       if (
         !Number.isInteger(parsedTaskDelayMinutes) ||
         parsedTaskDelayMinutes < MIN_TASK_DELAY_MINUTES
       ) {
-        setSubmitError("Task delay must be at least 1 whole minute.");
+        setSubmitError(TASK_DELAY_MINIMUM_ERROR);
         setIsSubmitting(false);
         return;
       }
@@ -460,8 +469,11 @@ export default function CreateTaskForm({
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const isTaskDelayInvalid =
     taskDelayEnabled &&
-    (submitError === "Please enter how many minutes to delay the task." ||
-      submitError === "Task delay must be at least 1 whole minute.");
+    [
+      TASK_DELAY_REQUIRED_ERROR,
+      TASK_DELAY_NUMBER_ERROR,
+      TASK_DELAY_MINIMUM_ERROR,
+    ].includes(submitError);
   const githubTaskInfo = useMemo(
     () =>
       submitResult !== null
