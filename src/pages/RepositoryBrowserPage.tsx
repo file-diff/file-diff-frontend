@@ -456,6 +456,11 @@ export default function RepositoryBrowserPage({
     saveAutoRefreshEnabled(value);
   }, []);
 
+  const handleRefresh = useCallback(() => {
+    if (!loadedRepo) return;
+    void loadCommitsForRepo(loadedRepo, commitLimit, { useCachedCommits: false });
+  }, [loadCommitsForRepo, loadedRepo, commitLimit]);
+
   const compareLink = useMemo(() => {
     if (!leftCommit || !rightCommit || !loadedRepo) return null;
     const query = buildTreeComparisonLink(
@@ -550,7 +555,7 @@ export default function RepositoryBrowserPage({
             loadedRepo ? (
               <button
                 type="button"
-                onClick={() => void loadCommitsForRepo(loadedRepo, commitLimit, { useCachedCommits: false })}
+                onClick={() => void handleRefresh()}
                 disabled={isLoading}
               >
                 {isLoading ? "Refreshing…" : "Refresh"}
