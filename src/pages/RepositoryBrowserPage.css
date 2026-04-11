@@ -61,6 +61,27 @@
 
 .repo-browser__nav-links {
   margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.repo-browser__auto-refresh-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #8b949e;
+  cursor: pointer;
+}
+
+.repo-browser__auto-refresh-toggle input {
+  cursor: pointer;
+}
+
+.repo-browser__refreshing {
+  font-size: 0.8rem;
+  color: #8b949e;
 }
 
 .repo-browser__nav-link {

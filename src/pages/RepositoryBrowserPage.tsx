@@ -8,12 +8,28 @@ import {
 import type { RepositoryCommit } from "../utils/repositorySelection";
 import RepositorySelector from "../components/RepositorySelector";
 import { buildTreeComparisonLink } from "../utils/storage";
+import {
+  loadCachedCommits,
+  loadCachedCommitsFetchedAt,
+  saveCachedCommits,
+  loadLastRepo,
+  saveLastRepo,
+  loadCommitLimit,
+  saveCommitLimit,
+  loadAutoRefreshEnabled,
+  saveAutoRefreshEnabled,
+} from "../utils/commitViewStorage";
+import {
+  formatRelativeDateTime,
+  formatAbsoluteDateTime,
+} from "../utils/organizationBrowserPresentation";
 import "./RepositoryBrowserPage.css";
 
 const DEFAULT_COMMIT_LIMIT = 20;
 const MAX_COMMIT_LIMIT = 200;
 const COMMIT_LIMIT_OPTIONS = [20, 50, 100, 200] as const;
 const INDEXING_TRIGGER_URL = JOBS_API_URL;
+const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 interface JobRequest {
   repo: string;
@@ -65,6 +81,16 @@ function applySelectedCommitParams(
   }
 }
 
+function resolveInitialRepo(queryRepo: string): string {
+  if (queryRepo) return queryRepo;
+  return loadLastRepo();
+}
+
+function loadInitialCommits(repo: string): RepositoryCommit[] {
+  if (!repo) return [];
+  return loadCachedCommits(repo);
+}
+
 interface RepositoryBrowserPageProps {
   showRepositorySelector?: boolean;
 }
@@ -75,6 +101,7 @@ export default function RepositoryBrowserPage({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
+  const initialRepo = resolveInitialRepo(queryRepo);
   const queryLeftCommit = getOptionalQueryParam(searchParams, "leftCommit", "lc");
   const queryRightCommit = getOptionalQueryParam(
     searchParams,
@@ -82,13 +109,25 @@ export default function RepositoryBrowserPage({
     "rc"
   );
 
-  const [repoInput, setRepoInput] = useState(queryRepo);
-  const [commits, setCommits] = useState<RepositoryCommit[]>([]);
+  const [repoInput, setRepoInput] = useState(initialRepo);
+  const [commits, setCommits] = useState<RepositoryCommit[]>(() =>
+    loadInitialCommits(initialRepo)
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [loadedRepo, setLoadedRepo] = useState("");
-  const [commitLimit, setCommitLimit] = useState(DEFAULT_COMMIT_LIMIT);
+  const [loadedRepo, setLoadedRepo] = useState(() =>
+    loadInitialCommits(initialRepo).length > 0 ? initialRepo : ""
+  );
+  const [commitLimit, setCommitLimit] = useState(() =>
+    loadCommitLimit(DEFAULT_COMMIT_LIMIT)
+  );
   const [isStartingComparison, setIsStartingComparison] = useState(false);
+  const [lastFetchedAt, setLastFetchedAt] = useState(() =>
+    initialRepo ? loadCachedCommitsFetchedAt(initialRepo) : ""
+  );
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
+    loadAutoRefreshEnabled
+  );
 
   const [leftCommit, setLeftCommit] = useState<string | null>(queryLeftCommit);
   const [rightCommit, setRightCommit] = useState<string | null>(queryRightCommit);
@@ -120,17 +159,34 @@ export default function RepositoryBrowserPage({
     [setSearchParams]
   );
 
-  const loadCommitsForRepo = useCallback(async (repo: string, limit: number) => {
+  const loadCommitsForRepo = useCallback(async (
+    repo: string,
+    limit: number,
+    options: { useCachedCommits?: boolean } = {}
+  ) => {
+    const { useCachedCommits = true } = options;
+    const isRefreshingCurrentRepo = loadedRepo === repo;
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     setIsLoading(true);
     setError("");
-    setCommits([]);
-    setLeftCommit(null);
-    setRightCommit(null);
-    setLoadedRepo("");
+
+    const cachedCommits = useCachedCommits ? loadCachedCommits(repo) : [];
+    if (useCachedCommits) {
+      if (cachedCommits.length > 0) {
+        setCommits(cachedCommits);
+        setLoadedRepo(repo);
+      } else if (!isRefreshingCurrentRepo) {
+        setCommits([]);
+        setLoadedRepo("");
+      }
+    }
+    if (!isRefreshingCurrentRepo) {
+      setLeftCommit(null);
+      setRightCommit(null);
+    }
 
     try {
       const result = await requestRepositoryCommits(
@@ -140,19 +196,26 @@ export default function RepositoryBrowserPage({
       );
       setCommits(result);
       setLoadedRepo(repo);
+      saveCachedCommits(repo, result);
+      saveLastRepo(repo);
+      setLastFetchedAt(loadCachedCommitsFetchedAt(repo));
     } catch (err) {
       if (controller.signal.aborted) return;
-      setError(
+      const message =
         err instanceof Error && err.message
           ? err.message
-          : "Unable to load commits"
-      );
+          : "Unable to load commits";
+      if (cachedCommits.length > 0) {
+        setError(message + " — showing cached data.");
+      } else {
+        setError(message);
+      }
     } finally {
       if (!controller.signal.aborted) {
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [loadedRepo]);
 
   useEffect(() => {
     currentSearchRef.current = searchParams.toString();
@@ -170,15 +233,22 @@ export default function RepositoryBrowserPage({
   }, [loadCommitsForRepo, repoInput, commitLimit]);
 
   useEffect(() => {
-    const repo = resolveRepositoryInput(queryRepo);
+    const repo = resolveRepositoryInput(initialRepo);
     if (!repo || autoLoadedRepoRef.current === repo) {
       return;
     }
 
     autoLoadedRepoRef.current = repo;
     setRepoInput(repo);
-    void loadCommitsForRepo(repo, commitLimit);
-  }, [loadCommitsForRepo, queryRepo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const refreshTimer = window.setTimeout(() => {
+      void loadCommitsForRepo(repo, commitLimit);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(refreshTimer);
+    };
+  }, [loadCommitsForRepo, initialRepo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setLeftCommit(queryLeftCommit);
@@ -193,6 +263,32 @@ export default function RepositoryBrowserPage({
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!loadedRepo || !autoRefreshEnabled) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (isLoading) {
+        return;
+      }
+
+      void loadCommitsForRepo(loadedRepo, commitLimit, {
+        useCachedCommits: false,
+      });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    autoRefreshEnabled,
+    commitLimit,
+    isLoading,
+    loadCommitsForRepo,
+    loadedRepo,
+  ]);
 
   const ensureIndexingJobStarted = useCallback(async (repo: string, commit: string) => {
     const indexingKey = `${repo}\n${commit}`;
@@ -300,6 +396,8 @@ export default function RepositoryBrowserPage({
           controller.signal
         );
         setCommits(result);
+        saveCachedCommits(repo, result);
+        setLastFetchedAt(loadCachedCommitsFetchedAt(repo));
       } catch (err) {
         if (controller.signal.aborted) return;
         setError(
@@ -347,10 +445,21 @@ export default function RepositoryBrowserPage({
   const handleCommitLimitChange = useCallback(
     async (newLimit: number) => {
       setCommitLimit(newLimit);
+      saveCommitLimit(newLimit);
       await reloadCommits(newLimit);
     },
     [reloadCommits]
   );
+
+  const handleAutoRefreshChange = useCallback((value: boolean) => {
+    setAutoRefreshEnabled(value);
+    saveAutoRefreshEnabled(value);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    if (!loadedRepo) return;
+    void loadCommitsForRepo(loadedRepo, commitLimit, { useCachedCommits: false });
+  }, [loadCommitsForRepo, loadedRepo, commitLimit]);
 
   const compareLink = useMemo(() => {
     if (!leftCommit || !rightCommit || !loadedRepo) return null;
@@ -414,10 +523,19 @@ export default function RepositoryBrowserPage({
     await startComparisonAndNavigate(leftCommit, rightCommit, compareLink);
   }, [compareLink, leftCommit, rightCommit, startComparisonAndNavigate]);
 
+  const commitListStatusMessage = isLoading
+    ? "↻ refreshing"
+    : lastFetchedAt
+      ? `updated ${formatRelativeDateTime(lastFetchedAt)}`
+      : "";
+  const commitListStatusTitle = lastFetchedAt
+    ? `Last updated ${formatAbsoluteDateTime(lastFetchedAt)}`
+    : undefined;
+
   return (
     <div className="repo-browser-page">
       <div className="page-header">
-        <h1>🔀 Repository Browser</h1>
+        <h1>🔀 Commit View</h1>
         <p className="page-subtitle">
           Browse recent commits of a repository and select two to compare.
         </p>
@@ -433,6 +551,17 @@ export default function RepositoryBrowserPage({
           loadingButtonLabel="Loading…"
           isLoading={isLoading && commits.length === 0}
           disabled={isLoading || !repoInput.trim()}
+          actions={
+            loadedRepo ? (
+              <button
+                type="button"
+                onClick={() => void handleRefresh()}
+                disabled={isLoading}
+              >
+                {isLoading ? "Refreshing…" : "Refresh"}
+              </button>
+            ) : null
+          }
           footer={
             loadedRepo ? (
               <div className="repo-browser__nav-links">
@@ -442,6 +571,14 @@ export default function RepositoryBrowserPage({
                 >
                   View branches →
                 </Link>
+                <label className="repo-browser__auto-refresh-toggle">
+                  <input
+                    type="checkbox"
+                    checked={autoRefreshEnabled}
+                    onChange={(e) => handleAutoRefreshChange(e.target.checked)}
+                  />
+                  Auto-refresh every 30s
+                </label>
               </div>
             ) : null
           }
@@ -529,6 +666,15 @@ export default function RepositoryBrowserPage({
               </label>
               <span className="repo-browser__commits-count">
                 {commits.length} commit{commits.length !== 1 ? "s" : ""}
+                {commitListStatusMessage && (
+                  <span
+                    className="repo-browser__refreshing"
+                    title={commitListStatusTitle}
+                  >
+                    {" "}
+                    — {commitListStatusMessage}
+                  </span>
+                )}
               </span>
             </div>
           </div>
