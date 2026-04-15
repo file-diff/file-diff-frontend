@@ -58,27 +58,25 @@ export default function RepositoryViewPage() {
       />
 
       <div className="repository-view-page__columns">
-        <div className="repository-view-page__column">
+        <div className="repository-view-page__column repository-view-page__column--side">
           <RepositoryBrowserPage
             key={`commits-${repoKey}`}
             showRepositorySelector={false}
           />
         </div>
-        <div className="repository-view-page__column">
+        <div className="repository-view-page__column repository-view-page__column--center">
+          <CreateTaskPage
+            key={`create-task-${repoKey}`}
+            showRepositorySelector={false}
+          />
+        </div>
+        <div className="repository-view-page__column repository-view-page__column--side">
           <BranchesPage
             key={`branches-${repoKey}`}
             showRepositorySelector={false}
           />
-        </div>
-        <div className="repository-view-page__column">
           <AgentTaskInfoPage
             key={`tasks-${repoKey}`}
-            showRepositorySelector={false}
-          />
-        </div>
-        <div className="repository-view-page__column repository-view-page__column--full">
-          <CreateTaskPage
-            key={`create-task-${repoKey}`}
             showRepositorySelector={false}
           />
         </div>
