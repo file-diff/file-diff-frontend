@@ -20,12 +20,12 @@
 }
 
 .repository-view-page__column--side {
-  flex: 0 1;
+  flex: 1 1 0;
   max-width: 800px;
 }
 
 .repository-view-page__column--center {
-  flex: 1 1;
+  flex: 1 1 0;
   min-width: 0;
 }
 
