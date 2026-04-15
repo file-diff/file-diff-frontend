@@ -552,7 +552,7 @@ export default function CreateTaskForm({
           value={problemStatement}
           onChange={(e) => setProblemStatement(e.target.value)}
           placeholder="Additional prompting for the agent…"
-          rows={3}
+          rows={12}
           spellCheck={false}
         />
       </div>
