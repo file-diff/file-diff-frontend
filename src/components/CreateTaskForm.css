@@ -116,11 +116,28 @@
   border: 1px solid #2ea043;
   border-radius: 6px;
   color: #fff;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 600;
   transition: background 0.15s;
   align-self: flex-start;
+}
+
+.create-task-form__submit-btn-label {
+  line-height: 1.2;
+  text-align: center;
+}
+
+.create-task-form__submit-btn-repo {
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
 }
 
 .create-task-form__submit-btn:hover:not(:disabled) {
@@ -130,15 +147,6 @@
 .create-task-form__submit-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.create-task-form__repo-info {
-  padding: 10px 14px;
-  border: 1px solid #3d444d;
-  border-radius: 6px;
-  background: rgba(88, 166, 255, 0.08);
-  color: #d4d4d4;
-  font-size: 0.85rem;
 }
 
 .create-task-form__field-error {

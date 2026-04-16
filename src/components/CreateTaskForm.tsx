@@ -495,12 +495,6 @@ export default function CreateTaskForm({
         </div>
       )}
 
-      {resolvedRepo && (
-        <div className="create-task-form__repo-info">
-          Task will be created in repository: <strong>{resolvedRepo}</strong>
-        </div>
-      )}
-
       <div className="create-task-form__field">
         <label htmlFor="create-task-model">Model</label>
         <select
@@ -660,7 +654,12 @@ export default function CreateTaskForm({
         disabled={!canSubmit}
         className="create-task-form__submit-btn"
       >
-        {isSubmitting ? "Creating task…" : "Create task"}
+        <span className="create-task-form__submit-btn-label">
+          {isSubmitting ? "Creating task…" : "Create task"}
+        </span>
+        {resolvedRepo && (
+          <span className="create-task-form__submit-btn-repo">{resolvedRepo}</span>
+        )}
       </button>
 
       {submitResult !== null && (
