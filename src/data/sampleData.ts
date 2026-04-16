@@ -15,6 +15,7 @@ d;smallDriftMap1/bastionDub;0;1772817450;N/A
 b;smallDriftMap1/bastionDub/bastionDub.cfg;2048;1772817450;bb22cc33dd44ee55
 d;smallDriftMap1/hopperCrew;0;1772817450;N/A
 b;smallDriftMap1/hopperCrew/hopperCrew.cfg;2048;1772817450;cc33dd44ee55ff66
+b;smallDriftMap1/hopperCrew/hopperCamera.cfg;512;1772817450;ff66001122aabb33
 d;smallDriftMap1/aiScenarioLogic;0;1772817450;N/A
 t;smallDriftMap1/aiScenarioLogic/smallDriftMap1Logic.txt;1024;1772817450;ee55ff66001122aa
 d;aiScenarioLogic;0;1772817450;N/A
