@@ -38,6 +38,69 @@
   padding: 0;
 }
 
+.repository-view-page__recent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.repository-view-page__recent-label {
+  color: #888;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.repository-view-page__recent-chip {
+  display: inline-flex;
+  align-items: center;
+  background: #1c1c1c;
+  border: 1px solid #444;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.repository-view-page__recent-chip:hover {
+  border-color: #666;
+}
+
+.repository-view-page__recent-chip--active {
+  border-color: #58a6ff;
+  background: #0d1117;
+}
+
+.repository-view-page__recent-name {
+  padding: 3px 8px 3px 10px;
+  background: none;
+  border: none;
+  color: #c9d1d9;
+  font-size: 0.8rem;
+  font-family: var(--code-font-family);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.repository-view-page__recent-name:hover {
+  color: #58a6ff;
+}
+
+.repository-view-page__recent-remove {
+  padding: 3px 7px 3px 4px;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.9rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.repository-view-page__recent-remove:hover {
+  color: #f85149;
+}
+
 @media (max-width: 900px) {
   .repository-view-page__columns {
     flex-direction: column;

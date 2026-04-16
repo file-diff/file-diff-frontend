@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import RepositorySelector from "../components/RepositorySelector";
 import { resolveRepositoryInput } from "../utils/repositorySelection";
+import {
+  readRecentRepositories,
+  addRecentRepository,
+  removeRecentRepository,
+} from "../utils/recentRepositoriesStorage";
 import RepositoryBrowserPage from "./RepositoryBrowserPage";
 import BranchesPage from "./BranchesPage";
 import AgentTaskInfoPage from "./AgentTaskInfoPage";
@@ -13,9 +18,19 @@ export default function RepositoryViewPage() {
   const repo = searchParams.get("repo") ?? "";
   const [repoInput, setRepoInput] = useState(repo);
   const repoKey = useMemo(() => repo.trim() || "no-repo", [repo]);
+  const [recentRepos, setRecentRepos] = useState<string[]>(
+    readRecentRepositories
+  );
 
   useEffect(() => {
     setRepoInput(repo);
+  }, [repo]);
+
+  useEffect(() => {
+    const resolved = repo.trim();
+    if (resolved) {
+      setRecentRepos(addRecentRepository(resolved));
+    }
   }, [repo]);
 
   const handleLoadRepository = useCallback(() => {
@@ -37,6 +52,29 @@ export default function RepositoryViewPage() {
     setSearchParams(nextParams, { replace: true });
   }, [repoInput, searchParams, setSearchParams]);
 
+  const handleSelectRecent = useCallback(
+    (selected: string) => {
+      const nextParams = new URLSearchParams(searchParams);
+
+      nextParams.delete("leftCommit");
+      nextParams.delete("rightCommit");
+      nextParams.delete("lc");
+      nextParams.delete("rc");
+      nextParams.delete("taskId");
+
+      nextParams.set("repo", selected);
+      setSearchParams(nextParams, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
+
+  const handleRemoveRecent = useCallback(
+    (toRemove: string) => {
+      setRecentRepos(removeRecentRepository(toRemove));
+    },
+    []
+  );
+
   return (
     <div className="repository-view-page">
       <div className="page-header">
@@ -55,6 +93,44 @@ export default function RepositoryViewPage() {
         buttonLabel="Load repository"
         disabled={!repoInput.trim()}
         className="repository-view-page__selector"
+        footer={
+          recentRepos.length > 0 ? (
+            <div className="repository-view-page__recent">
+              <span className="repository-view-page__recent-label">
+                Recent:
+              </span>
+              {recentRepos.map((r) => (
+                <span
+                  key={r}
+                  className={
+                    "repository-view-page__recent-chip" +
+                    (r === repo
+                      ? " repository-view-page__recent-chip--active"
+                      : "")
+                  }
+                >
+                  <button
+                    type="button"
+                    className="repository-view-page__recent-name"
+                    onClick={() => handleSelectRecent(r)}
+                    title={`Switch to ${r}`}
+                  >
+                    {r}
+                  </button>
+                  <button
+                    type="button"
+                    className="repository-view-page__recent-remove"
+                    onClick={() => handleRemoveRecent(r)}
+                    title={`Remove ${r} from recent list`}
+                    aria-label={`Remove ${r}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null
+        }
       />
 
       <div className="repository-view-page__columns">
