@@ -495,38 +495,11 @@ export default function CreateTaskForm({
         </div>
       )}
 
-      <div className="create-task-form__field">
-        <label htmlFor="create-task-branch">Target branch</label>
-        {branches.length > 0 ? (
-          <select
-            id="create-task-branch"
-            value={baseRef}
-            onChange={(e) => setBaseRef(e.target.value)}
-          >
-            {branches.map((b) => (
-              <option key={b.ref} value={b.name}>
-                {b.name}
-                {b.isDefault ? " (default)" : ""}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            id="create-task-branch"
-            type="text"
-            value={baseRef}
-            onChange={(e) => setBaseRef(e.target.value)}
-            placeholder="main"
-            spellCheck={false}
-          />
-        )}
-        {loadedBranchesRepo && (
-          <div className="create-task-form__field-hint">
-            {branches.length} branch{branches.length !== 1 ? "es" : ""} loaded
-            from {loadedBranchesRepo}
-          </div>
-        )}
-      </div>
+      {resolvedRepo && (
+        <div className="create-task-form__repo-info">
+          Task will be created in repository: <strong>{resolvedRepo}</strong>
+        </div>
+      )}
 
       <div className="create-task-form__field">
         <label htmlFor="create-task-model">Model</label>
@@ -567,6 +540,39 @@ export default function CreateTaskForm({
           placeholder="Authorization token"
           spellCheck={false}
         />
+      </div>
+
+      <div className="create-task-form__field">
+        <label htmlFor="create-task-branch">Target branch</label>
+        {branches.length > 0 ? (
+          <select
+            id="create-task-branch"
+            value={baseRef}
+            onChange={(e) => setBaseRef(e.target.value)}
+          >
+            {branches.map((b) => (
+              <option key={b.ref} value={b.name}>
+                {b.name}
+                {b.isDefault ? " (default)" : ""}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id="create-task-branch"
+            type="text"
+            value={baseRef}
+            onChange={(e) => setBaseRef(e.target.value)}
+            placeholder="main"
+            spellCheck={false}
+          />
+        )}
+        {loadedBranchesRepo && (
+          <div className="create-task-form__field-hint">
+            {branches.length} branch{branches.length !== 1 ? "es" : ""} loaded
+            from {loadedBranchesRepo}
+          </div>
+        )}
       </div>
 
       <div className="create-task-form__field create-task-form__checkbox-field">

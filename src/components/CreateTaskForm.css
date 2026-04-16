@@ -132,6 +132,15 @@
   cursor: not-allowed;
 }
 
+.create-task-form__repo-info {
+  padding: 10px 14px;
+  border: 1px solid #3d444d;
+  border-radius: 6px;
+  background: rgba(88, 166, 255, 0.08);
+  color: #d4d4d4;
+  font-size: 0.85rem;
+}
+
 .create-task-form__field-error {
   font-size: 0.8rem;
   color: #ffa198;
