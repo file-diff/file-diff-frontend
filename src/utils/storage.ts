@@ -1,4 +1,5 @@
 import { CREATE_TASK_DRAFT_STORAGE_KEY } from "./createTaskStorage";
+import { RECENT_REPOSITORIES_STORAGE_KEY } from "./recentRepositoriesStorage";
 
 const LAST_PARAMS_STORAGE_KEY = "last-selected-params";
 const INDEXING_HISTORY_STORAGE_KEY = "indexing-parameter-history";
@@ -377,6 +378,7 @@ export async function clearAllStoredData(): Promise<void> {
     window.localStorage.removeItem(TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY);
     window.localStorage.removeItem(TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY);
     window.localStorage.removeItem(CREATE_TASK_DRAFT_STORAGE_KEY);
+    window.localStorage.removeItem(RECENT_REPOSITORIES_STORAGE_KEY);
   } catch {
     return;
   }
