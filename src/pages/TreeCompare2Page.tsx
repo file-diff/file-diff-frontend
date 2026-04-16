@@ -716,7 +716,7 @@ export default function TreeCompare2Page() {
           </div>
           {(filteredDiff ?? visibleDiff ?? diff).length === 0 ? (
             <div className="tree-compare2-empty-state">
-              <div className="tree-compare2-empty-state__icon">✅</div>
+              <div className="tree-compare2-empty-state__icon" role="img" aria-label="No changes">✅</div>
               <div className="tree-compare2-empty-state__title">No changes found</div>
               <div className="tree-compare2-empty-state__message">
                 {fileNameFilterEnabled && fileNameFilterValue.trim()
