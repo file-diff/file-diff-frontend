@@ -321,7 +321,14 @@ async function loadCompareSide(
   const jobId = r.filesData.jobId?.trim() || r.filesData.job_id?.trim() || "";
   const commitLabel = commit ? commit.slice(0, 12) : "unknown";
 
-  if (cache && responseForCache && isCompletedJobStatus(r.filesData.status)) {
+  if (!isCompletedJobStatus(r.filesData.status)) {
+    const statusText = r.filesData.status?.trim() || "unknown";
+    throw new Error(
+      `The ${side} side indexing job is not yet ready (status: ${statusText}). Please wait for indexing to complete and reload.`
+    );
+  }
+
+  if (cache && responseForCache) {
     try {
       await cache.put(requestUrl, responseForCache);
       console.error(`${logLabel} cached completed response`, {
@@ -578,7 +585,18 @@ export default function TreeCompare2Page() {
 
   return (
     <div className="tree-compare-page tree-compare2-page">
-      {apiError && <div className="api-error">{apiError}</div>}
+      {apiError && (
+        <div className="api-error">
+          {apiError}
+          <button
+            type="button"
+            className="api-error__reload-btn"
+            onClick={() => window.location.reload()}
+          >
+            Reload
+          </button>
+        </div>
+      )}
 
       {isLoading && (
         <div className="tree-compare2-loading">
