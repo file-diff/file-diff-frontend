@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { JOBS_API_URL } from "../config/api";
 import {
   resolveRepositoryInput,
@@ -98,7 +98,6 @@ interface RepositoryBrowserPageProps {
 export default function RepositoryBrowserPage({
   showRepositorySelector = true,
 }: RepositoryBrowserPageProps) {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
   const initialRepo = resolveInitialRepo(queryRepo);
@@ -499,7 +498,7 @@ export default function RepositoryBrowserPage({
           ensureIndexingJobStarted(repo, commit)
         )
       );
-      navigate(nextLink);
+      window.open(nextLink, "_blank");
     } catch (err) {
       setError(
         err instanceof Error && err.message
@@ -512,7 +511,6 @@ export default function RepositoryBrowserPage({
   }, [
     ensureIndexingJobStarted,
     loadedRepo,
-    navigate,
   ]);
 
   const handleCompareSelectedCommits = useCallback(async () => {

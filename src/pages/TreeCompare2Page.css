@@ -17,6 +17,21 @@
   color: #d4d4d4;
 }
 
+.api-error__reload-btn {
+  margin-left: 12px;
+  padding: 4px 12px;
+  border: 1px solid rgba(218, 54, 51, 0.4);
+  border-radius: 4px;
+  background: rgba(218, 54, 51, 0.15);
+  color: #ffa198;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.api-error__reload-btn:hover {
+  background: rgba(218, 54, 51, 0.25);
+}
+
 .tree-compare2-page__layout {
   flex: 1;
   min-height: 0;
