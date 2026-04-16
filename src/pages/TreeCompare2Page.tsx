@@ -714,36 +714,50 @@ export default function TreeCompare2Page() {
               </div>
             </div>
           </div>
-          <div
-            className="diff-result tree-compare2-diff-result"
-            ref={scrollContainerRef}
-            onScroll={handleScroll}
-          >
-            <TreeDiffView
-              slots={filteredDiff ?? visibleDiff ?? diff}
-              getLeftDownloadUrl={(entry) =>
-                buildDownloadUrl(entry)
-              }
-              getRightDownloadUrl={(entry) =>
-                buildDownloadUrl(entry)
-              }
-              leftSource={{
-                label: "Left",
-                repo: leftSummaryRepo,
-                revision: leftSummaryCommit,
-                rootPath: "/",
-              }}
-              rightSource={{
-                label: "Right",
-                repo: rightSummaryRepo,
-                revision: rightSummaryCommit,
-                rootPath: "/",
-              }}
-              selectedPath={selectedPath}
-              onSelectSlot={setSelectedPath}
-              initialScrollPath={initialScrollPath}
-            />
-          </div>
+          {(filteredDiff ?? visibleDiff ?? diff).length === 0 ? (
+            <div className="tree-compare2-empty-state">
+              <div className="tree-compare2-empty-state__icon">✅</div>
+              <div className="tree-compare2-empty-state__title">No changes found</div>
+              <div className="tree-compare2-empty-state__message">
+                {fileNameFilterEnabled && fileNameFilterValue.trim()
+                  ? "No files match the current filter. Try adjusting the file name filter or disabling it."
+                  : showUnchanged
+                    ? "Both commits have identical file trees."
+                    : "No differences detected. Enable \"Show unchanged files\" to see all files."}
+              </div>
+            </div>
+          ) : (
+            <div
+              className="diff-result tree-compare2-diff-result"
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+            >
+              <TreeDiffView
+                slots={filteredDiff ?? visibleDiff ?? diff}
+                getLeftDownloadUrl={(entry) =>
+                  buildDownloadUrl(entry)
+                }
+                getRightDownloadUrl={(entry) =>
+                  buildDownloadUrl(entry)
+                }
+                leftSource={{
+                  label: "Left",
+                  repo: leftSummaryRepo,
+                  revision: leftSummaryCommit,
+                  rootPath: "/",
+                }}
+                rightSource={{
+                  label: "Right",
+                  repo: rightSummaryRepo,
+                  revision: rightSummaryCommit,
+                  rootPath: "/",
+                }}
+                selectedPath={selectedPath}
+                onSelectSlot={setSelectedPath}
+                initialScrollPath={initialScrollPath}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
