@@ -118,7 +118,7 @@
   color: #fff;
   display: inline-flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 2px;
   cursor: pointer;
   font-size: 0.9rem;
@@ -129,6 +129,7 @@
 
 .create-task-form__submit-btn-label {
   line-height: 1.2;
+  text-align: center;
 }
 
 .create-task-form__submit-btn-repo {
@@ -136,6 +137,7 @@
   font-weight: 500;
   line-height: 1.2;
   color: rgba(255, 255, 255, 0.8);
+  text-align: center;
 }
 
 .create-task-form__submit-btn:hover:not(:disabled) {
