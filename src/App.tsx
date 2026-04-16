@@ -42,58 +42,56 @@ function AppShell() {
 
   return (
     <div className={`app-shell${isTreeCompare2Route ? " app-shell--tree-compare2" : ""}`}>
-      {!isTreeCompare2Route && (
-        <nav className="app-nav">
-          <div className="nav-brand-group">
-            <div className="nav-brand">Git Diff Online</div>
-            {buildLabel && (
-              <div className="nav-build-version">Build version: {buildLabel}</div>
-            )}
-          </div>
-          <div className="nav-links">
-            <Link to="/" className="nav-link">
-              📂 Directory Compare
-            </Link>
-            <Link to="/files" className="nav-link">
-              📄 File Compare
-            </Link>
-            <Link to="/history" className="nav-link">
-              📜 History
-            </Link>
-            <Link to="/commits" className="nav-link">
-              🔀 Commits
-            </Link>
-            <Link to="/repository" className="nav-link">
-              🗂️ Repository
-            </Link>
-            <Link to="/branches" className="nav-link">
-              🌿 Branches
-            </Link>
-            <Link to="/browse" className="nav-link">
-              🏢 Browse Org
-            </Link>
-            <Link to="/create-task" className="nav-link">
-              🤖 Create Task
-            </Link>
-            <Link to="/agent-tasks" className="nav-link">
-              📋 Agent Tasks
-            </Link>
-            <Link to="/tokenize" className="nav-link">
-              🎨 Tokenize
-            </Link>
-            <Link to="/health" className="nav-link">
-              🩺 Backend Check
-            </Link>
-            <a href="/ssr-health" className="nav-link">
-              🖥️ SSR Health
-            </a>
-            <button type="button" className="nav-clear-button" onClick={handleClearAll}>
-              Clear all
-            </button>
-            <FontSelector />
-          </div>
-        </nav>
-      )}
+      <nav className="app-nav">
+        <div className="nav-brand-group">
+          <div className="nav-brand">Git Diff Online</div>
+          {buildLabel && (
+            <div className="nav-build-version">Build version: {buildLabel}</div>
+          )}
+        </div>
+        <div className="nav-links">
+          <Link to="/" className="nav-link">
+            📂 Directory Compare
+          </Link>
+          <Link to="/files" className="nav-link">
+            📄 File Compare
+          </Link>
+          <Link to="/history" className="nav-link">
+            📜 History
+          </Link>
+          <Link to="/commits" className="nav-link">
+            🔀 Commits
+          </Link>
+          <Link to="/repository" className="nav-link">
+            🗂️ Repository
+          </Link>
+          <Link to="/branches" className="nav-link">
+            🌿 Branches
+          </Link>
+          <Link to="/browse" className="nav-link">
+            🏢 Browse Org
+          </Link>
+          <Link to="/create-task" className="nav-link">
+            🤖 Create Task
+          </Link>
+          <Link to="/agent-tasks" className="nav-link">
+            📋 Agent Tasks
+          </Link>
+          <Link to="/tokenize" className="nav-link">
+            🎨 Tokenize
+          </Link>
+          <Link to="/health" className="nav-link">
+            🩺 Backend Check
+          </Link>
+          <a href="/ssr-health" className="nav-link">
+            🖥️ SSR Health
+          </a>
+          <button type="button" className="nav-clear-button" onClick={handleClearAll}>
+            Clear all
+          </button>
+          <FontSelector />
+        </div>
+      </nav>
       <main className={`app-main${isTreeCompare2Route ? " app-main--tree-compare2" : ""}`}>
         <Routes>
           <Route path="/" element={<TreeComparePage />} />

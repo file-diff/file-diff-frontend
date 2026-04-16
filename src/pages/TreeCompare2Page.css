@@ -105,3 +105,33 @@
   text-overflow: ellipsis;
   max-width: 400px;
 }
+
+.tree-compare2-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #191a1c;
+  text-align: center;
+  gap: 12px;
+}
+
+.tree-compare2-empty-state__icon {
+  font-size: 2.5rem;
+}
+
+.tree-compare2-empty-state__title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.tree-compare2-empty-state__message {
+  color: #8b949e;
+  font-size: 0.9rem;
+  max-width: 420px;
+  line-height: 1.5;
+}
