@@ -26,6 +26,7 @@
   background: #161616;
   border-bottom: 1px solid #333;
   min-width: 900px;
+  overflow-x: auto;
 }
 
 .nav-brand {
@@ -48,7 +49,6 @@
 .nav-links {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 16px;
 }
 
