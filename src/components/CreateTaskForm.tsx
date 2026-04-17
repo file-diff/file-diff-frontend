@@ -652,10 +652,10 @@ export default function CreateTaskForm({
         type="button"
         onClick={() => void handleSubmit()}
         disabled={!canSubmit}
-        className="create-task-form__submit-btn"
+        className={`create-task-form__submit-btn${taskDelayEnabled ? " create-task-form__submit-btn--delayed" : ""}`}
       >
         <span className="create-task-form__submit-btn-label">
-          {isSubmitting ? "Creating task…" : "Create task"}
+          {isSubmitting ? "Creating task…" : taskDelayEnabled ? "Create delayed task" : "Create task"}
         </span>
         {resolvedRepo && (
           <span className="create-task-form__submit-btn-repo">{resolvedRepo}</span>
