@@ -6,11 +6,33 @@ interface CreateTaskPageProps {
   showRepositorySelector?: boolean;
 }
 
+function getInitialProblemStatement(
+  searchParams: URLSearchParams
+): string | undefined {
+  const directProblemStatement =
+    searchParams.get("problemStatement") ?? searchParams.get("problem_statement");
+  if (directProblemStatement && directProblemStatement.trim()) {
+    return directProblemStatement.trim();
+  }
+
+  const title = searchParams.get("title")?.trim() ?? "";
+  const body = searchParams.get("body")?.trim() ?? "";
+
+  const combined = [title, body].filter(Boolean).join("\n\n");
+  return combined || undefined;
+}
+
 export default function CreateTaskPage({
   showRepositorySelector = true,
 }: CreateTaskPageProps) {
   const [searchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
+  const queryProblemStatement = getInitialProblemStatement(searchParams);
+  const formKey = [
+    showRepositorySelector ? "show-repo" : "fixed-repo",
+    queryRepo,
+    queryProblemStatement ?? "",
+  ].join("::");
 
   return (
     <div className="create-task-page">
@@ -22,7 +44,9 @@ export default function CreateTaskPage({
       </div>
 
       <CreateTaskForm
+        key={formKey}
         initialRepo={queryRepo}
+        initialProblemStatement={queryProblemStatement}
         showRepositorySelector={showRepositorySelector}
       />
     </div>

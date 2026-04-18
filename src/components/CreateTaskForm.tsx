@@ -39,6 +39,7 @@ const TASK_ID_KEYS = new Set([
 
 export interface CreateTaskFormProps {
   initialRepo?: string;
+  initialProblemStatement?: string;
   showRepositorySelector?: boolean;
 }
 
@@ -211,15 +212,20 @@ function getGitHubTaskInfo(
 
 export default function CreateTaskForm({
   initialRepo = "",
+  initialProblemStatement,
   showRepositorySelector = true,
 }: CreateTaskFormProps) {
   const [savedDraft] = useState(() => loadCreateTaskDraft());
   const initialRepoInput = showRepositorySelector
     ? initialRepo || savedDraft?.repoInput || ""
     : initialRepo;
+  const effectiveInitialProblemStatement =
+    initialProblemStatement !== undefined
+      ? initialProblemStatement
+      : savedDraft?.problemStatement || "";
   const [repoInput, setRepoInput] = useState(initialRepoInput);
   const [problemStatement, setProblemStatement] = useState(
-    savedDraft?.problemStatement || ""
+    effectiveInitialProblemStatement
   );
   const [model, setModel] = useState(savedDraft?.model || MODEL_OPTIONS[0].value);
   const [bearerToken, setBearerToken] = useState(loadBearerToken);

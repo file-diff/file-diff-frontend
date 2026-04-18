@@ -20,6 +20,10 @@ To override the default indexing backend, set `VITE_JOBS_API_URL` before
 starting the app. Otherwise the frontend uses
 `https://filediff.org/api/jobs`.
 
+The create-task page also supports prefilled query parameters such as
+`repo`, `problemStatement` (or `problem_statement`), and `title`/`body`
+for deep-linking directly into a prepared agent task form.
+
 ## Usage
 
 1. Run `tree` in two different repository directories.
