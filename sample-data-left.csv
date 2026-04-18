@@ -5,5 +5,7 @@ b;smallDriftMap1/hopperMain.cfg;2048;1772817450;cc33dd44ee55ff66
 d;aiScenarioLogic;0;1772817450;N/A
 t;aiScenarioLogic/globalConfig.txt;512;1772817450;dd44ee55ff660011
 t;aiScenarioLogic/smallDriftMap1Logic.txt;1024;1772817450;ee55ff66001122aa
+d;aiScenarioLogic/deathCircle;0;1772817450;N/A
+t;aiScenarioLogic/deathCircle/actions.lua;2048;1772817450;aabb001122334455
 
 
