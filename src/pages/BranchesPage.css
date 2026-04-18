@@ -501,6 +501,18 @@
   z-index: 100;
 }
 
+.branches-page__action-bar--inline {
+  position: sticky;
+  left: auto;
+  bottom: 16px;
+  transform: none;
+  z-index: 1;
+  margin: 12px 16px 0;
+  width: calc(100% - 32px);
+  box-sizing: border-box;
+  justify-content: space-between;
+}
+
 .branches-page__action-bar-count {
   font-size: 0.85rem;
   color: #8b949e;
@@ -511,6 +523,8 @@
 .branches-page__action-bar-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .branches-page__action-btn {
@@ -655,4 +669,13 @@
   font-weight: 400;
   color: #6e7681;
   font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  .branches-page__action-bar,
+  .branches-page__action-bar--inline {
+    width: min(calc(100% - 32px), 720px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
