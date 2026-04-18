@@ -219,13 +219,13 @@ export default function CreateTaskForm({
   const initialRepoInput = showRepositorySelector
     ? initialRepo || savedDraft?.repoInput || ""
     : initialRepo;
-  const initialProblemStatementValue =
+  const effectiveInitialProblemStatement =
     initialProblemStatement !== undefined
       ? initialProblemStatement
       : savedDraft?.problemStatement || "";
   const [repoInput, setRepoInput] = useState(initialRepoInput);
   const [problemStatement, setProblemStatement] = useState(
-    initialProblemStatementValue
+    effectiveInitialProblemStatement
   );
   const [model, setModel] = useState(savedDraft?.model || MODEL_OPTIONS[0].value);
   const [bearerToken, setBearerToken] = useState(loadBearerToken);
@@ -458,12 +458,6 @@ export default function CreateTaskForm({
       setRepoInput(initialRepo);
     }
   }, [initialRepo, showRepositorySelector]);
-
-  useEffect(() => {
-    if (initialProblemStatement !== undefined) {
-      setProblemStatement(initialProblemStatement);
-    }
-  }, [initialProblemStatement]);
 
   const canSubmit =
     !isSubmitting &&
