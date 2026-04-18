@@ -834,6 +834,75 @@ export default function BranchesPage({
 
   const hasSelection = selectedBranches.size > 0;
   const allSelected = branches.length > 0 && selectedBranches.size === branches.length;
+  const actionBar = hasSelection ? (
+    <div
+      className={
+        "branches-page__action-bar" +
+        (showRepositorySelector ? "" : " branches-page__action-bar--inline")
+      }
+    >
+      <span className="branches-page__action-bar-count">
+        {String(selectedBranches.size)} selected
+      </span>
+      <div className="branches-page__action-bar-actions">
+        <button
+          type="button"
+          className="branches-page__action-btn branches-page__action-btn--create"
+          onClick={() => void handleCreatePullRequests(true)}
+          disabled={actionInProgress}
+          title="Create draft pull requests for selected branches"
+        >
+          Create PR
+        </button>
+        <button
+          type="button"
+          className="branches-page__action-btn branches-page__action-btn--open"
+          onClick={() => void handleCreatePullRequests(false)}
+          disabled={actionInProgress}
+          title="Open pull requests for selected branches"
+        >
+          Open PR
+        </button>
+        <button
+          type="button"
+          className="branches-page__action-btn branches-page__action-btn--ready"
+          onClick={() => void handleReadyForReview()}
+          disabled={actionInProgress}
+          title="Mark selected pull requests as ready for review"
+        >
+          Ready to Review
+        </button>
+        <button
+          type="button"
+          className="branches-page__action-btn branches-page__action-btn--merge"
+          onClick={() => void handleMergePullRequests()}
+          disabled={actionInProgress}
+          title="Merge selected pull requests"
+        >
+          Merge PR
+        </button>
+        <select
+          className="branches-page__merge-method"
+          value={mergeMethod}
+          onChange={(e) => setMergeMethod(e.target.value as MergeMethod)}
+          title="Merge method"
+        >
+          <option value="merge">merge</option>
+          <option value="squash">squash</option>
+          <option value="rebase">rebase</option>
+        </select>
+        <button
+          type="button"
+          className="branches-page__action-btn branches-page__action-btn--delete"
+          onClick={() => void handleDeleteBranches()}
+          disabled={actionInProgress}
+          title="Delete selected branches"
+        >
+          {actionInProgress ? "Working…" : "Delete"}
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="branches-page">
@@ -982,6 +1051,7 @@ export default function BranchesPage({
               )}
             </span>
           </div>
+          {!showRepositorySelector && actionBar}
 
           <div className="branches-page__branch-list">
             {branches.map((branch) => {
@@ -1113,70 +1183,7 @@ export default function BranchesPage({
         </div>
       )}
 
-      {hasSelection && (
-        <div className="branches-page__action-bar">
-          <span className="branches-page__action-bar-count">
-            {String(selectedBranches.size)} selected
-          </span>
-          <div className="branches-page__action-bar-actions">
-            <button
-              type="button"
-              className="branches-page__action-btn branches-page__action-btn--create"
-              onClick={() => void handleCreatePullRequests(true)}
-              disabled={actionInProgress}
-              title="Create draft pull requests for selected branches"
-            >
-              Create PR
-            </button>
-            <button
-              type="button"
-              className="branches-page__action-btn branches-page__action-btn--open"
-              onClick={() => void handleCreatePullRequests(false)}
-              disabled={actionInProgress}
-              title="Open pull requests for selected branches"
-            >
-              Open PR
-            </button>
-            <button
-              type="button"
-              className="branches-page__action-btn branches-page__action-btn--ready"
-              onClick={() => void handleReadyForReview()}
-              disabled={actionInProgress}
-              title="Mark selected pull requests as ready for review"
-            >
-              Ready to Review
-            </button>
-            <button
-              type="button"
-              className="branches-page__action-btn branches-page__action-btn--merge"
-              onClick={() => void handleMergePullRequests()}
-              disabled={actionInProgress}
-              title="Merge selected pull requests"
-            >
-              Merge PR
-            </button>
-            <select
-              className="branches-page__merge-method"
-              value={mergeMethod}
-              onChange={(e) => setMergeMethod(e.target.value as MergeMethod)}
-              title="Merge method"
-            >
-              <option value="merge">merge</option>
-              <option value="squash">squash</option>
-              <option value="rebase">rebase</option>
-            </select>
-            <button
-              type="button"
-              className="branches-page__action-btn branches-page__action-btn--delete"
-              onClick={() => void handleDeleteBranches()}
-              disabled={actionInProgress}
-              title="Delete selected branches"
-            >
-              {actionInProgress ? "Working…" : "Delete"}
-            </button>
-          </div>
-        </div>
-      )}
+      {showRepositorySelector && actionBar}
 
       {!isLoading && branches.length === 0 && !error && loadedRepo === "" && (
         <div className="branches-page__empty">
