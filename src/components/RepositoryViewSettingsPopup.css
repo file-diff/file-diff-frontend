@@ -107,3 +107,43 @@
   color: #58a6ff;
   font-weight: 600;
 }
+
+.repo-view-settings__token-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.repo-view-settings__token-toggle {
+  background: none;
+  border: none;
+  color: #58a6ff;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.repo-view-settings__token-toggle:hover {
+  background: #2d2d2d;
+}
+
+.repo-view-settings__token-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #1d1f21;
+  color: #d4d4d4;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.repo-view-settings__token-input:focus {
+  outline: none;
+  border-color: #58a6ff;
+}
+
+.repo-view-settings__field + .repo-view-settings__field {
+  margin-top: 16px;
+}

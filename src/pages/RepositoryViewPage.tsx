@@ -13,6 +13,10 @@ import {
   saveRefreshIntervalMs,
   type RefreshIntervalMs,
 } from "../utils/repositoryViewStorage";
+import {
+  loadBearerToken,
+  saveBearerToken,
+} from "../utils/bearerTokenStorage";
 import RepositoryBrowserPage from "./RepositoryBrowserPage";
 import BranchesPage from "./BranchesPage";
 import AgentTaskInfoPage from "./AgentTaskInfoPage";
@@ -31,10 +35,16 @@ export default function RepositoryViewPage() {
   const [refreshIntervalMs, setRefreshIntervalMs] = useState<RefreshIntervalMs>(
     loadRefreshIntervalMs
   );
+  const [bearerToken, setBearerToken] = useState(loadBearerToken);
 
   const handleRefreshIntervalChange = useCallback((value: RefreshIntervalMs) => {
     setRefreshIntervalMs(value);
     saveRefreshIntervalMs(value);
+  }, []);
+
+  const handleBearerTokenChange = useCallback((value: string) => {
+    setBearerToken(value);
+    saveBearerToken(value);
   }, []);
 
   useEffect(() => {
@@ -177,11 +187,13 @@ export default function RepositoryViewPage() {
             key={`branches-${repoKey}`}
             showRepositorySelector={false}
             refreshIntervalMs={refreshIntervalMs}
+            bearerToken={bearerToken}
           />
           <AgentTaskInfoPage
             key={`tasks-${repoKey}`}
             showRepositorySelector={false}
             refreshIntervalMs={refreshIntervalMs}
+            bearerToken={bearerToken}
           />
         </div>
       </div>
@@ -191,6 +203,8 @@ export default function RepositoryViewPage() {
         onClose={() => setSettingsOpen(false)}
         refreshIntervalMs={refreshIntervalMs}
         onRefreshIntervalChange={handleRefreshIntervalChange}
+        bearerToken={bearerToken}
+        onBearerTokenChange={handleBearerTokenChange}
       />
     </div>
   );
