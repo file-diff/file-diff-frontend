@@ -38,6 +38,23 @@
   padding: 0;
 }
 
+.repository-view-page .branches-page .page-header,
+.repository-view-page .agent-task-info-page .page-header {
+  text-align: left;
+  margin-bottom: 12px;
+}
+
+.repository-view-page .branches-page .page-header h1,
+.repository-view-page .agent-task-info-page .page-header h1 {
+  font-size: 1.1rem;
+  margin-bottom: 0;
+}
+
+.repository-view-page .branches-page .page-subtitle,
+.repository-view-page .agent-task-info-page .page-subtitle {
+  display: none;
+}
+
 .repository-view-page__recent {
   display: flex;
   flex-wrap: wrap;
