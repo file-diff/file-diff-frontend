@@ -12,8 +12,14 @@ import {
   type TaskSummary,
 } from "../utils/agentTasks";
 import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
+import {
+  loadAutoRefreshEnabled,
+  saveAutoRefreshEnabled,
+} from "../utils/agentTasksPageStorage";
 import RepositorySelector from "../components/RepositorySelector";
 import "./AgentTaskInfoPage.css";
+
+const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const MAX_TASK_ID_DISPLAY_LENGTH = 12;
 const MAX_DESCRIPTION_DISPLAY_LENGTH = 120;
 const MAX_CONFIRM_LIST_LENGTH = 10;
@@ -79,6 +85,9 @@ export default function AgentTaskInfoPage({
   const [tasksError, setTasksError] = useState("");
   const [actionFeedback, setActionFeedback] = useState<ActionFeedback | null>(null);
   const [archiveInProgress, setArchiveInProgress] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
+    loadAutoRefreshEnabled
+  );
 
   const [selectedTaskId, setSelectedTaskId] = useState(queryTaskId);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
@@ -119,8 +128,11 @@ export default function AgentTaskInfoPage({
   const loadTasksForRepo = useCallback(
     async (
       repo: string,
-      currentOwnerRepo: { owner: string; name: string }
+      currentOwnerRepo: { owner: string; name: string },
+      options: { preserveState?: boolean } = {}
     ) => {
+      const { preserveState = false } = options;
+
       if (!bearerToken.trim()) {
         setTasksError("Please enter a bearer token.");
         return;
@@ -132,13 +144,15 @@ export default function AgentTaskInfoPage({
 
       setTasksLoading(true);
       setTasksError("");
-      setTasks([]);
-      setTasksRaw(null);
-      setActionFeedback(null);
-      setSelectedTaskIds(new Set());
-      setSelectedTaskId("");
-      setTaskDetail(null);
-      setTaskDetailError("");
+      if (!preserveState) {
+        setTasks([]);
+        setTasksRaw(null);
+        setActionFeedback(null);
+        setSelectedTaskIds(new Set());
+        setSelectedTaskId("");
+        setTaskDetail(null);
+        setTaskDetailError("");
+      }
 
       try {
         const result = await requestAgentTasks(
@@ -183,6 +197,16 @@ export default function AgentTaskInfoPage({
 
     await loadTasksForRepo(resolvedRepo, ownerRepo);
   }, [ownerRepo, bearerToken, resolvedRepo, loadTasksForRepo]);
+
+  const handleAutoRefreshChange = useCallback((value: boolean) => {
+    setAutoRefreshEnabled(value);
+    saveAutoRefreshEnabled(value);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    if (!ownerRepo) return;
+    void loadTasksForRepo(resolvedRepo, ownerRepo, { preserveState: true });
+  }, [loadTasksForRepo, resolvedRepo, ownerRepo]);
 
   const handleSelectTask = useCallback(
     async (taskId: string) => {
@@ -376,6 +400,32 @@ export default function AgentTaskInfoPage({
   }, []);
 
   useEffect(() => {
+    if (!ownerRepo || !resolvedRepo || !autoRefreshEnabled || !bearerToken.trim()) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (tasksLoading || archiveInProgress) {
+        return;
+      }
+
+      void loadTasksForRepo(resolvedRepo, ownerRepo, { preserveState: true });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [
+    archiveInProgress,
+    autoRefreshEnabled,
+    bearerToken,
+    loadTasksForRepo,
+    ownerRepo,
+    resolvedRepo,
+    tasksLoading,
+  ]);
+
+  useEffect(() => {
     if (!selectAllRef.current) {
       return;
     }
@@ -401,12 +451,33 @@ export default function AgentTaskInfoPage({
           onSubmit={handleLoadTasks}
           buttonLabel="Load tasks"
           loadingButtonLabel="Loading…"
-          isLoading={tasksLoading}
+          isLoading={tasksLoading && tasks.length === 0}
           disabled={tasksLoading || !repoInput.trim() || !bearerToken.trim()}
+          actions={
+            tasks.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => void handleRefresh()}
+                disabled={tasksLoading}
+              >
+                {tasksLoading ? "Refreshing…" : "Refresh"}
+              </button>
+            ) : null
+          }
         />
       )}
 
       <div className="agent-task-info-page__input-section">
+        {tasks.length > 0 && (
+          <label className="agent-task-info-page__auto-refresh-toggle">
+            <input
+              type="checkbox"
+              checked={autoRefreshEnabled}
+              onChange={(e) => handleAutoRefreshChange(e.target.checked)}
+            />
+            Auto-refresh every 30s
+          </label>
+        )}
         <div className="agent-task-info-page__token-label-row">
           <label htmlFor="agent-task-token">Bearer token</label>
           <button

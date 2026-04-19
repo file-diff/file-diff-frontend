@@ -78,6 +78,23 @@
   border-color: #58a6ff;
 }
 
+.agent-task-info-page__auto-refresh-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #8b949e;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.agent-task-info-page__auto-refresh-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #58a6ff;
+  cursor: pointer;
+}
+
 .agent-task-info-page__token-label-row {
   display: flex;
   align-items: center;
