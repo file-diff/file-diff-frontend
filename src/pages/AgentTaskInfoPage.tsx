@@ -67,18 +67,21 @@ function getTaskDisplayLabel(task: TaskSummary): string {
 interface AgentTaskInfoPageProps {
   showRepositorySelector?: boolean;
   refreshIntervalMs?: number;
+  bearerToken?: string;
 }
 
 export default function AgentTaskInfoPage({
   showRepositorySelector = true,
   refreshIntervalMs,
+  bearerToken: bearerTokenProp,
 }: AgentTaskInfoPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
   const queryTaskId = searchParams.get("taskId") ?? "";
 
   const [repoInput, setRepoInput] = useState(queryRepo);
-  const [bearerToken, setBearerToken] = useState(loadBearerToken);
+  const [localBearerToken, setLocalBearerToken] = useState(loadBearerToken);
+  const bearerToken = bearerTokenProp ?? localBearerToken;
   const [showToken, setShowToken] = useState(false);
 
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
@@ -107,7 +110,7 @@ export default function AgentTaskInfoPage({
   const ownerRepo = useMemo(() => splitOwnerRepo(resolvedRepo), [resolvedRepo]);
 
   const handleBearerTokenChange = useCallback((value: string) => {
-    setBearerToken(value);
+    setLocalBearerToken(value);
     saveBearerToken(value);
   }, []);
 
@@ -482,27 +485,31 @@ export default function AgentTaskInfoPage({
             Auto-refresh every 30s
           </label>
         )}
-        <div className="agent-task-info-page__token-label-row">
-          <label htmlFor="agent-task-token">Bearer token</label>
-          <button
-            type="button"
-            className="agent-task-info-page__token-toggle"
-            onClick={() => setShowToken((prev) => !prev)}
-          >
-            {showToken ? "Hide" : "Show"}
-          </button>
-        </div>
-        <input
-          id="agent-task-token"
-          type={showToken ? "text" : "password"}
-          value={bearerToken}
-          onChange={(e) => handleBearerTokenChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void handleLoadTasks();
-          }}
-          placeholder="Authorization token"
-          spellCheck={false}
-        />
+        {bearerTokenProp === undefined && (
+          <>
+            <div className="agent-task-info-page__token-label-row">
+              <label htmlFor="agent-task-token">Bearer token</label>
+              <button
+                type="button"
+                className="agent-task-info-page__token-toggle"
+                onClick={() => setShowToken((prev) => !prev)}
+              >
+                {showToken ? "Hide" : "Show"}
+              </button>
+            </div>
+            <input
+              id="agent-task-token"
+              type={showToken ? "text" : "password"}
+              value={bearerToken}
+              onChange={(e) => handleBearerTokenChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleLoadTasks();
+              }}
+              placeholder="Authorization token"
+              spellCheck={false}
+            />
+          </>
+        )}
       </div>
 
       {tasksError && (

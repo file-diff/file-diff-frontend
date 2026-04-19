@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   REFRESH_INTERVAL_OPTIONS,
   type RefreshIntervalMs,
@@ -10,6 +10,8 @@ interface RepositoryViewSettingsPopupProps {
   onClose: () => void;
   refreshIntervalMs: RefreshIntervalMs;
   onRefreshIntervalChange: (value: RefreshIntervalMs) => void;
+  bearerToken: string;
+  onBearerTokenChange: (value: string) => void;
 }
 
 export default function RepositoryViewSettingsPopup({
@@ -17,7 +19,10 @@ export default function RepositoryViewSettingsPopup({
   onClose,
   refreshIntervalMs,
   onRefreshIntervalChange,
+  bearerToken,
+  onBearerTokenChange,
 }: RepositoryViewSettingsPopupProps) {
+  const [showToken, setShowToken] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -91,6 +96,31 @@ export default function RepositoryViewSettingsPopup({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="repo-view-settings__field">
+            <div className="repo-view-settings__token-label-row">
+              <span className="repo-view-settings__field-label">
+                Bearer token
+              </span>
+              <button
+                type="button"
+                className="repo-view-settings__token-toggle"
+                onClick={() => setShowToken((prev) => !prev)}
+              >
+                {showToken ? "Hide" : "Show"}
+              </button>
+            </div>
+            <input
+              id="repo-view-settings-token"
+              className="repo-view-settings__token-input"
+              type={showToken ? "text" : "password"}
+              value={bearerToken}
+              onChange={(e) => onBearerTokenChange(e.target.value)}
+              placeholder="Authorization token"
+              spellCheck={false}
+              autoComplete="off"
+            />
           </div>
         </div>
       </div>

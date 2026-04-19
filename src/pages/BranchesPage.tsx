@@ -315,11 +315,13 @@ function loadInitialBranches(repo: string): RepositoryBranch[] {
 interface BranchesPageProps {
   showRepositorySelector?: boolean;
   refreshIntervalMs?: number;
+  bearerToken?: string;
 }
 
 export default function BranchesPage({
   showRepositorySelector = true,
   refreshIntervalMs,
+  bearerToken: bearerTokenProp,
 }: BranchesPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
@@ -339,7 +341,8 @@ export default function BranchesPage({
   );
 
   const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set());
-  const [bearerToken, setBearerToken] = useState(loadBearerToken);
+  const [localBearerToken, setLocalBearerToken] = useState(loadBearerToken);
+  const bearerToken = bearerTokenProp ?? localBearerToken;
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [actionResults, setActionResults] = useState<ActionResult[]>([]);
@@ -565,7 +568,7 @@ export default function BranchesPage({
   );
 
   const handleBearerTokenChange = useCallback((value: string) => {
-    setBearerToken(value);
+    setLocalBearerToken(value);
     saveBearerToken(value);
   }, []);
 
@@ -961,16 +964,18 @@ export default function BranchesPage({
                 Auto-refresh every 30s
               </label>
             )}
-            <button
-              type="button"
-              className="branches-page__token-toggle"
-              onClick={() => setShowTokenInput((v) => !v)}
-            >
-              {showTokenInput ? "Hide token" : "🔑 API token"}
-            </button>
+            {bearerTokenProp === undefined && (
+              <button
+                type="button"
+                className="branches-page__token-toggle"
+                onClick={() => setShowTokenInput((v) => !v)}
+              >
+                {showTokenInput ? "Hide token" : "🔑 API token"}
+              </button>
+            )}
           </div>
         )}
-        {showTokenInput && (
+        {bearerTokenProp === undefined && showTokenInput && (
           <div className="branches-page__token-section">
             <label htmlFor="branches-page-token">Bearer Token</label>
             <input
