@@ -93,10 +93,12 @@ function loadInitialCommits(repo: string): RepositoryCommit[] {
 
 interface RepositoryBrowserPageProps {
   showRepositorySelector?: boolean;
+  refreshIntervalMs?: number;
 }
 
 export default function RepositoryBrowserPage({
   showRepositorySelector = true,
+  refreshIntervalMs,
 }: RepositoryBrowserPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
@@ -264,7 +266,8 @@ export default function RepositoryBrowserPage({
   }, []);
 
   useEffect(() => {
-    if (!loadedRepo || !autoRefreshEnabled) {
+    const effectiveInterval = refreshIntervalMs ?? (autoRefreshEnabled ? AUTO_REFRESH_INTERVAL_MS : 0);
+    if (!loadedRepo || !effectiveInterval) {
       return;
     }
 
@@ -276,7 +279,7 @@ export default function RepositoryBrowserPage({
       void loadCommitsForRepo(loadedRepo, commitLimit, {
         useCachedCommits: false,
       });
-    }, AUTO_REFRESH_INTERVAL_MS);
+    }, effectiveInterval);
 
     return () => {
       window.clearInterval(intervalId);
@@ -287,6 +290,7 @@ export default function RepositoryBrowserPage({
     isLoading,
     loadCommitsForRepo,
     loadedRepo,
+    refreshIntervalMs,
   ]);
 
   const ensureIndexingJobStarted = useCallback(async (repo: string, commit: string) => {
@@ -563,20 +567,24 @@ export default function RepositoryBrowserPage({
           footer={
             loadedRepo ? (
               <div className="repo-browser__nav-links">
-                <Link
-                  to={`/branches?repo=${encodeURIComponent(loadedRepo)}`}
-                  className="repo-browser__nav-link"
-                >
-                  View branches →
-                </Link>
-                <label className="repo-browser__auto-refresh-toggle">
-                  <input
-                    type="checkbox"
-                    checked={autoRefreshEnabled}
-                    onChange={(e) => handleAutoRefreshChange(e.target.checked)}
-                  />
-                  Auto-refresh every 30s
-                </label>
+                {showRepositorySelector && (
+                  <Link
+                    to={`/branches?repo=${encodeURIComponent(loadedRepo)}`}
+                    className="repo-browser__nav-link"
+                  >
+                    View branches →
+                  </Link>
+                )}
+                {showRepositorySelector && (
+                  <label className="repo-browser__auto-refresh-toggle">
+                    <input
+                      type="checkbox"
+                      checked={autoRefreshEnabled}
+                      onChange={(e) => handleAutoRefreshChange(e.target.checked)}
+                    />
+                    Auto-refresh every 30s
+                  </label>
+                )}
               </div>
             ) : null
           }

@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import RepositorySelector from "../components/RepositorySelector";
+import RepositoryViewSettingsPopup from "../components/RepositoryViewSettingsPopup";
 import { resolveRepositoryInput } from "../utils/repositorySelection";
 import {
   readRecentRepositories,
   addRecentRepository,
   removeRecentRepository,
 } from "../utils/recentRepositoriesStorage";
+import {
+  loadRefreshIntervalMs,
+  saveRefreshIntervalMs,
+  type RefreshIntervalMs,
+} from "../utils/repositoryViewStorage";
 import RepositoryBrowserPage from "./RepositoryBrowserPage";
 import BranchesPage from "./BranchesPage";
 import AgentTaskInfoPage from "./AgentTaskInfoPage";
@@ -21,6 +27,15 @@ export default function RepositoryViewPage() {
   const [recentRepos, setRecentRepos] = useState<string[]>(
     readRecentRepositories
   );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [refreshIntervalMs, setRefreshIntervalMs] = useState<RefreshIntervalMs>(
+    loadRefreshIntervalMs
+  );
+
+  const handleRefreshIntervalChange = useCallback((value: RefreshIntervalMs) => {
+    setRefreshIntervalMs(value);
+    saveRefreshIntervalMs(value);
+  }, []);
 
   useEffect(() => {
     setRepoInput(repo);
@@ -93,6 +108,16 @@ export default function RepositoryViewPage() {
         buttonLabel="Load repository"
         disabled={!repoInput.trim()}
         className="repository-view-page__selector"
+        actions={
+          <button
+            type="button"
+            className="repository-view-page__settings-btn"
+            onClick={() => setSettingsOpen(true)}
+            title="Settings"
+          >
+            ⚙️ Settings
+          </button>
+        }
         footer={
           recentRepos.length > 0 ? (
             <div className="repository-view-page__recent">
@@ -138,6 +163,7 @@ export default function RepositoryViewPage() {
           <RepositoryBrowserPage
             key={`commits-${repoKey}`}
             showRepositorySelector={false}
+            refreshIntervalMs={refreshIntervalMs}
           />
         </div>
         <div className="repository-view-page__column repository-view-page__column--center">
@@ -150,13 +176,22 @@ export default function RepositoryViewPage() {
           <BranchesPage
             key={`branches-${repoKey}`}
             showRepositorySelector={false}
+            refreshIntervalMs={refreshIntervalMs}
           />
           <AgentTaskInfoPage
             key={`tasks-${repoKey}`}
             showRepositorySelector={false}
+            refreshIntervalMs={refreshIntervalMs}
           />
         </div>
       </div>
+
+      <RepositoryViewSettingsPopup
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        refreshIntervalMs={refreshIntervalMs}
+        onRefreshIntervalChange={handleRefreshIntervalChange}
+      />
     </div>
   );
 }
