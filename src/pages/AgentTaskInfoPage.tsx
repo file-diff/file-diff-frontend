@@ -66,10 +66,12 @@ function getTaskDisplayLabel(task: TaskSummary): string {
 
 interface AgentTaskInfoPageProps {
   showRepositorySelector?: boolean;
+  refreshIntervalMs?: number;
 }
 
 export default function AgentTaskInfoPage({
   showRepositorySelector = true,
+  refreshIntervalMs,
 }: AgentTaskInfoPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
@@ -400,7 +402,8 @@ export default function AgentTaskInfoPage({
   }, []);
 
   useEffect(() => {
-    if (!ownerRepo || !resolvedRepo || !autoRefreshEnabled || !bearerToken.trim()) {
+    const effectiveInterval = refreshIntervalMs ?? (autoRefreshEnabled ? AUTO_REFRESH_INTERVAL_MS : 0);
+    if (!ownerRepo || !resolvedRepo || !effectiveInterval || !bearerToken.trim()) {
       return;
     }
 
@@ -410,7 +413,7 @@ export default function AgentTaskInfoPage({
       }
 
       void loadTasksForRepo(resolvedRepo, ownerRepo, { preserveState: true });
-    }, AUTO_REFRESH_INTERVAL_MS);
+    }, effectiveInterval);
 
     return () => {
       window.clearInterval(intervalId);
@@ -421,6 +424,7 @@ export default function AgentTaskInfoPage({
     bearerToken,
     loadTasksForRepo,
     ownerRepo,
+    refreshIntervalMs,
     resolvedRepo,
     tasksLoading,
   ]);
@@ -468,7 +472,7 @@ export default function AgentTaskInfoPage({
       )}
 
       <div className="agent-task-info-page__input-section">
-        {tasks.length > 0 && (
+        {showRepositorySelector && tasks.length > 0 && (
           <label className="agent-task-info-page__auto-refresh-toggle">
             <input
               type="checkbox"

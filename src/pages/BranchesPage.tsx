@@ -314,10 +314,12 @@ function loadInitialBranches(repo: string): RepositoryBranch[] {
 
 interface BranchesPageProps {
   showRepositorySelector?: boolean;
+  refreshIntervalMs?: number;
 }
 
 export default function BranchesPage({
   showRepositorySelector = true,
+  refreshIntervalMs,
 }: BranchesPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
@@ -509,7 +511,8 @@ export default function BranchesPage({
   }, []);
 
   useEffect(() => {
-    if (!loadedRepo || !autoRefreshEnabled) {
+    const effectiveInterval = refreshIntervalMs ?? (autoRefreshEnabled ? AUTO_REFRESH_INTERVAL_MS : 0);
+    if (!loadedRepo || !effectiveInterval) {
       return;
     }
 
@@ -522,7 +525,7 @@ export default function BranchesPage({
         clearActionResults: false,
         useCachedBranches: false,
       });
-    }, AUTO_REFRESH_INTERVAL_MS);
+    }, effectiveInterval);
 
     return () => {
       window.clearInterval(intervalId);
@@ -533,6 +536,7 @@ export default function BranchesPage({
     isLoading,
     loadBranchesForRepo,
     loadedRepo,
+    refreshIntervalMs,
   ]);
 
   const toggleBranchSelection = useCallback((ref: string) => {
@@ -939,20 +943,24 @@ export default function BranchesPage({
       <div className="branches-page__input-section">
         {loadedRepo && (
           <div className="branches-page__nav-links">
-            <Link
-              to={`/commits?repo=${encodeURIComponent(loadedRepo)}`}
-              className="branches-page__nav-link"
-            >
-              View commits →
-            </Link>
-            <label className="branches-page__auto-refresh-toggle">
-              <input
-                type="checkbox"
-                checked={autoRefreshEnabled}
-                onChange={(e) => handleAutoRefreshChange(e.target.checked)}
-              />
-              Auto-refresh every 30s
-            </label>
+            {showRepositorySelector && (
+              <Link
+                to={`/commits?repo=${encodeURIComponent(loadedRepo)}`}
+                className="branches-page__nav-link"
+              >
+                View commits →
+              </Link>
+            )}
+            {showRepositorySelector && (
+              <label className="branches-page__auto-refresh-toggle">
+                <input
+                  type="checkbox"
+                  checked={autoRefreshEnabled}
+                  onChange={(e) => handleAutoRefreshChange(e.target.checked)}
+                />
+                Auto-refresh every 30s
+              </label>
+            )}
             <button
               type="button"
               className="branches-page__token-toggle"
