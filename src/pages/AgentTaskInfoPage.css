@@ -402,6 +402,12 @@
   line-height: 1.5;
 }
 
+.agent-task-info-page__empty-updated {
+  color: #8b949e;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
 .agent-task-info-page__empty code {
   color: #58a6ff;
   font-family: var(--code-font-family);

@@ -16,6 +16,7 @@ import {
   loadAutoRefreshEnabled,
   saveAutoRefreshEnabled,
 } from "../utils/agentTasksPageStorage";
+import { formatRelativeDateTime } from "../utils/organizationBrowserPresentation";
 import RepositorySelector from "../components/RepositorySelector";
 import "./AgentTaskInfoPage.css";
 
@@ -88,6 +89,7 @@ export default function AgentTaskInfoPage({
   const [tasksRaw, setTasksRaw] = useState<unknown>(null);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [tasksError, setTasksError] = useState("");
+  const [lastFetchedAt, setLastFetchedAt] = useState("");
   const [actionFeedback, setActionFeedback] = useState<ActionFeedback | null>(null);
   const [archiveInProgress, setArchiveInProgress] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
@@ -169,6 +171,7 @@ export default function AgentTaskInfoPage({
         if (controller.signal.aborted) return;
         setTasksRaw(result);
         setTasks(extractTaskSummaries(result));
+        setLastFetchedAt(new Date().toISOString());
 
         updateSearchParams((params) => {
           params.set("repo", repo);
@@ -679,6 +682,11 @@ export default function AgentTaskInfoPage({
             No agent tasks were found for <code>{resolvedRepo}</code>. The
             response may use a different format.
           </p>
+          {lastFetchedAt && (
+            <p className="agent-task-info-page__empty-updated">
+              Updated {formatRelativeDateTime(lastFetchedAt)}
+            </p>
+          )}
           <details className="agent-task-info-page__raw-toggle">
             <summary>Show raw response</summary>
             <pre className="agent-task-info-page__raw-json">
