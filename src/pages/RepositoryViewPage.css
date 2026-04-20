@@ -128,6 +128,22 @@
   color: #f85149;
 }
 
+.repository-view-page__refresh-btn {
+  padding: 6px 14px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: #2d2d2d;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.repository-view-page__refresh-btn:hover {
+  background: #3d3d3d;
+}
+
 .repository-view-page__settings-btn {
   padding: 6px 14px;
   border: 1px solid #555;

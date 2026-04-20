@@ -32,6 +32,7 @@ export default function RepositoryViewPage() {
     readRecentRepositories
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshIntervalMs, setRefreshIntervalMs] = useState<RefreshIntervalMs>(
     loadRefreshIntervalMs
   );
@@ -119,14 +120,24 @@ export default function RepositoryViewPage() {
         disabled={!repoInput.trim()}
         className="repository-view-page__selector"
         actions={
-          <button
-            type="button"
-            className="repository-view-page__settings-btn"
-            onClick={() => setSettingsOpen(true)}
-            title="Settings"
-          >
-            ⚙️ Settings
-          </button>
+          <>
+            <button
+              type="button"
+              className="repository-view-page__refresh-btn"
+              onClick={() => setRefreshNonce((n) => n + 1)}
+              title="Refresh all panels now"
+            >
+              🔄 Refresh Now
+            </button>
+            <button
+              type="button"
+              className="repository-view-page__settings-btn"
+              onClick={() => setSettingsOpen(true)}
+              title="Settings"
+            >
+              ⚙️ Settings
+            </button>
+          </>
         }
         footer={
           recentRepos.length > 0 ? (
@@ -171,26 +182,26 @@ export default function RepositoryViewPage() {
       <div className="repository-view-page__columns">
         <div className="repository-view-page__column repository-view-page__column--side">
           <RepositoryBrowserPage
-            key={`commits-${repoKey}`}
+            key={`commits-${repoKey}-${String(refreshNonce)}`}
             showRepositorySelector={false}
             refreshIntervalMs={refreshIntervalMs}
           />
         </div>
         <div className="repository-view-page__column repository-view-page__column--center">
           <CreateTaskPage
-            key={`create-task-${repoKey}`}
+            key={`create-task-${repoKey}-${String(refreshNonce)}`}
             showRepositorySelector={false}
           />
         </div>
         <div className="repository-view-page__column repository-view-page__column--side">
           <BranchesPage
-            key={`branches-${repoKey}`}
+            key={`branches-${repoKey}-${String(refreshNonce)}`}
             showRepositorySelector={false}
             refreshIntervalMs={refreshIntervalMs}
             bearerToken={bearerToken}
           />
           <AgentTaskInfoPage
-            key={`tasks-${repoKey}`}
+            key={`tasks-${repoKey}-${String(refreshNonce)}`}
             showRepositorySelector={false}
             refreshIntervalMs={refreshIntervalMs}
             bearerToken={bearerToken}
