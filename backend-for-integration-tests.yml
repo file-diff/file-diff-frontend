@@ -1,6 +1,6 @@
 services:
   app:
-    image: ${APP_IMAGE:-ghcr.io/file-diff/file-diff-engine:latest}
+    image: ${APP_IMAGE:-ghcr.io/file-diff/file-diff-engine:sha-3b2316e}
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,4 +39,3 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
