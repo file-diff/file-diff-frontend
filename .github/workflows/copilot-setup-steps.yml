@@ -1,0 +1,120 @@
+name: "Copilot Setup Steps"
+
+# Automatically run the setup steps when they are changed to allow for easy validation, and
+# allow manual testing through the repository's "Actions" tab
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Install reth
+        run: |
+          curl -sSL "https://github.com/paradigmxyz/reth/releases/download/v2.1.0/reth-v2.1.0-x86_64-unknown-linux-gnu.tar.gz" | tar xz
+          sudo mv reth /usr/local/bin/reth
+
+      - name: Create sequencer data directory and genesis config
+        run: |
+          mkdir -p ./sequencer-data
+          cat > ./sequencer-data/genesis.json << 'EOF'
+          {
+            "config": {
+              "chainId": 42069,
+              "homesteadBlock": 0,
+              "eip150Block": 0,
+              "eip155Block": 0,
+              "eip158Block": 0,
+              "byzantiumBlock": 0,
+              "constantinopleBlock": 0,
+              "petersburgBlock": 0,
+              "istanbulBlock": 0,
+              "muirGlacierBlock": 0,
+              "berlinBlock": 0,
+              "londonBlock": 0,
+              "arrowGlacierBlock": 0,
+              "grayGlacierBlock": 0,
+              "terminalTotalDifficulty": 0,
+              "terminalTotalDifficultyPassed": true,
+              "shanghaiTime": 0,
+              "cancunTime": 0,
+              "pragueTime": 0
+            },
+            "nonce": "0x0",
+            "timestamp": "0x0",
+            "gasLimit": "0x1c9c380",
+            "difficulty": "0x0",
+            "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase": "0x0000000000000000000000000000000000000000",
+            "alloc": {}
+          }
+          EOF
+
+      - name: Start reth node
+        run: |
+          reth node \
+            --dev \
+            --dev.block-time 2s \
+            --chain ./sequencer-data/genesis.json \
+            --datadir ./sequencer-data \
+            --http \
+            --http.addr 0.0.0.0 \
+            --http.port 8645 \
+            --ws \
+            --ws.addr 0.0.0.0 \
+            --ws.port 8646 \
+            --authrpc.addr 0.0.0.0 \
+            --authrpc.port 8651 \
+            --port 30505 \
+            --metrics 0.0.0.0:6160 \
+            &
+          echo "Waiting for reth to become ready..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8645 \
+               -X POST \
+               -H "Content-Type: application/json" \
+               -d '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' \
+               > /dev/null 2>&1; then
+              echo "reth is ready"
+              break
+            fi
+            echo "Waiting for reth... ($i/30)"
+            sleep 2
+          done
+          echo "Verifying reth is producing blocks..."
+          for i in $(seq 1 15); do
+            BLOCK=$(curl -sf http://localhost:8645 \
+              -X POST \
+              -H "Content-Type: application/json" \
+              -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+              | python3 -c "import sys,json; print(int(json.load(sys.stdin)['result'],16))" 2>/dev/null || echo "0")
+            if [ "$BLOCK" -gt "0" ] 2>/dev/null; then
+              echo "reth is producing blocks (current block: $BLOCK)"
+              break
+            fi
+            echo "Waiting for block production... ($i/15, current block: $BLOCK)"
+            sleep 2
+          done
