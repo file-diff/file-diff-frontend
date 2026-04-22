@@ -44,9 +44,28 @@ function formatCommitDate(isoDate: string): string {
   return date.toLocaleString();
 }
 
+function buildGitHubRevisionUrl(
+  repo: string,
+  revisionType: "commit" | "tree",
+  revision: string
+): string {
+  const parts = repo
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length !== 2 || !revision.trim()) {
+    return "";
+  }
+
+  return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/${revisionType}/${encodeURIComponent(revision)}`;
+}
+
 function buildGitHubCommitUrl(repo: string, commit: string): string {
-  const parts = repo.split("/");
-  return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/commit/${encodeURIComponent(commit)}`;
+  return buildGitHubRevisionUrl(repo, "commit", commit);
+}
+
+function buildGitHubTreeUrl(repo: string, commit: string): string {
+  return buildGitHubRevisionUrl(repo, "tree", commit);
 }
 
 function getOptionalQueryParam(
@@ -691,6 +710,8 @@ export default function RepositoryBrowserPage({
               const isRight = rightCommit === entry.commit;
               const isSelected = isLeft || isRight;
               const isHoveredParent = hoveredParentCommit === entry.commit;
+              const githubCommitUrl = buildGitHubCommitUrl(loadedRepo, entry.commit);
+              const githubTreeUrl = buildGitHubTreeUrl(loadedRepo, entry.commit);
 
               return (
                 <div
@@ -726,15 +747,38 @@ export default function RepositoryBrowserPage({
                       </span>
                     </div>
                     <div className="repo-browser__commit-meta">
-                      <a
-                        href={buildGitHubCommitUrl(loadedRepo, entry.commit)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="repo-browser__commit-sha"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {entry.commit.slice(0, 7)}
-                      </a>
+                      {githubCommitUrl ? (
+                        <a
+                          href={githubCommitUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="repo-browser__commit-sha"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {entry.commit.slice(0, 7)}
+                        </a>
+                      ) : (
+                        <span className="repo-browser__commit-sha">
+                          {entry.commit.slice(0, 7)}
+                        </span>
+                      )}
+                      {githubTreeUrl ? (
+                        <a
+                          href={githubTreeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="repo-browser__commit-tree-link"
+                          aria-label={`View files for commit ${entry.commit.slice(0, 7)} on GitHub`}
+                          title={`View files at ${entry.commit.slice(0, 7)} on GitHub`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          View Files
+                        </a>
+                      ) : (
+                        <span className="repo-browser__commit-tree-link">
+                          View Files
+                        </span>
+                      )}
                       <span className="repo-browser__commit-author">
                         {entry.author}
                       </span>
