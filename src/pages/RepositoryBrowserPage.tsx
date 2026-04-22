@@ -49,7 +49,13 @@ function buildGitHubRevisionUrl(
   pathSegment: "commit" | "tree",
   revision: string
 ): string {
-  const parts = repo.split("/");
+  const parts = repo
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length !== 2) {
+    return "";
+  }
   return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/${pathSegment}/${encodeURIComponent(revision)}`;
 }
 
