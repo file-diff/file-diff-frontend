@@ -772,11 +772,11 @@ export default function RepositoryBrowserPage({
                           title={`View files at ${entry.commit.slice(0, 7)} on GitHub`}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          view files
+                          View Files
                         </a>
                       ) : (
                         <span className="repo-browser__commit-tree-link">
-                          view files
+                          View Files
                         </span>
                       )}
                       <span className="repo-browser__commit-author">
