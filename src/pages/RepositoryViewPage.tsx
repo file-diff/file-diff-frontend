@@ -25,6 +25,8 @@ import {
 } from "../utils/bearerTokenStorage";
 import RepositoryBrowserPage from "./RepositoryBrowserPage";
 import BranchesPage from "./BranchesPage";
+import TagsPage from "./TagsPage";
+import ActionsPage from "./ActionsPage";
 import AgentTaskInfoPage from "./AgentTaskInfoPage";
 import CreateTaskPage from "./CreateTaskPage";
 import "./RepositoryViewPage.css";
@@ -288,6 +290,17 @@ export default function RepositoryViewPage() {
             showRepositorySelector={false}
             refreshIntervalMs={refreshIntervalMs}
             bearerToken={bearerToken}
+          />
+          <TagsPage
+            key={`tags-${repoKey}-${String(refreshNonce)}`}
+            showRepositorySelector={false}
+            refreshIntervalMs={refreshIntervalMs}
+            bearerToken={bearerToken}
+          />
+          <ActionsPage
+            key={`actions-${repoKey}-${String(refreshNonce)}`}
+            showRepositorySelector={false}
+            refreshIntervalMs={refreshIntervalMs}
           />
           <AgentTaskInfoPage
             key={`tasks-${repoKey}-${String(refreshNonce)}`}

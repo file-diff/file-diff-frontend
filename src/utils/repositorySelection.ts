@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, buildOrganizationRepositoriesUrl, buildAgentTasksUrl, buildAgentTaskUrl, buildAgentTaskArchiveUrl } from "../config/api";
+import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, TAGS_API_URL, ACTIONS_API_URL, DELETE_TAG_API_URL, buildOrganizationRepositoriesUrl, buildAgentTasksUrl, buildAgentTaskUrl, buildAgentTaskArchiveUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -1031,4 +1031,152 @@ export async function requestArchiveAgentTask(
 
     throw new Error(message);
   }
+}
+
+export interface RepositoryTag {
+  name: string;
+  ref: string;
+  commit: string;
+  commitShort: string;
+}
+
+interface ListTagsRequest {
+  repo: string;
+  limit: number;
+}
+
+interface ListTagsResponse {
+  repo: string;
+  tags: RepositoryTag[];
+}
+
+export async function requestRepositoryTags(
+  repo: string,
+  limit: number,
+  signal?: AbortSignal
+): Promise<RepositoryTag[]> {
+  const response = await fetch(TAGS_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ repo, limit } satisfies ListTagsRequest),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = "Unable to list tags";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as ListTagsResponse;
+  return Array.isArray(data.tags) ? data.tags : [];
+}
+
+export interface DeleteTagResponse {
+  repo: string;
+  tag: string;
+}
+
+export async function requestDeleteTag(
+  repo: string,
+  tag: string,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<DeleteTagResponse> {
+  const response = await fetch(DELETE_TAG_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    body: JSON.stringify({ repo, tag }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `Unable to delete tag "${tag}"`;
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as DeleteTagResponse;
+}
+
+export interface RepositoryActionRun {
+  id: number;
+  runNumber: number;
+  name: string;
+  workflowId: number;
+  event: string;
+  status: string;
+  conclusion: string | null;
+  branch: string;
+  commit: string;
+  commitShort: string;
+  createdAt: string;
+  updatedAt: string;
+  url: string;
+}
+
+interface ListActionsRequest {
+  repo: string;
+  limit: number;
+}
+
+interface ListActionsResponse {
+  repo: string;
+  runs: RepositoryActionRun[];
+}
+
+export async function requestRepositoryActions(
+  repo: string,
+  limit: number,
+  signal?: AbortSignal
+): Promise<RepositoryActionRun[]> {
+  const response = await fetch(ACTIONS_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ repo, limit } satisfies ListActionsRequest),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = "Unable to list workflow runs";
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  const data = (await response.json()) as ListActionsResponse;
+  return Array.isArray(data.runs) ? data.runs : [];
 }
