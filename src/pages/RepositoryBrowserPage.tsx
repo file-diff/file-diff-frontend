@@ -772,7 +772,9 @@ export default function RepositoryBrowserPage({
                           files
                         </a>
                       ) : (
-                        <span className="repo-browser__commit-tree-link">files</span>
+                        <span className="repo-browser__commit-tree-link repo-browser__commit-tree-link--disabled">
+                          files
+                        </span>
                       )}
                       <span className="repo-browser__commit-author">
                         {entry.author}

@@ -442,6 +442,14 @@
   text-decoration: underline;
 }
 
+.repo-browser__commit-tree-link--disabled {
+  color: #6e7681;
+}
+
+.repo-browser__commit-tree-link--disabled:hover {
+  text-decoration: none;
+}
+
 .repo-browser__commit-author {
   color: #8b949e;
 }
