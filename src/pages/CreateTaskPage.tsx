@@ -4,6 +4,7 @@ import "./CreateTaskPage.css";
 
 interface CreateTaskPageProps {
   showRepositorySelector?: boolean;
+  initialProblemStatement?: string;
 }
 
 function getInitialProblemStatement(
@@ -24,14 +25,19 @@ function getInitialProblemStatement(
 
 export default function CreateTaskPage({
   showRepositorySelector = true,
+  initialProblemStatement,
 }: CreateTaskPageProps) {
   const [searchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
   const queryProblemStatement = getInitialProblemStatement(searchParams);
+  const effectiveInitialProblemStatement =
+    queryProblemStatement !== undefined
+      ? queryProblemStatement
+      : initialProblemStatement;
   const formKey = [
     showRepositorySelector ? "show-repo" : "fixed-repo",
     queryRepo,
-    queryProblemStatement ?? "",
+    effectiveInitialProblemStatement ?? "",
   ].join("::");
 
   return (
@@ -46,7 +52,7 @@ export default function CreateTaskPage({
       <CreateTaskForm
         key={formKey}
         initialRepo={queryRepo}
-        initialProblemStatement={queryProblemStatement}
+        initialProblemStatement={effectiveInitialProblemStatement}
         showRepositorySelector={showRepositorySelector}
       />
     </div>

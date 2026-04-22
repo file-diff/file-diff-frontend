@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import RepositorySelector from "../components/RepositorySelector";
 import RepositoryViewSettingsPopup from "../components/RepositoryViewSettingsPopup";
@@ -8,6 +9,11 @@ import {
   addRecentRepository,
   removeRecentRepository,
 } from "../utils/recentRepositoriesStorage";
+import {
+  getRepositoryColor,
+  getRepositoryColorMap,
+} from "../utils/repositoryColors";
+import { loadRepoProblemStatement } from "../utils/repoProblemStatementStorage";
 import {
   loadRefreshIntervalMs,
   saveRefreshIntervalMs,
@@ -22,6 +28,28 @@ import BranchesPage from "./BranchesPage";
 import AgentTaskInfoPage from "./AgentTaskInfoPage";
 import CreateTaskPage from "./CreateTaskPage";
 import "./RepositoryViewPage.css";
+
+const DEFAULT_ACCENT_COLOR = "#58a6ff";
+
+function sortRepositoriesAlphabetically(repos: readonly string[]): string[] {
+  return [...repos].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
+}
+
+function buildRepoHref(
+  searchParams: URLSearchParams,
+  repo: string
+): string {
+  const nextParams = new URLSearchParams(searchParams);
+  nextParams.delete("leftCommit");
+  nextParams.delete("rightCommit");
+  nextParams.delete("lc");
+  nextParams.delete("rc");
+  nextParams.delete("taskId");
+  nextParams.set("repo", repo);
+  return `?${nextParams.toString()}`;
+}
 
 export default function RepositoryViewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -59,6 +87,32 @@ export default function RepositoryViewPage() {
     }
   }, [repo]);
 
+  const sortedRecentRepos = useMemo(
+    () => sortRepositoriesAlphabetically(recentRepos),
+    [recentRepos]
+  );
+
+  const colorMap = useMemo(
+    () => getRepositoryColorMap(sortedRecentRepos),
+    [sortedRecentRepos]
+  );
+
+  const accentColor = useMemo(() => {
+    const trimmed = repo.trim();
+    if (!trimmed) {
+      return DEFAULT_ACCENT_COLOR;
+    }
+    return colorMap[trimmed.toLowerCase()] ?? getRepositoryColor(trimmed);
+  }, [repo, colorMap]);
+
+  const initialProblemStatement = useMemo(() => {
+    const trimmed = repo.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    return loadRepoProblemStatement(trimmed);
+  }, [repo]);
+
   const handleLoadRepository = useCallback(() => {
     const resolvedRepo = resolveRepositoryInput(repoInput);
     const nextParams = new URLSearchParams(searchParams);
@@ -79,7 +133,20 @@ export default function RepositoryViewPage() {
   }, [repoInput, searchParams, setSearchParams]);
 
   const handleSelectRecent = useCallback(
-    (selected: string) => {
+    (event: ReactMouseEvent<HTMLAnchorElement>, selected: string) => {
+      // Allow the browser to handle middle-click and modifier-click natively
+      // (open in new tab / window) by not preventing default in those cases.
+      if (
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      event.preventDefault();
       const nextParams = new URLSearchParams(searchParams);
 
       nextParams.delete("leftCommit");
@@ -95,14 +162,21 @@ export default function RepositoryViewPage() {
   );
 
   const handleRemoveRecent = useCallback(
-    (toRemove: string) => {
+    (event: ReactMouseEvent<HTMLButtonElement>, toRemove: string) => {
+      event.preventDefault();
+      event.stopPropagation();
       setRecentRepos(removeRecentRepository(toRemove));
     },
     []
   );
 
+  const accentStyle = useMemo(
+    () => ({ ["--repo-accent" as string]: accentColor } as CSSProperties),
+    [accentColor]
+  );
+
   return (
-    <div className="repository-view-page">
+    <div className="repository-view-page" style={accentStyle}>
       <div className="page-header">
         <h1>🗂️ Repository View</h1>
         <p className="page-subtitle">
@@ -111,73 +185,87 @@ export default function RepositoryViewPage() {
         </p>
       </div>
 
-      <RepositorySelector
-        inputId="repository-view-input"
-        value={repoInput}
-        onChange={setRepoInput}
-        onSubmit={handleLoadRepository}
-        buttonLabel="Load repository"
-        disabled={!repoInput.trim()}
-        className="repository-view-page__selector"
-        actions={
-          <>
-            <button
-              type="button"
-              className="repository-view-page__refresh-btn"
-              onClick={() => setRefreshNonce((n) => n + 1)}
-              title="Refresh all panels now"
-            >
-              🔄 Refresh Now
-            </button>
-            <button
-              type="button"
-              className="repository-view-page__settings-btn"
-              onClick={() => setSettingsOpen(true)}
-              title="Settings"
-            >
-              ⚙️ Settings
-            </button>
-          </>
-        }
-        footer={
-          recentRepos.length > 0 ? (
-            <div className="repository-view-page__recent">
-              <span className="repository-view-page__recent-label">
-                Recent:
-              </span>
-              {recentRepos.map((r) => (
-                <span
-                  key={r}
-                  className={
-                    "repository-view-page__recent-chip" +
-                    (r === repo
-                      ? " repository-view-page__recent-chip--active"
-                      : "")
+      {sortedRecentRepos.length > 0 ? (
+        <div
+          className="repository-view-page__recent-grid"
+          aria-label="Recent repositories"
+        >
+          {sortedRecentRepos.map((r) => {
+            const color = colorMap[r.toLowerCase()] ?? DEFAULT_ACCENT_COLOR;
+            const isActive = r === repo;
+            return (
+              <a
+                key={r}
+                href={buildRepoHref(searchParams, r)}
+                onClick={(e) => handleSelectRecent(e, r)}
+                onAuxClick={(e) => {
+                  // Middle-click: let the browser open the link in a new tab.
+                  if (e.button === 1) {
+                    e.stopPropagation();
                   }
-                >
-                  <button
-                    type="button"
-                    className="repository-view-page__recent-name"
-                    onClick={() => handleSelectRecent(r)}
-                    title={`Switch to ${r}`}
-                  >
-                    {r}
-                  </button>
-                  <button
-                    type="button"
-                    className="repository-view-page__recent-remove"
-                    onClick={() => handleRemoveRecent(r)}
-                    title={`Remove ${r} from recent list`}
-                    aria-label={`Remove ${r}`}
-                  >
-                    ×
-                  </button>
+                }}
+                className={
+                  "repository-view-page__recent-tile" +
+                  (isActive
+                    ? " repository-view-page__recent-tile--active"
+                    : "")
+                }
+                style={
+                  {
+                    ["--repo-tile-color" as string]: color,
+                  } as CSSProperties
+                }
+                title={`Switch to ${r} (Ctrl/⌘+click or middle-click to open in a new tab)`}
+              >
+                <span className="repository-view-page__recent-tile-name">
+                  {r}
                 </span>
-              ))}
-            </div>
-          ) : null
-        }
-      />
+                <button
+                  type="button"
+                  className="repository-view-page__recent-remove"
+                  onClick={(e) => handleRemoveRecent(e, r)}
+                  title={`Remove ${r} from recent list`}
+                  aria-label={`Remove ${r}`}
+                >
+                  ×
+                </button>
+              </a>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <div className="repository-view-page__selector-row">
+        <RepositorySelector
+          inputId="repository-view-input"
+          value={repoInput}
+          onChange={setRepoInput}
+          onSubmit={handleLoadRepository}
+          buttonLabel="Load repository"
+          disabled={!repoInput.trim()}
+          className="repository-view-page__selector"
+          actions={
+            <>
+              <button
+                type="button"
+                className="repository-view-page__refresh-btn"
+                onClick={() => setRefreshNonce((n) => n + 1)}
+                title="Refresh all panels now"
+              >
+                🔄 Refresh Now
+              </button>
+              <button
+                type="button"
+                className="repository-view-page__settings-btn"
+                onClick={() => setSettingsOpen(true)}
+                title="Settings"
+              >
+                ⚙️ Settings
+              </button>
+            </>
+          }
+        />
+      </div>
 
       <div className="repository-view-page__columns">
         <div className="repository-view-page__column repository-view-page__column--side">
@@ -191,6 +279,7 @@ export default function RepositoryViewPage() {
           <CreateTaskPage
             key={`create-task-${repoKey}-${String(refreshNonce)}`}
             showRepositorySelector={false}
+            initialProblemStatement={initialProblemStatement}
           />
         </div>
         <div className="repository-view-page__column repository-view-page__column--side">

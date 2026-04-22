@@ -1,5 +1,7 @@
 import { CREATE_TASK_DRAFT_STORAGE_KEY } from "./createTaskStorage";
 import { RECENT_REPOSITORIES_STORAGE_KEY } from "./recentRepositoriesStorage";
+import { REPOSITORY_COLORS_STORAGE_KEY } from "./repositoryColors";
+import { REPO_PROBLEM_STATEMENTS_STORAGE_KEY } from "./repoProblemStatementStorage";
 
 const LAST_PARAMS_STORAGE_KEY = "last-selected-params";
 const INDEXING_HISTORY_STORAGE_KEY = "indexing-parameter-history";
@@ -379,6 +381,8 @@ export async function clearAllStoredData(): Promise<void> {
     window.localStorage.removeItem(TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY);
     window.localStorage.removeItem(CREATE_TASK_DRAFT_STORAGE_KEY);
     window.localStorage.removeItem(RECENT_REPOSITORIES_STORAGE_KEY);
+    window.localStorage.removeItem(REPOSITORY_COLORS_STORAGE_KEY);
+    window.localStorage.removeItem(REPO_PROBLEM_STATEMENTS_STORAGE_KEY);
   } catch {
     return;
   }
