@@ -49,6 +49,11 @@ function buildGitHubCommitUrl(repo: string, commit: string): string {
   return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/commit/${encodeURIComponent(commit)}`;
 }
 
+function buildGitHubTreeUrl(repo: string, commit: string): string {
+  const parts = repo.split("/");
+  return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/tree/${encodeURIComponent(commit)}`;
+}
+
 function getOptionalQueryParam(
   searchParams: URLSearchParams,
   ...keys: string[]
@@ -734,6 +739,16 @@ export default function RepositoryBrowserPage({
                         onClick={(e) => e.stopPropagation()}
                       >
                         {entry.commit.slice(0, 7)}
+                      </a>
+                      <a
+                        href={buildGitHubTreeUrl(loadedRepo, entry.commit)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="repo-browser__commit-tree-link"
+                        title={`View files at ${entry.commit.slice(0, 7)} on GitHub`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        files
                       </a>
                       <span className="repo-browser__commit-author">
                         {entry.author}
