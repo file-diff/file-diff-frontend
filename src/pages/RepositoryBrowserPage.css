@@ -443,6 +443,16 @@
   text-decoration: underline;
 }
 
+.repo-browser__commit-grep-link {
+  color: #58a6ff;
+  text-decoration: none;
+  font-size: 0.78rem;
+}
+
+.repo-browser__commit-grep-link:hover {
+  text-decoration: underline;
+}
+
 .repo-browser__commit-author {
   color: #8b949e;
 }

@@ -68,6 +68,12 @@ function buildGitHubTreeUrl(repo: string, commit: string): string {
   return buildGitHubRevisionUrl(repo, "tree", commit);
 }
 
+function buildGrepPageUrl(commit: string): string {
+  const params = new URLSearchParams();
+  params.set("commit", commit);
+  return `/grep?${params.toString()}`;
+}
+
 function getOptionalQueryParam(
   searchParams: URLSearchParams,
   ...keys: string[]
@@ -779,6 +785,15 @@ export default function RepositoryBrowserPage({
                           View Files
                         </span>
                       )}
+                      <Link
+                        to={buildGrepPageUrl(entry.commit)}
+                        className="repo-browser__commit-grep-link"
+                        aria-label={`Search commit ${entry.commit.slice(0, 7)} with grep`}
+                        title={`Search ${entry.commit.slice(0, 7)} with grep`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Grep
+                      </Link>
                       <span className="repo-browser__commit-author">
                         {entry.author}
                       </span>
