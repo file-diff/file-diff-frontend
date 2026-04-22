@@ -11,6 +11,7 @@ import FileComparePage from "./pages/FileComparePage";
 import HealthCheckPage from "./pages/HealthCheckPage";
 import HistoryPage from "./pages/HistoryPage";
 import TokenizePage from "./pages/TokenizePage";
+import GrepPage from "./pages/GrepPage";
 import RepositoryBrowserPage from "./pages/RepositoryBrowserPage";
 import BranchesPage from "./pages/BranchesPage";
 import OrganizationBrowserPage from "./pages/OrganizationBrowserPage";
@@ -80,6 +81,9 @@ function AppShell() {
           <Link to="/tokenize" className="nav-link">
             🎨 Tokenize
           </Link>
+          <Link to="/grep" className="nav-link">
+            🔎 Grep
+          </Link>
           <Link to="/health" className="nav-link">
             🩺 Backend Check
           </Link>
@@ -105,6 +109,7 @@ function AppShell() {
           <Route path="/create-task" element={<CreateTaskPage />} />
           <Route path="/agent-tasks" element={<AgentTaskInfoPage />} />
           <Route path="/tokenize" element={<TokenizePage />} />
+          <Route path="/grep" element={<GrepPage />} />
           <Route path="/health" element={<HealthCheckPage />} />
         </Routes>
       </main>

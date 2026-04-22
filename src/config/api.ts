@@ -51,6 +51,14 @@ export function buildJobFileDiffUrl(leftHash: string, rightHash: string): string
   )}/diff/${encodeURIComponent(rightHash)}`;
 }
 
+export function buildGrepUrl(commit: string, query: string): string {
+  const url = new URL(
+    `${trimmedDefaultApiBaseUrl}/commit/${encodeURIComponent(commit)}/grep`
+  );
+  url.searchParams.set("query", query);
+  return url.toString();
+}
+
 export function buildTokenizeUrl(hash: string, theme?: string): string {
   const url = new URL(
     `${JOBS_API_URL}/files/hash/${encodeURIComponent(hash)}/tokenize`
