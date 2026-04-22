@@ -787,7 +787,7 @@ export default function RepositoryBrowserPage({
                       )}
                       <Link
                         to={buildGrepPageUrl(entry.commit)}
-                        className="repo-browser__commit-tree-link"
+                        className="repo-browser__commit-grep-link"
                         aria-label={`Search commit ${entry.commit.slice(0, 7)} with grep`}
                         title={`Search ${entry.commit.slice(0, 7)} with grep`}
                         onClick={(e) => e.stopPropagation()}
