@@ -63,8 +63,8 @@ function buildGitHubCommitUrl(repo: string, commit: string): string {
   return buildGitHubRevisionUrl(repo, "commit", commit);
 }
 
-function buildGitHubTreeUrl(repo: string, commit: string): string {
-  return buildGitHubRevisionUrl(repo, "tree", commit);
+function buildGitHubTreeUrl(repo: string, revision: string): string {
+  return buildGitHubRevisionUrl(repo, "tree", revision);
 }
 
 function getOptionalQueryParam(
@@ -709,6 +709,8 @@ export default function RepositoryBrowserPage({
               const isRight = rightCommit === entry.commit;
               const isSelected = isLeft || isRight;
               const isHoveredParent = hoveredParentCommit === entry.commit;
+              const commitUrl = buildGitHubCommitUrl(loadedRepo, entry.commit);
+              const treeUrl = buildGitHubTreeUrl(loadedRepo, entry.commit);
 
               return (
                 <div
@@ -744,24 +746,34 @@ export default function RepositoryBrowserPage({
                       </span>
                     </div>
                     <div className="repo-browser__commit-meta">
-                      <a
-                        href={buildGitHubCommitUrl(loadedRepo, entry.commit)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="repo-browser__commit-sha"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {entry.commit.slice(0, 7)}
-                      </a>
-                      <a
-                        href={buildGitHubTreeUrl(loadedRepo, entry.commit)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="repo-browser__commit-tree-link"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        files
-                      </a>
+                      {commitUrl ? (
+                        <a
+                          href={commitUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="repo-browser__commit-sha"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {entry.commit.slice(0, 7)}
+                        </a>
+                      ) : (
+                        <span className="repo-browser__commit-sha">
+                          {entry.commit.slice(0, 7)}
+                        </span>
+                      )}
+                      {treeUrl ? (
+                        <a
+                          href={treeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="repo-browser__commit-tree-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          files
+                        </a>
+                      ) : (
+                        <span className="repo-browser__commit-tree-link">files</span>
+                      )}
                       <span className="repo-browser__commit-author">
                         {entry.author}
                       </span>
@@ -776,6 +788,7 @@ export default function RepositoryBrowserPage({
                         </span>
                         <div className="repo-browser__commit-parents-list">
                           {entry.parents.map((parent) => {
+                            const parentUrl = buildGitHubCommitUrl(loadedRepo, parent);
                             const parentCompareQuery = buildTreeComparisonLink(
                               {
                                 repo: loadedRepo,
@@ -795,17 +808,25 @@ export default function RepositoryBrowserPage({
                                 key={parent}
                                 className="repo-browser__commit-parent-group"
                               >
-                                <a
-                                  href={buildGitHubCommitUrl(loadedRepo, parent)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="repo-browser__commit-parent"
-                                  onClick={(e) => e.stopPropagation()}
-                                  onMouseEnter={() => setHoveredParentCommit(parent)}
-                                  onMouseLeave={() => setHoveredParentCommit(null)}
-                                >
-                                  {parent.slice(0, 7)}
-                                </a>
+                                {parentUrl ? (
+                                  <a
+                                    href={parentUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="repo-browser__commit-parent"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseEnter={() =>
+                                      setHoveredParentCommit(parent)
+                                    }
+                                    onMouseLeave={() => setHoveredParentCommit(null)}
+                                  >
+                                    {parent.slice(0, 7)}
+                                  </a>
+                                ) : (
+                                  <span className="repo-browser__commit-parent">
+                                    {parent.slice(0, 7)}
+                                  </span>
+                                )}
                                 {parentCompareQuery && (
                                   <button
                                     type="button"
