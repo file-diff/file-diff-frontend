@@ -49,7 +49,14 @@ function buildGitHubRevisionUrl(
   revisionType: "commit" | "tree",
   revision: string
 ): string {
-  const parts = repo.split("/");
+  const parts = repo
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length !== 2 || !revision.trim()) {
+    return "";
+  }
+
   return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/${revisionType}/${encodeURIComponent(revision)}`;
 }
 
@@ -752,6 +759,7 @@ export default function RepositoryBrowserPage({
                         target="_blank"
                         rel="noopener noreferrer"
                         className="repo-browser__commit-tree-link"
+                        aria-label={`View files for commit ${entry.commit.slice(0, 7)} on GitHub`}
                         title={`View files at ${entry.commit.slice(0, 7)} on GitHub`}
                         onClick={(e) => e.stopPropagation()}
                       >
