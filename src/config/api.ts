@@ -22,6 +22,9 @@ export const DELETE_REMOTE_BRANCH_API_URL = `${JOBS_API_URL}/delete-remote-branc
 export const PULL_REQUEST_READY_API_URL = `${JOBS_API_URL}/pull-request/ready`;
 export const PULL_REQUEST_MERGE_API_URL = `${JOBS_API_URL}/pull-request/merge`;
 export const PULL_REQUEST_OPEN_API_URL = `${JOBS_API_URL}/pull-request/open`;
+export const TAGS_API_URL = `${JOBS_API_URL}/tags`;
+export const ACTIONS_API_URL = `${JOBS_API_URL}/actions`;
+export const DELETE_TAG_API_URL = `${JOBS_API_URL}/delete-tag`;
 
 export function buildCommitFilesUrl(commit: string, format?: string): string {
   const base = `${trimmedDefaultApiBaseUrl}/commit/${encodeURIComponent(commit)}/files`;

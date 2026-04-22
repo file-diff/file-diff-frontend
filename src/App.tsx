@@ -14,6 +14,8 @@ import TokenizePage from "./pages/TokenizePage";
 import GrepPage from "./pages/GrepPage";
 import RepositoryBrowserPage from "./pages/RepositoryBrowserPage";
 import BranchesPage from "./pages/BranchesPage";
+import TagsPage from "./pages/TagsPage";
+import ActionsPage from "./pages/ActionsPage";
 import OrganizationBrowserPage from "./pages/OrganizationBrowserPage";
 import CreateTaskPage from "./pages/CreateTaskPage";
 import AgentTaskInfoPage from "./pages/AgentTaskInfoPage";
@@ -69,6 +71,12 @@ function AppShell() {
           <Link to="/branches" className="nav-link">
             🌿 Branches
           </Link>
+          <Link to="/tags" className="nav-link">
+            🏷️ Tags
+          </Link>
+          <Link to="/actions" className="nav-link">
+            ⚙️ Actions
+          </Link>
           <Link to="/browse" className="nav-link">
             🏢 Browse Org
           </Link>
@@ -105,6 +113,8 @@ function AppShell() {
           <Route path="/commits" element={<RepositoryBrowserPage />} />
           <Route path="/repository" element={<RepositoryViewPage />} />
           <Route path="/branches" element={<BranchesPage />} />
+          <Route path="/tags" element={<TagsPage />} />
+          <Route path="/actions" element={<ActionsPage />} />
           <Route path="/browse" element={<OrganizationBrowserPage />} />
           <Route path="/create-task" element={<CreateTaskPage />} />
           <Route path="/agent-tasks" element={<AgentTaskInfoPage />} />
