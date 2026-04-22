@@ -1,3 +1,6 @@
+import { removeRepositoryColor } from "./repositoryColors";
+import { removeRepoProblemStatement } from "./repoProblemStatementStorage";
+
 const RECENT_REPOSITORIES_STORAGE_KEY = "recent-repositories";
 const MAX_RECENT_REPOSITORIES = 10;
 
@@ -66,6 +69,9 @@ export function removeRecentRepository(repo: string): string[] {
   } catch {
     // Ignore storage errors (quota exceeded, etc.)
   }
+
+  removeRepositoryColor(trimmed);
+  removeRepoProblemStatement(trimmed);
 
   return updated;
 }

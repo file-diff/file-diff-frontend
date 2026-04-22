@@ -1,11 +1,19 @@
 .repository-view-page {
   width: 100%;
   padding: 24px;
+  --repo-accent: #58a6ff;
+}
+
+.repository-view-page__selector-row {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 24px;
 }
 
 .repository-view-page__selector {
+  width: 100%;
   max-width: 720px;
-  margin: 0 auto 24px;
+  margin: 0 auto;
 }
 
 .repository-view-page__columns {
@@ -65,67 +73,95 @@
   margin-bottom: 24px;
 }
 
-.repository-view-page__recent {
+.repository-view-page__recent-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.repository-view-page__recent-tile {
+  --repo-tile-color: #58a6ff;
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
-  margin-top: 8px;
-}
-
-.repository-view-page__recent-label {
-  color: #888;
-  font-size: 0.8rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.repository-view-page__recent-chip {
-  display: inline-flex;
-  align-items: center;
-  background: #1c1c1c;
-  border: 1px solid #444;
-  border-radius: 14px;
-  overflow: hidden;
-  transition: border-color 0.15s;
-}
-
-.repository-view-page__recent-chip:hover {
-  border-color: #666;
-}
-
-.repository-view-page__recent-chip--active {
-  border-color: #58a6ff;
-  background: #0d1117;
-}
-
-.repository-view-page__recent-name {
-  padding: 3px 8px 3px 10px;
-  background: none;
-  border: none;
-  color: #c9d1d9;
-  font-size: 0.8rem;
+  padding: 10px 32px 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--repo-tile-color);
+  background: color-mix(in srgb, var(--repo-tile-color) 14%, #161616 86%);
+  color: #f0f6fc;
+  text-decoration: none;
   font-family: var(--code-font-family);
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
 }
 
-.repository-view-page__recent-name:hover {
-  color: #58a6ff;
+.repository-view-page__recent-tile:hover {
+  background: color-mix(in srgb, var(--repo-tile-color) 28%, #161616 72%);
+}
+
+.repository-view-page__recent-tile:active {
+  transform: translateY(1px);
+}
+
+.repository-view-page__recent-tile--active {
+  border-width: 2px;
+  padding: 9px 31px 9px 13px;
+  background: color-mix(in srgb, var(--repo-tile-color) 36%, #0d1117 64%);
+  box-shadow: 0 0 0 1px var(--repo-tile-color) inset;
+}
+
+.repository-view-page__recent-tile-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .repository-view-page__recent-remove {
-  padding: 3px 7px 3px 4px;
-  background: none;
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
   border: none;
-  color: #666;
-  font-size: 0.9rem;
-  cursor: pointer;
+  border-radius: 50%;
+  color: #c9d1d9;
+  font-size: 0.95rem;
   line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.repository-view-page__recent-tile:hover .repository-view-page__recent-remove,
+.repository-view-page__recent-tile:focus-within .repository-view-page__recent-remove {
+  opacity: 1;
 }
 
 .repository-view-page__recent-remove:hover {
-  color: #f85149;
+  background: #f85149;
+  color: #fff;
+}
+
+/* Apply the selected repository's accent color to inner panel headings. */
+.repository-view-page .repo-browser-page .page-header h1,
+.repository-view-page .branches-page .page-header h1,
+.repository-view-page .agent-task-info-page .page-header h1,
+.repository-view-page .create-task-page .page-header h1 {
+  color: var(--repo-accent);
 }
 
 .repository-view-page__refresh-btn {
@@ -160,6 +196,12 @@
   background: #3d3d3d;
 }
 
+@media (max-width: 1200px) {
+  .repository-view-page__recent-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
   .repository-view-page__columns {
     flex-direction: column;
@@ -174,5 +216,15 @@
 
   .repository-view-page__column--center {
     width: 100%;
+  }
+
+  .repository-view-page__recent-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 540px) {
+  .repository-view-page__recent-grid {
+    grid-template-columns: 1fr;
   }
 }

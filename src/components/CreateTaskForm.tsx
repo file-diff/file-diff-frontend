@@ -10,6 +10,7 @@ import {
   loadCreateTaskDraft,
   saveCreateTaskDraft,
 } from "../utils/createTaskStorage";
+import { saveRepoProblemStatement } from "../utils/repoProblemStatementStorage";
 import type {
   RepositoryBranch,
   CreateTaskRequest,
@@ -446,6 +447,13 @@ export default function CreateTaskForm({
     taskDelayEnabled,
     taskDelayMinutes,
   ]);
+
+  useEffect(() => {
+    const repo = resolveRepositoryInput(repoInput);
+    if (repo) {
+      saveRepoProblemStatement(repo, problemStatement);
+    }
+  }, [repoInput, problemStatement]);
 
   useEffect(() => {
     return () => {
