@@ -433,6 +433,15 @@
   text-decoration: underline;
 }
 
+.repo-browser__commit-tree-link {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.repo-browser__commit-tree-link:hover {
+  text-decoration: underline;
+}
+
 .repo-browser__commit-author {
   color: #8b949e;
 }
