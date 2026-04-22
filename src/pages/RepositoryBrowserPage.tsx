@@ -44,14 +44,21 @@ function formatCommitDate(isoDate: string): string {
   return date.toLocaleString();
 }
 
-function buildGitHubCommitUrl(repo: string, commit: string): string {
+function buildGitHubRevisionUrl(
+  repo: string,
+  pathSegment: "commit" | "tree",
+  revision: string
+): string {
   const parts = repo.split("/");
-  return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/commit/${encodeURIComponent(commit)}`;
+  return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/${pathSegment}/${encodeURIComponent(revision)}`;
+}
+
+function buildGitHubCommitUrl(repo: string, commit: string): string {
+  return buildGitHubRevisionUrl(repo, "commit", commit);
 }
 
 function buildGitHubTreeUrl(repo: string, commit: string): string {
-  const parts = repo.split("/");
-  return `https://github.com/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}/tree/${encodeURIComponent(commit)}`;
+  return buildGitHubRevisionUrl(repo, "tree", commit);
 }
 
 function getOptionalQueryParam(
