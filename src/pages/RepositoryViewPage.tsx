@@ -285,6 +285,12 @@ export default function RepositoryViewPage() {
           />
         </div>
         <div className="repository-view-page__column repository-view-page__column--side">
+          <AgentTaskInfoPage
+            key={`tasks-${repoKey}-${String(refreshNonce)}`}
+            showRepositorySelector={false}
+            refreshIntervalMs={refreshIntervalMs}
+            bearerToken={bearerToken}
+          />
           <BranchesPage
             key={`branches-${repoKey}-${String(refreshNonce)}`}
             showRepositorySelector={false}
@@ -299,12 +305,6 @@ export default function RepositoryViewPage() {
           />
           <ActionsPage
             key={`actions-${repoKey}-${String(refreshNonce)}`}
-            showRepositorySelector={false}
-            refreshIntervalMs={refreshIntervalMs}
-            bearerToken={bearerToken}
-          />
-          <AgentTaskInfoPage
-            key={`tasks-${repoKey}-${String(refreshNonce)}`}
             showRepositorySelector={false}
             refreshIntervalMs={refreshIntervalMs}
             bearerToken={bearerToken}
