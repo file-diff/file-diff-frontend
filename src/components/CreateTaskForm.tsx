@@ -473,7 +473,6 @@ export default function CreateTaskForm({
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const isAutoMerge =
     createPullRequest && pullRequestCompletionMode === "AutoMerge";
-  const requiresConfirmation = taskDelayEnabled || isAutoMerge;
   const variantLabel = useMemo(() => {
     if (taskDelayEnabled && isAutoMerge) return "delayed auto-merge";
     if (taskDelayEnabled) return "delayed";
@@ -491,12 +490,8 @@ export default function CreateTaskForm({
   const handleAttemptSubmit = useCallback(() => {
     if (!canSubmit) return;
     setSubmitError("");
-    if (requiresConfirmation) {
-      setConfirmOpen(true);
-      return;
-    }
-    void handleSubmit();
-  }, [canSubmit, requiresConfirmation, handleSubmit]);
+    setConfirmOpen(true);
+  }, [canSubmit]);
 
   const handleCancelConfirm = useCallback(() => {
     if (isSubmitting) return;
