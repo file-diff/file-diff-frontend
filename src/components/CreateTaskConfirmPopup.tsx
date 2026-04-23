@@ -74,9 +74,7 @@ export default function CreateTaskConfirmPopup({
         <div className="create-task-confirm__content">
           <p className="create-task-confirm__lead">
             Are you sure you want to create{" "}
-            <strong className="create-task-confirm__variant">
-              &ldquo;{taskLabel}&rdquo;
-            </strong>{" "}
+            <strong className="create-task-confirm__variant">{taskLabel}</strong>{" "}
             in repository
           </p>
           <p className="create-task-confirm__repo">{repo || "(no repository)"}</p>
