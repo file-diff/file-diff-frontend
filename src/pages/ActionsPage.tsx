@@ -26,8 +26,15 @@ import "./ActionsPage.css";
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_ACTION_LIMIT = 20;
 const ACTION_LIMIT_OPTIONS = [20, 50, 100, 200] as const;
+const ACTIONS_DELETE_UNSUPPORTED_NOTE =
+  "Delete unavailable until the backend adds a workflow-run delete endpoint.";
+const ACTIONS_DELETE_UNSUPPORTED_NOTICE_PREFIX =
+  "Workflow run deletion is unavailable right now. The backend lists runs via ";
+const ACTIONS_DELETE_UNSUPPORTED_NOTICE_SUFFIX =
+  " but does not expose a delete endpoint yet, so no delete request will be sent from this page.";
+const ACTIONS_DELETE_UNSUPPORTED_NOTICE = `${ACTIONS_DELETE_UNSUPPORTED_NOTICE_PREFIX}POST /api/jobs/actions${ACTIONS_DELETE_UNSUPPORTED_NOTICE_SUFFIX}`;
 const ACTIONS_DELETE_UNSUPPORTED_MESSAGE =
-  "Workflow run deletion is unavailable here because the backend currently exposes only POST /api/jobs/actions to list runs and does not provide a delete endpoint.";
+  `${ACTIONS_DELETE_UNSUPPORTED_NOTICE} ${ACTIONS_DELETE_UNSUPPORTED_NOTE}`;
 
 interface ActionResult {
   run: string;
@@ -388,8 +395,7 @@ export default function ActionsPage({
       </span>
       <div className="actions-page__action-bar-actions">
         <span className="actions-page__action-bar-note">
-          Delete unavailable until the backend adds a workflow-run delete
-          endpoint.
+          {ACTIONS_DELETE_UNSUPPORTED_NOTE}
         </span>
         <button
           type="button"
@@ -454,9 +460,9 @@ export default function ActionsPage({
 
       {loadedRepo && (
         <div className="actions-page__notice" role="status">
-          Workflow run deletion is unavailable right now. The backend lists runs
-          via <code>POST /api/jobs/actions</code> but does not expose a delete
-          endpoint yet, so no delete request will be sent from this page.
+          {ACTIONS_DELETE_UNSUPPORTED_NOTICE_PREFIX}
+          <code>POST /api/jobs/actions</code>
+          {ACTIONS_DELETE_UNSUPPORTED_NOTICE_SUFFIX}
         </div>
       )}
 
