@@ -43,6 +43,10 @@
   flex: 1 1 280px;
 }
 
+.grep-field--repo {
+  flex: 1 1 280px;
+}
+
 .grep-field--query {
   flex: 2 1 320px;
 }
