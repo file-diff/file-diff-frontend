@@ -23,6 +23,7 @@ export default function CreateTaskConfirmPopup({
   onCancel,
 }: CreateTaskConfirmPopupProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const taskLabel = variantLabel === "task" ? "task" : `${variantLabel} task`;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -72,11 +73,9 @@ export default function CreateTaskConfirmPopup({
 
         <div className="create-task-confirm__content">
           <p className="create-task-confirm__lead">
-            Are you sure you want to create a{" "}
-            <strong className="create-task-confirm__variant">
-              &ldquo;{variantLabel}&rdquo;
-            </strong>{" "}
-            task in repository
+            Are you sure you want to create{" "}
+            <strong className="create-task-confirm__variant">{taskLabel}</strong>{" "}
+            in repository
           </p>
           <p className="create-task-confirm__repo">{repo || "(no repository)"}</p>
           <p className="create-task-confirm__branch">
@@ -114,7 +113,7 @@ export default function CreateTaskConfirmPopup({
             onClick={onConfirm}
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Creating task…" : `Yes, create ${variantLabel} task`}
+            {isSubmitting ? "Creating task…" : `Yes, create ${taskLabel}`}
           </button>
         </div>
       </div>
