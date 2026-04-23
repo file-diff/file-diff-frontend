@@ -391,7 +391,8 @@ export default function ActionsPage({
 
   const handleDeleteRuns = useCallback(() => {
     if (!loadedRepo || selectedRunObjects.length === 0) return;
-    if (!bearerToken.trim()) {
+    const trimmedBearerToken = bearerToken.trim();
+    if (!trimmedBearerToken) {
       setShowTokenInput(true);
       return;
     }
@@ -413,7 +414,7 @@ export default function ActionsPage({
         for (const run of selectedRunObjects) {
           const runLabel = `${run.name} #${String(run.runNumber)}`;
           try {
-            await requestDeleteActionRun(loadedRepo, run.id, bearerToken.trim());
+            await requestDeleteActionRun(loadedRepo, run.id, trimmedBearerToken);
             results.push({ run: runLabel, success: true, message: "Deleted" });
           } catch (err) {
             results.push({
@@ -430,17 +431,16 @@ export default function ActionsPage({
           clearActionResults: false,
           useCachedActions: false,
         });
+      } catch (err) {
+        setError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Unable to delete workflow runs"
+        );
       } finally {
         setActionInProgress(false);
       }
-    })().catch((err: unknown) => {
-      setError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Unable to delete workflow runs"
-      );
-      setActionInProgress(false);
-    });
+    })();
   }, [
     actionLimit,
     bearerToken,
