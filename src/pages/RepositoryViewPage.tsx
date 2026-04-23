@@ -301,6 +301,7 @@ export default function RepositoryViewPage() {
             key={`actions-${repoKey}-${String(refreshNonce)}`}
             showRepositorySelector={false}
             refreshIntervalMs={refreshIntervalMs}
+            bearerToken={bearerToken}
           />
           <AgentTaskInfoPage
             key={`tasks-${repoKey}-${String(refreshNonce)}`}
