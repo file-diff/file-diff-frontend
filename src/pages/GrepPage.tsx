@@ -478,7 +478,7 @@ export default function GrepPage() {
         }}
       >
         <div className="grep-form-row">
-          <div className="grep-field grep-field--commit">
+          <div className="grep-field grep-field--repo">
             <label htmlFor="grep-repo">Repository</label>
             <input
               id="grep-repo"
