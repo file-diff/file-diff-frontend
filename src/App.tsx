@@ -20,6 +20,7 @@ import OrganizationBrowserPage from "./pages/OrganizationBrowserPage";
 import CreateTaskPage from "./pages/CreateTaskPage";
 import AgentTaskInfoPage from "./pages/AgentTaskInfoPage";
 import RepositoryViewPage from "./pages/RepositoryViewPage";
+import PelicanRidePage from "./pages/PelicanRidePage";
 import FontSelector from "./components/FontSelector";
 import { DEFAULT_FONT_ID } from "./config/fonts";
 import { applyFont } from "./utils/fontInit";
@@ -95,6 +96,9 @@ function AppShell() {
           <Link to="/health" className="nav-link">
             🩺 Backend Check
           </Link>
+          <Link to="/pelican" className="nav-link">
+            🚲 Pelican Ride
+          </Link>
           <a href="/ssr-health" className="nav-link">
             🖥️ SSR Health
           </a>
@@ -121,6 +125,7 @@ function AppShell() {
           <Route path="/tokenize" element={<TokenizePage />} />
           <Route path="/grep" element={<GrepPage />} />
           <Route path="/health" element={<HealthCheckPage />} />
+          <Route path="/pelican" element={<PelicanRidePage />} />
         </Routes>
       </main>
     </div>
