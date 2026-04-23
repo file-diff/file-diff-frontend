@@ -25,6 +25,7 @@ export const PULL_REQUEST_OPEN_API_URL = `${JOBS_API_URL}/pull-request/open`;
 export const TAGS_API_URL = `${JOBS_API_URL}/tags`;
 export const ACTIONS_API_URL = `${JOBS_API_URL}/actions`;
 export const DELETE_TAG_API_URL = `${JOBS_API_URL}/delete-tag`;
+export const DELETE_ACTION_RUN_API_URL = `${JOBS_API_URL}/delete-action-run`;
 
 export function buildCommitFilesUrl(commit: string, format?: string): string {
   const base = `${trimmedDefaultApiBaseUrl}/commit/${encodeURIComponent(commit)}/files`;
