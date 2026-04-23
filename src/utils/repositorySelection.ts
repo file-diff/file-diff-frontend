@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, TAGS_API_URL, ACTIONS_API_URL, DELETE_TAG_API_URL, buildOrganizationRepositoriesUrl, buildAgentTasksUrl, buildAgentTaskUrl, buildAgentTaskArchiveUrl } from "../config/api";
+import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, TAGS_API_URL, ACTIONS_API_URL, DELETE_TAG_API_URL, DELETE_ACTION_RUN_API_URL, buildOrganizationRepositoriesUrl, buildAgentTasksUrl, buildAgentTaskUrl, buildAgentTaskArchiveUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -1120,6 +1120,45 @@ export async function requestDeleteTag(
   }
 
   return (await response.json()) as DeleteTagResponse;
+}
+
+export interface DeleteActionRunResponse {
+  repo: string;
+  runId: number;
+}
+
+export async function requestDeleteActionRun(
+  repo: string,
+  runId: number,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<DeleteActionRunResponse> {
+  const response = await fetch(DELETE_ACTION_RUN_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    body: JSON.stringify({ repo, runId }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `Unable to delete workflow run #${String(runId)}`;
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as DeleteActionRunResponse;
 }
 
 export interface RepositoryActionRun {

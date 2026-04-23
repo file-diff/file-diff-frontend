@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   resolveRepositoryInput,
   requestRepositoryActions,
+  requestDeleteActionRun,
 } from "../utils/repositorySelection";
 import type { RepositoryActionRun } from "../utils/repositorySelection";
 import {
@@ -16,6 +17,10 @@ import {
   loadAutoRefreshEnabled,
   saveAutoRefreshEnabled,
 } from "../utils/actionsPageStorage";
+import {
+  loadBearerToken,
+  saveBearerToken,
+} from "../utils/bearerTokenStorage";
 import {
   formatRelativeDateTime,
   formatAbsoluteDateTime,
@@ -143,11 +148,13 @@ function loadInitialRuns(repo: string): RepositoryActionRun[] {
 interface ActionsPageProps {
   showRepositorySelector?: boolean;
   refreshIntervalMs?: number;
+  bearerToken?: string;
 }
 
 export default function ActionsPage({
   showRepositorySelector = true,
   refreshIntervalMs,
+  bearerToken: bearerTokenProp,
 }: ActionsPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
@@ -170,6 +177,10 @@ export default function ActionsPage({
   );
 
   const [selectedRuns, setSelectedRuns] = useState<Set<number>>(new Set());
+  const [localBearerToken, setLocalBearerToken] = useState(loadBearerToken);
+  const bearerToken = bearerTokenProp ?? localBearerToken;
+  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState(false);
   const [actionResults, setActionResults] = useState<ActionResult[]>([]);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
     loadAutoRefreshEnabled
@@ -306,7 +317,7 @@ export default function ActionsPage({
     }
 
     const intervalId = window.setInterval(() => {
-      if (isLoading) {
+      if (isLoading || actionInProgress) {
         return;
       }
 
@@ -320,6 +331,7 @@ export default function ActionsPage({
       window.clearInterval(intervalId);
     };
   }, [
+    actionInProgress,
     autoRefreshEnabled,
     isLoading,
     loadActionsForRepo,
@@ -359,6 +371,11 @@ export default function ActionsPage({
     saveAutoRefreshEnabled(value);
   }, []);
 
+  const handleBearerTokenChange = useCallback((value: string) => {
+    setLocalBearerToken(value);
+    saveBearerToken(value);
+  }, []);
+
   const handleActionLimitChange = useCallback(
     (limit: number) => {
       setActionLimit(limit);
@@ -373,20 +390,67 @@ export default function ActionsPage({
     [loadActionsForRepo, loadedRepo]
   );
 
-  const handleDeleteRuns = useCallback(() => {
-    if (selectedRunObjects.length === 0) return;
+  const handleDeleteRuns = useCallback(async () => {
+    if (!loadedRepo || selectedRunObjects.length === 0) return;
+    if (!bearerToken.trim()) {
+      setShowTokenInput(true);
+      return;
+    }
 
-    // The backend does not currently expose a delete-workflow-run endpoint, so
-    // surface a clear, actionable message instead of pretending the operation
-    // succeeded. The selection UI is kept in place for parity with other pages
-    // (and so deletion can be wired up trivially once the API ships).
     const runLabels = selectedRunObjects.map(
       (r) => `${r.name} #${String(r.runNumber)}`
     );
-    window.alert(
-      `Deleting workflow runs is not supported by the API yet.\n\nSelected runs:\n${formatConfirmList(runLabels)}`
+    const confirmed = window.confirm(
+      `Delete ${String(runLabels.length)} workflow run${runLabels.length !== 1 ? "s" : ""}?\n\n${formatConfirmList(runLabels)}\n\nThis action cannot be undone.`
     );
-  }, [selectedRunObjects]);
+    if (!confirmed) return;
+
+    setActionInProgress(true);
+    setActionResults([]);
+    const results: ActionResult[] = [];
+    const deletedRunIds = new Set<number>();
+
+    for (const run of selectedRunObjects) {
+      const runLabel = `${run.name} #${String(run.runNumber)}`;
+
+      try {
+        await requestDeleteActionRun(loadedRepo, run.id, bearerToken.trim());
+        deletedRunIds.add(run.id);
+        results.push({ run: runLabel, success: true, message: "Deleted" });
+      } catch (err) {
+        results.push({
+          run: runLabel,
+          success: false,
+          message: err instanceof Error ? err.message : "Failed to delete",
+        });
+      }
+    }
+
+    setActionResults(results);
+    setActionInProgress(false);
+
+    if (deletedRunIds.size > 0) {
+      setRuns((prev) => prev.filter((run) => !deletedRunIds.has(run.id)));
+      setSelectedRuns((prev) => {
+        const next = new Set(prev);
+        for (const runId of deletedRunIds) {
+          next.delete(runId);
+        }
+        return next;
+      });
+    }
+
+    void loadActionsForRepo(loadedRepo, actionLimit, {
+      clearActionResults: false,
+      useCachedActions: false,
+    });
+  }, [
+    actionLimit,
+    bearerToken,
+    loadActionsForRepo,
+    loadedRepo,
+    selectedRunObjects,
+  ]);
 
   const clearActionResults = useCallback(() => {
     setActionResults([]);
@@ -417,10 +481,11 @@ export default function ActionsPage({
         <button
           type="button"
           className="actions-page__action-btn actions-page__action-btn--delete"
-          onClick={handleDeleteRuns}
-          title="Delete selected workflow runs (not yet supported by the backend)"
+          onClick={() => void handleDeleteRuns()}
+          disabled={actionInProgress}
+          title="Delete selected workflow runs"
         >
-          Delete
+          {actionInProgress ? "Working…" : "Delete"}
         </button>
       </div>
     </div>
@@ -469,6 +534,29 @@ export default function ActionsPage({
               />
               Auto-refresh every 30s
             </label>
+            {bearerTokenProp === undefined && (
+              <button
+                type="button"
+                className="actions-page__token-toggle"
+                onClick={() => setShowTokenInput((v) => !v)}
+              >
+                {showTokenInput ? "Hide token" : "🔑 API token"}
+              </button>
+            )}
+          </div>
+        )}
+        {bearerTokenProp === undefined && showTokenInput && (
+          <div className="actions-page__token-section">
+            <label htmlFor="actions-page-token">Bearer Token</label>
+            <input
+              id="actions-page-token"
+              type="password"
+              value={bearerToken}
+              onChange={(e) => handleBearerTokenChange(e.target.value)}
+              placeholder="Required for delete operations"
+              spellCheck={false}
+              autoComplete="off"
+            />
           </div>
         )}
       </div>
