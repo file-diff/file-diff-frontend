@@ -68,8 +68,11 @@ function buildGitHubTreeUrl(repo: string, commit: string): string {
   return buildGitHubRevisionUrl(repo, "tree", commit);
 }
 
-function buildGrepPageUrl(commit: string): string {
+function buildGrepPageUrl(repo: string, commit: string): string {
   const params = new URLSearchParams();
+  if (repo) {
+    params.set("repo", repo);
+  }
   params.set("commit", commit);
   return `/grep?${params.toString()}`;
 }
@@ -786,7 +789,7 @@ export default function RepositoryBrowserPage({
                         </span>
                       )}
                       <Link
-                        to={buildGrepPageUrl(entry.commit)}
+                        to={buildGrepPageUrl(loadedRepo, entry.commit)}
                         className="repo-browser__commit-grep-link"
                         aria-label={`Search commit ${entry.commit.slice(0, 7)} with grep`}
                         title={`Search ${entry.commit.slice(0, 7)} with grep`}

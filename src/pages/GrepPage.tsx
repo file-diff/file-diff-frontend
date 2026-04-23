@@ -10,6 +10,7 @@ import {
   buildCommitFilesUrl,
   buildGrepUrl,
   buildTokenizeUrl,
+  JOBS_API_URL,
 } from "../config/api";
 import { DEFAULT_SHIKI_THEME, SHIKI_THEMES } from "../constants/shikiThemes";
 import "./GrepPage.css";
@@ -242,6 +243,7 @@ function buildSnippets(matches: GrepMatch[], context: number): Snippet[] {
 
 export default function GrepPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [repo, setRepo] = useState(searchParams.get("repo") ?? "");
   const [commit, setCommit] = useState(searchParams.get("commit") ?? "");
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [context, setContext] = useState<number>(
@@ -266,16 +268,41 @@ export default function GrepPage() {
   >({});
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
+  const startedJobKeysRef = useRef<Set<string>>(new Set());
   const lastAutoKey = useRef<string | null>(null);
+
+  const ensureJobStarted = useCallback(
+    async (repoSlug: string, commitSha: string) => {
+      const trimmedRepo = repoSlug.trim();
+      const trimmedCommit = commitSha.trim();
+      if (!trimmedRepo || !trimmedCommit) return;
+      const key = `${trimmedRepo}\n${trimmedCommit}`;
+      if (startedJobKeysRef.current.has(key)) return;
+      try {
+        const resp = await fetch(JOBS_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repo: trimmedRepo, commit: trimmedCommit }),
+        });
+        if (resp.ok) {
+          startedJobKeysRef.current.add(key);
+        }
+      } catch {
+        // Ignore — the subsequent grep call will surface a meaningful error.
+      }
+    },
+    []
+  );
 
   const runSearch = useCallback(
     async (
       nextCommit: string,
       nextQuery: string,
-      options?: { syncSearchParams?: boolean }
+      options?: { syncSearchParams?: boolean; repo?: string }
     ) => {
       const trimmedCommit = nextCommit.trim();
       const trimmedQuery = nextQuery;
+      const trimmedRepo = (options?.repo ?? repo).trim();
       if (!trimmedCommit) {
         setError("Enter a commit SHA.");
         return;
@@ -293,6 +320,7 @@ export default function GrepPage() {
 
       if (options?.syncSearchParams !== false) {
         const next = new URLSearchParams();
+        if (trimmedRepo) next.set("repo", trimmedRepo);
         next.set("commit", trimmedCommit);
         next.set("q", trimmedQuery);
         next.set("ctx", String(context));
@@ -300,6 +328,13 @@ export default function GrepPage() {
         if (theme && theme !== DEFAULT_SHIKI_THEME) next.set("theme", theme);
         if (caseInsensitive) next.set("ci", "1");
         setSearchParams(next, { replace: true });
+      }
+
+      // If we know the repo, make sure a job exists for the commit before
+      // grepping. The backend grep endpoint is read-only and returns 404 if
+      // no job has been created for the commit yet.
+      if (trimmedRepo) {
+        await ensureJobStarted(trimmedRepo, trimmedCommit);
       }
 
       try {
@@ -310,9 +345,13 @@ export default function GrepPage() {
 
         if (!grepResp.ok) {
           const body = await grepResp.json().catch(() => null);
-          const message =
+          const baseMessage =
             (body as { error?: string } | null)?.error ??
             `Grep failed (${grepResp.status})`;
+          const message =
+            grepResp.status === 404 && !trimmedRepo
+              ? `${baseMessage} Provide the repository (owner/repo) so a job can be started for this commit.`
+              : baseMessage;
           throw new Error(message);
         }
 
@@ -334,17 +373,29 @@ export default function GrepPage() {
         setLoading(false);
       }
     },
-    [caseInsensitive, context, maxFiles, setSearchParams, theme]
+    [caseInsensitive, context, ensureJobStarted, maxFiles, repo, setSearchParams, theme]
   );
 
   // Auto-run when URL contains commit & query on initial load.
   useEffect(() => {
+    const r = searchParams.get("repo") ?? "";
     const c = searchParams.get("commit") ?? "";
     const q = searchParams.get("q") ?? "";
-    const key = `${c}\n${q}\n${theme}`;
+    const key = `${r}\n${c}\n${q}\n${theme}`;
     if (!c || !q || lastAutoKey.current === key) return;
     lastAutoKey.current = key;
-    void runSearch(c, q, { syncSearchParams: false });
+    void runSearch(c, q, { syncSearchParams: false, repo: r });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When the page is opened with repo+commit but no query (e.g., from the
+  // repository browser's "Grep" link), proactively start a job so that by
+  // the time the user submits a query the backend has files to search.
+  useEffect(() => {
+    const r = searchParams.get("repo") ?? "";
+    const c = searchParams.get("commit") ?? "";
+    if (!r || !c) return;
+    void ensureJobStarted(r, c);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -427,6 +478,18 @@ export default function GrepPage() {
         }}
       >
         <div className="grep-form-row">
+          <div className="grep-field grep-field--commit">
+            <label htmlFor="grep-repo">Repository</label>
+            <input
+              id="grep-repo"
+              type="text"
+              placeholder="owner/repo (optional)"
+              value={repo}
+              onChange={(e) => setRepo(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
           <div className="grep-field grep-field--commit">
             <label htmlFor="grep-commit">Commit SHA</label>
             <input
