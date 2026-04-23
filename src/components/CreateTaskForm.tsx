@@ -17,6 +17,7 @@ import type {
   PullRequestCompletionMode,
 } from "../utils/repositorySelection";
 import RepositorySelector from "./RepositorySelector";
+import CreateTaskConfirmPopup from "./CreateTaskConfirmPopup";
 import "./CreateTaskForm.css";
 
 const MODEL_OPTIONS = [
@@ -256,6 +257,7 @@ export default function CreateTaskForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitResult, setSubmitResult] = useState<unknown>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -341,10 +343,6 @@ export default function CreateTaskForm({
       return;
     }
 
-    setIsSubmitting(true);
-    setSubmitError("");
-    setSubmitResult(null);
-
     const trimmedProblemStatement = problemStatement.trim();
     const effectivePullRequestCompletionMode = createPullRequest
       ? pullRequestCompletionMode
@@ -355,31 +353,31 @@ export default function CreateTaskForm({
     if (taskDelayEnabled) {
       if (!trimmedTaskDelayMinutes) {
         setSubmitError(TASK_DELAY_REQUIRED_ERROR);
-        setIsSubmitting(false);
         return;
       }
 
       const parsedTaskDelayMinutes = Number(trimmedTaskDelayMinutes);
       if (!Number.isFinite(parsedTaskDelayMinutes)) {
         setSubmitError(TASK_DELAY_NUMBER_ERROR);
-        setIsSubmitting(false);
         return;
       }
 
       if (parsedTaskDelayMinutes < MIN_TASK_DELAY_MINUTES) {
         setSubmitError(TASK_DELAY_MINIMUM_ERROR);
-        setIsSubmitting(false);
         return;
       }
 
       if (!Number.isInteger(parsedTaskDelayMinutes)) {
         setSubmitError(TASK_DELAY_INTEGER_ERROR);
-        setIsSubmitting(false);
         return;
       }
 
       taskDelayMs = parsedTaskDelayMinutes * 60 * 1000;
     }
+
+    setIsSubmitting(true);
+    setSubmitError("");
+    setSubmitResult(null);
 
     const request: CreateTaskRequest = {
       repo,
@@ -405,6 +403,7 @@ export default function CreateTaskForm({
     try {
       const result = await requestCreateTask(request, bearerToken.trim());
       setSubmitResult(result);
+      setConfirmOpen(false);
     } catch (err) {
       setSubmitError(
         err instanceof Error && err.message
@@ -472,6 +471,38 @@ export default function CreateTaskForm({
     repoInput.trim() !== "" &&
     bearerToken.trim() !== "";
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
+  const isAutoMerge =
+    createPullRequest && pullRequestCompletionMode === "AutoMerge";
+  const requiresConfirmation = taskDelayEnabled || isAutoMerge;
+  const variantLabel = useMemo(() => {
+    if (taskDelayEnabled && isAutoMerge) return "delayed auto-merge";
+    if (taskDelayEnabled) return "delayed";
+    if (isAutoMerge) return "auto-merge";
+    return "";
+  }, [taskDelayEnabled, isAutoMerge]);
+  const buttonLabel = useMemo(() => {
+    if (isSubmitting) return "Creating task…";
+    if (variantLabel) {
+      return `Create ${variantLabel} task`;
+    }
+    return "Create task";
+  }, [isSubmitting, variantLabel]);
+
+  const handleAttemptSubmit = useCallback(() => {
+    if (!canSubmit) return;
+    setSubmitError("");
+    if (requiresConfirmation) {
+      setConfirmOpen(true);
+      return;
+    }
+    void handleSubmit();
+  }, [canSubmit, requiresConfirmation, handleSubmit]);
+
+  const handleCancelConfirm = useCallback(() => {
+    if (isSubmitting) return;
+    setConfirmOpen(false);
+  }, [isSubmitting]);
+
   const isTaskDelayInvalid =
     taskDelayEnabled &&
     [
@@ -664,17 +695,35 @@ export default function CreateTaskForm({
 
       <button
         type="button"
-        onClick={() => void handleSubmit()}
+        onClick={handleAttemptSubmit}
         disabled={!canSubmit}
-        className={`create-task-form__submit-btn${taskDelayEnabled ? " create-task-form__submit-btn--delayed" : ""}`}
+        className={`create-task-form__submit-btn${variantLabel ? " create-task-form__submit-btn--needs-confirm" : ""}`}
       >
         <span className="create-task-form__submit-btn-label">
-          {isSubmitting ? "Creating task…" : taskDelayEnabled ? "Create delayed task" : "Create task"}
+          {buttonLabel}
         </span>
         {resolvedRepo && (
-          <span className="create-task-form__submit-btn-repo">{resolvedRepo}</span>
+          <span className="create-task-form__submit-btn-repo">
+            {resolvedRepo}
+            {baseRef ? (
+              <span className="create-task-form__submit-btn-branch">
+                {" "}@ {baseRef}
+              </span>
+            ) : null}
+          </span>
         )}
       </button>
+
+      <CreateTaskConfirmPopup
+        open={confirmOpen}
+        variantLabel={variantLabel || "task"}
+        repo={resolvedRepo}
+        branch={baseRef}
+        problemStatement={problemStatement}
+        isSubmitting={isSubmitting}
+        onConfirm={() => void handleSubmit()}
+        onCancel={handleCancelConfirm}
+      />
 
       {submitResult !== null && (
         <div className="create-task-form__result">
