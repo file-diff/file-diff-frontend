@@ -1,0 +1,34 @@
+.pelican-ride-page {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.pelican-ride-page h1 {
+  margin: 0;
+}
+
+.pelican-ride-stage {
+  width: 100%;
+  max-width: 960px;
+  aspect-ratio: 2 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  background: #f6c477;
+}
+
+.pelican-ride-stage svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pelican-ride-caption {
+  color: #555;
+  font-size: 14px;
+  text-align: center;
+  max-width: 720px;
+}
