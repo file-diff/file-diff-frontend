@@ -389,7 +389,7 @@ export default function ActionsPage({
     [loadActionsForRepo, loadedRepo]
   );
 
-  const handleDeleteRuns = useCallback(async () => {
+  const handleDeleteRuns = useCallback(() => {
     if (!loadedRepo || selectedRunObjects.length === 0) return;
     if (!bearerToken.trim()) {
       setShowTokenInput(true);
@@ -404,34 +404,43 @@ export default function ActionsPage({
     );
     if (!confirmed) return;
 
-    setActionInProgress(true);
-    setActionResults([]);
-    try {
-      const results: ActionResult[] = [];
+    void (async () => {
+      setActionInProgress(true);
+      setActionResults([]);
+      try {
+        const results: ActionResult[] = [];
 
-      for (const run of selectedRunObjects) {
-        const runLabel = `${run.name} #${String(run.runNumber)}`;
-        try {
-          await requestDeleteActionRun(loadedRepo, run.id, bearerToken.trim());
-          results.push({ run: runLabel, success: true, message: "Deleted" });
-        } catch (err) {
-          results.push({
-            run: runLabel,
-            success: false,
-            message: err instanceof Error ? err.message : "Failed to delete",
-          });
+        for (const run of selectedRunObjects) {
+          const runLabel = `${run.name} #${String(run.runNumber)}`;
+          try {
+            await requestDeleteActionRun(loadedRepo, run.id, bearerToken.trim());
+            results.push({ run: runLabel, success: true, message: "Deleted" });
+          } catch (err) {
+            results.push({
+              run: runLabel,
+              success: false,
+              message: err instanceof Error ? err.message : "Failed to delete",
+            });
+          }
         }
+
+        setActionResults(results);
+
+        await loadActionsForRepo(loadedRepo, actionLimit, {
+          clearActionResults: false,
+          useCachedActions: false,
+        });
+      } finally {
+        setActionInProgress(false);
       }
-
-      setActionResults(results);
-
-      void loadActionsForRepo(loadedRepo, actionLimit, {
-        clearActionResults: false,
-        useCachedActions: false,
-      });
-    } finally {
+    })().catch((err: unknown) => {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Unable to delete workflow runs"
+      );
       setActionInProgress(false);
-    }
+    });
   }, [
     actionLimit,
     bearerToken,
@@ -469,7 +478,7 @@ export default function ActionsPage({
         <button
           type="button"
           className="actions-page__action-btn actions-page__action-btn--delete"
-          onClick={() => void handleDeleteRuns()}
+          onClick={handleDeleteRuns}
           disabled={actionInProgress}
           title="Delete selected workflow runs"
         >
