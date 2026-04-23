@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   resolveRepositoryInput,
@@ -26,6 +26,8 @@ import "./ActionsPage.css";
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const DEFAULT_ACTION_LIMIT = 20;
 const ACTION_LIMIT_OPTIONS = [20, 50, 100, 200] as const;
+const ACTIONS_DELETE_UNSUPPORTED_MESSAGE =
+  "Workflow run deletion is unavailable here because the backend currently exposes only POST /api/jobs/actions to list runs and does not provide a delete endpoint.";
 
 interface ActionResult {
   run: string;
@@ -80,15 +82,6 @@ function formatRelativeTime(isoDate: string): string {
       : `${String(diffMinutes)} minutes ago`;
   }
   return "just now";
-}
-
-function formatConfirmList(items: string[], maxDisplay: number = 10): string {
-  if (items.length <= maxDisplay) {
-    return items.join("\n");
-  }
-  const shown = items.slice(0, maxDisplay);
-  const remaining = items.length - maxDisplay;
-  return `${shown.join("\n")}\n... and ${String(remaining)} more`;
 }
 
 function getRunStatusTone(
@@ -349,11 +342,6 @@ export default function ActionsPage({
     });
   }, [runs]);
 
-  const selectedRunObjects = useMemo(
-    () => runs.filter((r) => selectedRuns.has(r.id)),
-    [runs, selectedRuns]
-  );
-
   const handleAutoRefreshChange = useCallback((value: boolean) => {
     setAutoRefreshEnabled(value);
     saveAutoRefreshEnabled(value);
@@ -372,21 +360,6 @@ export default function ActionsPage({
     },
     [loadActionsForRepo, loadedRepo]
   );
-
-  const handleDeleteRuns = useCallback(() => {
-    if (selectedRunObjects.length === 0) return;
-
-    // The backend does not currently expose a delete-workflow-run endpoint, so
-    // surface a clear, actionable message instead of pretending the operation
-    // succeeded. The selection UI is kept in place for parity with other pages
-    // (and so deletion can be wired up trivially once the API ships).
-    const runLabels = selectedRunObjects.map(
-      (r) => `${r.name} #${String(r.runNumber)}`
-    );
-    window.alert(
-      `Deleting workflow runs is not supported by the API yet.\n\nSelected runs:\n${formatConfirmList(runLabels)}`
-    );
-  }, [selectedRunObjects]);
 
   const clearActionResults = useCallback(() => {
     setActionResults([]);
@@ -414,13 +387,17 @@ export default function ActionsPage({
         {String(selectedRuns.size)} selected
       </span>
       <div className="actions-page__action-bar-actions">
+        <span className="actions-page__action-bar-note">
+          Delete unavailable until the backend adds a workflow-run delete
+          endpoint.
+        </span>
         <button
           type="button"
           className="actions-page__action-btn actions-page__action-btn--delete"
-          onClick={handleDeleteRuns}
-          title="Delete selected workflow runs (not yet supported by the backend)"
+          disabled
+          title={ACTIONS_DELETE_UNSUPPORTED_MESSAGE}
         >
-          Delete
+          Delete unavailable
         </button>
       </div>
     </div>
@@ -474,6 +451,14 @@ export default function ActionsPage({
       </div>
 
       {error && <div className="actions-page__error">{error}</div>}
+
+      {loadedRepo && (
+        <div className="actions-page__notice" role="status">
+          Workflow run deletion is unavailable right now. The backend lists runs
+          via <code>POST /api/jobs/actions</code> but does not expose a delete
+          endpoint yet, so no delete request will be sent from this page.
+        </div>
+      )}
 
       {actionResults.length > 0 && (
         <div className="actions-page__action-results">
