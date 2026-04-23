@@ -406,48 +406,32 @@ export default function ActionsPage({
 
     setActionInProgress(true);
     setActionResults([]);
-    const results: ActionResult[] = [];
-    const deletedRunIds = new Set<number>();
-    const runLabelsById = new Map(
-      selectedRunObjects.map((run) => [
-        run.id,
-        `${run.name} #${String(run.runNumber)}`,
-      ])
-    );
+    try {
+      const results: ActionResult[] = [];
 
-    for (const run of selectedRunObjects) {
-      const runLabel = runLabelsById.get(run.id) ?? String(run.id);
-      try {
-        await requestDeleteActionRun(loadedRepo, run.id, bearerToken.trim());
-        deletedRunIds.add(run.id);
-        results.push({ run: runLabel, success: true, message: "Deleted" });
-      } catch (err) {
-        results.push({
-          run: runLabel,
-          success: false,
-          message: err instanceof Error ? err.message : "Failed to delete",
-        });
-      }
-    }
-
-    setActionResults(results);
-    setActionInProgress(false);
-
-    if (deletedRunIds.size > 0) {
-      setRuns((prev) => prev.filter((run) => !deletedRunIds.has(run.id)));
-      setSelectedRuns((prev) => {
-        const next = new Set(prev);
-        for (const runId of deletedRunIds) {
-          next.delete(runId);
+      for (const run of selectedRunObjects) {
+        const runLabel = `${run.name} #${String(run.runNumber)}`;
+        try {
+          await requestDeleteActionRun(loadedRepo, run.id, bearerToken.trim());
+          results.push({ run: runLabel, success: true, message: "Deleted" });
+        } catch (err) {
+          results.push({
+            run: runLabel,
+            success: false,
+            message: err instanceof Error ? err.message : "Failed to delete",
+          });
         }
-        return next;
-      });
-    }
+      }
 
-    void loadActionsForRepo(loadedRepo, actionLimit, {
-      clearActionResults: false,
-      useCachedActions: false,
-    });
+      setActionResults(results);
+
+      void loadActionsForRepo(loadedRepo, actionLimit, {
+        clearActionResults: false,
+        useCachedActions: false,
+      });
+    } finally {
+      setActionInProgress(false);
+    }
   }, [
     actionLimit,
     bearerToken,
