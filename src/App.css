@@ -25,8 +25,29 @@
   padding: 12px 24px;
   background: #161616;
   border-bottom: 1px solid #333;
-  min-width: 900px;
-  overflow-x: auto;
+  gap: 16px;
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.nav-page-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .nav-brand {
@@ -44,26 +65,6 @@
 .nav-build-version {
   font-size: 0.75rem;
   color: #8fb9ff;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.nav-link {
-  color: #999;
-  text-decoration: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  transition: color 0.15s, background 0.15s;
-}
-
-.nav-link:hover {
-  color: #e0e0e0;
-  background: #2d2d2d;
 }
 
 .nav-clear-button {

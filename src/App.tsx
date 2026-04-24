@@ -2,9 +2,10 @@ import {
   BrowserRouter,
   Routes,
   Route,
-  Link,
   useLocation,
 } from "react-router-dom";
+import NavMenu from "./components/NavMenu";
+import { findNavRouteTitle } from "./config/navRoutes";
 import TreeComparePage from "./pages/TreeComparePage";
 import TreeCompare2Page from "./pages/TreeCompare2Page";
 import FileComparePage from "./pages/FileComparePage";
@@ -32,6 +33,7 @@ function AppShell() {
   const gitCommit = import.meta.env.VITE_GIT_COMMIT?.trim();
   const location = useLocation();
   const isTreeCompare2Route = location.pathname === "/tree";
+  const pageTitle = findNavRouteTitle(location.pathname);
   const buildLabel = [buildVersion, gitCommit && `(${gitCommit})`]
     .filter(Boolean)
     .join(" ");
@@ -47,61 +49,17 @@ function AppShell() {
   return (
     <div className={`app-shell${isTreeCompare2Route ? " app-shell--tree-compare2" : ""}`}>
       <nav className="app-nav">
-        <div className="nav-brand-group">
-          <div className="nav-brand">Git Diff Online</div>
-          {buildLabel && (
-            <div className="nav-build-version">Build version: {buildLabel}</div>
-          )}
+        <div className="nav-left">
+          <NavMenu />
+          <div className="nav-brand-group">
+            <div className="nav-brand">Git Diff Online</div>
+            {buildLabel && (
+              <div className="nav-build-version">Build version: {buildLabel}</div>
+            )}
+          </div>
+          {pageTitle && <div className="nav-page-title">{pageTitle}</div>}
         </div>
-        <div className="nav-links">
-          <Link to="/" className="nav-link">
-            📂 Directory Compare
-          </Link>
-          <Link to="/files" className="nav-link">
-            📄 File Compare
-          </Link>
-          <Link to="/history" className="nav-link">
-            📜 History
-          </Link>
-          <Link to="/commits" className="nav-link">
-            🔀 Commits
-          </Link>
-          <Link to="/repository" className="nav-link">
-            🗂️ Repository
-          </Link>
-          <Link to="/branches" className="nav-link">
-            🌿 Branches
-          </Link>
-          <Link to="/tags" className="nav-link">
-            🏷️ Tags
-          </Link>
-          <Link to="/actions" className="nav-link">
-            ⚙️ Actions
-          </Link>
-          <Link to="/browse" className="nav-link">
-            🏢 Browse Org
-          </Link>
-          <Link to="/create-task" className="nav-link">
-            🤖 Create Task
-          </Link>
-          <Link to="/agent-tasks" className="nav-link">
-            📋 Agent Tasks
-          </Link>
-          <Link to="/tokenize" className="nav-link">
-            🎨 Tokenize
-          </Link>
-          <Link to="/grep" className="nav-link">
-            🔎 Grep
-          </Link>
-          <Link to="/health" className="nav-link">
-            🩺 Backend Check
-          </Link>
-          <Link to="/pelican" className="nav-link">
-            🚲 Pelican Ride
-          </Link>
-          <a href="/ssr-health" className="nav-link">
-            🖥️ SSR Health
-          </a>
+        <div className="nav-actions">
           <button type="button" className="nav-clear-button" onClick={handleClearAll}>
             Clear all
           </button>
