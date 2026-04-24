@@ -94,6 +94,23 @@ export default function RepositoryViewPage() {
     [recentRepos]
   );
 
+  const reposByOrg = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const r of sortedRecentRepos) {
+      const slashIndex = r.indexOf("/");
+      const org = slashIndex === -1 ? "" : r.slice(0, slashIndex);
+      const existing = groups.get(org);
+      if (existing) {
+        existing.push(r);
+      } else {
+        groups.set(org, [r]);
+      }
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [sortedRecentRepos]);
+
   const colorMap = useMemo(
     () => getRepositoryColorMap(sortedRecentRepos),
     [sortedRecentRepos]
@@ -179,61 +196,61 @@ export default function RepositoryViewPage() {
 
   return (
     <div className="repository-view-page" style={accentStyle}>
-      <div className="page-header">
-        <h1>🗂️ Repository View</h1>
-        <p className="page-subtitle">
-          Review commits, branches, agent tasks, and create a task for one
-          repository in a single view.
-        </p>
-      </div>
-
       {sortedRecentRepos.length > 0 ? (
         <div
           className="repository-view-page__recent-grid"
           aria-label="Recent repositories"
         >
-          {sortedRecentRepos.map((r) => {
-            const color = colorMap[r.toLowerCase()] ?? DEFAULT_ACCENT_COLOR;
-            const isActive = r === repo;
-            return (
-              <a
-                key={r}
-                href={buildRepoHref(searchParams, r)}
-                onClick={(e) => handleSelectRecent(e, r)}
-                onAuxClick={(e) => {
-                  // Middle-click: let the browser open the link in a new tab.
-                  if (e.button === 1) {
-                    e.stopPropagation();
-                  }
-                }}
-                className={
-                  "repository-view-page__recent-tile" +
-                  (isActive
-                    ? " repository-view-page__recent-tile--active"
-                    : "")
-                }
-                style={
-                  {
-                    ["--repo-tile-color" as string]: color,
-                  } as CSSProperties
-                }
-                title={`Switch to ${r} (Ctrl/⌘+click or middle-click to open in a new tab)`}
-              >
-                <span className="repository-view-page__recent-tile-name">
-                  {r}
-                </span>
-                <button
-                  type="button"
-                  className="repository-view-page__recent-remove"
-                  onClick={(e) => handleRemoveRecent(e, r)}
-                  title={`Remove ${r} from recent list`}
-                  aria-label={`Remove ${r}`}
-                >
-                  ×
-                </button>
-              </a>
-            );
-          })}
+          {reposByOrg.map(([org, repos]) => (
+            <div
+              key={org || "__no_org__"}
+              className="repository-view-page__recent-org"
+            >
+              {repos.map((r) => {
+                const color =
+                  colorMap[r.toLowerCase()] ?? DEFAULT_ACCENT_COLOR;
+                const isActive = r === repo;
+                return (
+                  <a
+                    key={r}
+                    href={buildRepoHref(searchParams, r)}
+                    onClick={(e) => handleSelectRecent(e, r)}
+                    onAuxClick={(e) => {
+                      // Middle-click: let the browser open the link in a new tab.
+                      if (e.button === 1) {
+                        e.stopPropagation();
+                      }
+                    }}
+                    className={
+                      "repository-view-page__recent-tile" +
+                      (isActive
+                        ? " repository-view-page__recent-tile--active"
+                        : "")
+                    }
+                    style={
+                      {
+                        ["--repo-tile-color" as string]: color,
+                      } as CSSProperties
+                    }
+                    title={`Switch to ${r} (Ctrl/⌘+click or middle-click to open in a new tab)`}
+                  >
+                    <span className="repository-view-page__recent-tile-name">
+                      {r}
+                    </span>
+                    <button
+                      type="button"
+                      className="repository-view-page__recent-remove"
+                      onClick={(e) => handleRemoveRecent(e, r)}
+                      title={`Remove ${r} from recent list`}
+                      aria-label={`Remove ${r}`}
+                    >
+                      ×
+                    </button>
+                  </a>
+                );
+              })}
+            </div>
+          ))}
         </div>
       ) : null}
 
