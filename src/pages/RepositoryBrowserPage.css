@@ -453,6 +453,50 @@
   text-decoration: underline;
 }
 
+.repo-browser__commit-tag-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: #58a6ff;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-family: inherit;
+  line-height: inherit;
+}
+
+.repo-browser__commit-tag-btn:hover {
+  text-decoration: underline;
+}
+
+.repo-browser__tag-notice {
+  margin: 12px 0;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #2d4d2d;
+  border-radius: 6px;
+  background: #142a14;
+  color: #7ee787;
+  font-size: 0.85rem;
+}
+
+.repo-browser__tag-notice-close {
+  background: none;
+  border: none;
+  color: #7ee787;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.repo-browser__tag-notice-close:hover {
+  color: #fff;
+}
+
 .repo-browser__commit-author {
   color: #8b949e;
 }

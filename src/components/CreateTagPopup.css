@@ -1,0 +1,46 @@
+.create-tag-popup__error {
+  margin: 12px 20px 0;
+  padding: 8px 12px;
+  border: 1px solid #5a2424;
+  border-radius: 6px;
+  background: #2a1414;
+  color: #ffa198;
+  font-size: 0.85rem;
+}
+
+.create-tag-popup__tag-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #161616;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.create-tag-popup__tag-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #2a2a2a;
+  font-size: 0.85rem;
+}
+
+.create-tag-popup__tag-item:last-child {
+  border-bottom: none;
+}
+
+.create-tag-popup__tag-name {
+  color: #d4d4d4;
+  word-break: break-all;
+}
+
+.create-tag-popup__tag-commit {
+  color: #7ee787;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
