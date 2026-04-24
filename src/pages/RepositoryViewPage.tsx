@@ -292,6 +292,7 @@ export default function RepositoryViewPage() {
             key={`commits-${repoKey}-${String(refreshNonce)}`}
             showRepositorySelector={false}
             refreshIntervalMs={refreshIntervalMs}
+            bearerToken={bearerToken}
           />
         </div>
         <div className="repository-view-page__column repository-view-page__column--center">

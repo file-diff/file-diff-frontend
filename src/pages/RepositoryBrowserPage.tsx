@@ -7,6 +7,8 @@ import {
 } from "../utils/repositorySelection";
 import type { RepositoryCommit } from "../utils/repositorySelection";
 import RepositorySelector from "../components/RepositorySelector";
+import CreateTagPopup from "../components/CreateTagPopup";
+import type { CreateTagPopupResult } from "../components/CreateTagPopup";
 import { buildTreeComparisonLink } from "../utils/storage";
 import {
   loadCachedCommits,
@@ -19,6 +21,10 @@ import {
   loadAutoRefreshEnabled,
   saveAutoRefreshEnabled,
 } from "../utils/commitViewStorage";
+import {
+  loadBearerToken,
+  saveBearerToken,
+} from "../utils/bearerTokenStorage";
 import {
   formatRelativeDateTime,
   formatAbsoluteDateTime,
@@ -122,11 +128,13 @@ function loadInitialCommits(repo: string): RepositoryCommit[] {
 interface RepositoryBrowserPageProps {
   showRepositorySelector?: boolean;
   refreshIntervalMs?: number;
+  bearerToken?: string;
 }
 
 export default function RepositoryBrowserPage({
   showRepositorySelector = true,
   refreshIntervalMs,
+  bearerToken: bearerTokenProp,
 }: RepositoryBrowserPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
@@ -163,6 +171,15 @@ export default function RepositoryBrowserPage({
   const [hoveredParentCommit, setHoveredParentCommit] = useState<string | null>(
     null
   );
+  const [createTagCommit, setCreateTagCommit] = useState<string | null>(null);
+  const [createTagNotice, setCreateTagNotice] = useState("");
+  const [localBearerToken, setLocalBearerToken] = useState(loadBearerToken);
+  const bearerToken = bearerTokenProp ?? localBearerToken;
+
+  const handleBearerTokenChange = useCallback((value: string) => {
+    setLocalBearerToken(value);
+    saveBearerToken(value);
+  }, []);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoLoadedRepoRef = useRef<string>("");
@@ -797,6 +814,19 @@ export default function RepositoryBrowserPage({
                       >
                         Grep
                       </Link>
+                      <button
+                        type="button"
+                        className="repo-browser__commit-tag-btn"
+                        aria-label={`Create new tag for commit ${entry.commit.slice(0, 7)}`}
+                        title={`Create a new tag pointing at ${entry.commit.slice(0, 7)}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCreateTagNotice("");
+                          setCreateTagCommit(entry.commit);
+                        }}
+                      >
+                        Create Tag
+                      </button>
                       <span className="repo-browser__commit-author">
                         {entry.author}
                       </span>
@@ -957,6 +987,37 @@ export default function RepositoryBrowserPage({
           </p>
         </div>
       )}
+
+      {createTagNotice && (
+        <div className="repo-browser__tag-notice" role="status">
+          {createTagNotice}
+          <button
+            type="button"
+            className="repo-browser__tag-notice-close"
+            onClick={() => setCreateTagNotice("")}
+            aria-label="Dismiss notification"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <CreateTagPopup
+        open={createTagCommit !== null}
+        repo={loadedRepo}
+        commit={createTagCommit ?? ""}
+        bearerToken={bearerToken}
+        onBearerTokenChange={
+          bearerTokenProp === undefined ? handleBearerTokenChange : undefined
+        }
+        onClose={() => setCreateTagCommit(null)}
+        onCreated={(result: CreateTagPopupResult) => {
+          setCreateTagCommit(null);
+          setCreateTagNotice(
+            `Created tag "${result.tag}" on ${result.commit.slice(0, 7)}.`
+          );
+        }}
+      />
     </div>
   );
 }
