@@ -1,0 +1,9 @@
+.revert-commit-popup__error {
+  margin: 12px 20px 0;
+  padding: 8px 12px;
+  border: 1px solid #5a2424;
+  border-radius: 6px;
+  background: #2a1414;
+  color: #ffa198;
+  font-size: 0.85rem;
+}
