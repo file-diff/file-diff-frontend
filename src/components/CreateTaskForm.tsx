@@ -223,9 +223,8 @@ export default function CreateTaskForm({
   const initialRepoInput = showRepositorySelector
     ? initialRepo || savedDraft?.repoInput || ""
     : initialRepo;
-  const initialRepoDraft = useMemo(
-    () => loadRepoCreateTaskDraft(resolveRepositoryInput(initialRepoInput)),
-    [initialRepoInput]
+  const [initialRepoDraft] = useState(() =>
+    loadRepoCreateTaskDraft(resolveRepositoryInput(initialRepoInput))
   );
   const effectiveInitialProblemStatement =
     initialProblemStatement !== undefined
