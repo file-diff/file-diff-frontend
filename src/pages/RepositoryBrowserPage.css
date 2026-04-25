@@ -443,48 +443,6 @@
   text-decoration: underline;
 }
 
-.repo-browser__commit-grep-link {
-  color: #58a6ff;
-  text-decoration: none;
-  font-size: 0.78rem;
-}
-
-.repo-browser__commit-grep-link:hover {
-  text-decoration: underline;
-}
-
-.repo-browser__commit-tag-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  color: #58a6ff;
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-family: inherit;
-  line-height: inherit;
-}
-
-.repo-browser__commit-tag-btn:hover {
-  text-decoration: underline;
-}
-
-.repo-browser__commit-revert-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  color: #f0883e;
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-family: inherit;
-  line-height: inherit;
-}
-
-.repo-browser__commit-revert-btn:hover {
-  text-decoration: underline;
-}
-
 .repo-browser__tag-notice {
   margin: 12px 0;
   padding: 8px 12px;
@@ -571,45 +529,6 @@
 
 .repo-browser__pr-badge:hover {
   text-decoration: underline;
-}
-
-.repo-browser__commit-select-btns {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.repo-browser__select-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  border: 1px solid #555;
-  background: transparent;
-  color: #8b949e;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.repo-browser__select-btn:hover {
-  border-color: #888;
-  color: #d4d4d4;
-}
-
-.repo-browser__select-btn--left.repo-browser__select-btn--active {
-  background: rgba(88, 166, 255, 0.2);
-  border-color: #58a6ff;
-  color: #58a6ff;
-}
-
-.repo-browser__select-btn--right.repo-browser__select-btn--active {
-  background: rgba(227, 179, 65, 0.2);
-  border-color: #e3b341;
-  color: #e3b341;
 }
 
 .repo-browser__load-more {
