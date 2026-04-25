@@ -1,4 +1,5 @@
 import { removeRepositoryColor } from "./repositoryColors";
+import { removeRepoCreateTaskDraft } from "./createTaskStorage";
 import { removeRepoProblemStatement } from "./repoProblemStatementStorage";
 
 const RECENT_REPOSITORIES_STORAGE_KEY = "recent-repositories";
@@ -71,6 +72,7 @@ export function removeRecentRepository(repo: string): string[] {
   }
 
   removeRepositoryColor(trimmed);
+  removeRepoCreateTaskDraft(trimmed);
   removeRepoProblemStatement(trimmed);
 
   return updated;
