@@ -208,7 +208,7 @@ export default function AgentTaskInfoPage({
           selectedTaskId && nextTaskIds.has(selectedTaskId) ? selectedTaskId : "";
         setTasksRaw(result);
         setTasks(nextTasks);
-        saveCachedTasks(repo, nextTasks);
+        const fetchedAt = saveCachedTasks(repo, nextTasks);
         saveLastRepo(repo);
         setSelectedTaskIds((prev) => {
           const next = new Set<string>();
@@ -225,7 +225,7 @@ export default function AgentTaskInfoPage({
           setTaskDetailTaskId("");
           setTaskDetailError("");
         }
-        setLastFetchedAt(loadCachedTasksFetchedAt(repo));
+        setLastFetchedAt(fetchedAt);
 
         updateSearchParams((params) => {
           params.set("repo", repo);
@@ -407,8 +407,8 @@ export default function AgentTaskInfoPage({
       const nextTasks = tasks.filter((task) => !archivedTaskIds.has(task.id));
       setTasks(nextTasks);
       setTasksRaw({ tasks: nextTasks });
-      saveCachedTasks(resolvedRepo, nextTasks);
-      setLastFetchedAt(loadCachedTasksFetchedAt(resolvedRepo));
+      const fetchedAt = saveCachedTasks(resolvedRepo, nextTasks);
+      setLastFetchedAt(fetchedAt);
       setSelectedTaskIds((prev) => {
         const next = new Set(prev);
         for (const taskId of archivedTaskIds) {

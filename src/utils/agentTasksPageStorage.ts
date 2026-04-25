@@ -71,18 +71,22 @@ export function loadCachedTasksFetchedAt(repo: string): string {
   }
 }
 
-export function saveCachedTasks(repo: string, tasks: TaskSummary[]): void {
+export function saveCachedTasks(repo: string, tasks: TaskSummary[]): string {
+  const fetchedAt = new Date().toISOString();
+
   try {
     localStorage.setItem(
       TASKS_STORAGE_PREFIX + repositoryKey(repo),
       JSON.stringify({
         tasks,
-        fetchedAt: new Date().toISOString(),
+        fetchedAt,
       } satisfies CachedTasksPayload)
     );
   } catch {
     // Ignore storage errors (quota exceeded, etc.)
   }
+
+  return fetchedAt;
 }
 
 export function loadLastRepo(): string {
