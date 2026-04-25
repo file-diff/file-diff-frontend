@@ -8,7 +8,9 @@ import {
 import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
 import {
   loadCreateTaskDraft,
+  loadRepoCreateTaskDraft,
   saveCreateTaskDraft,
+  saveRepoCreateTaskDraft,
 } from "../utils/createTaskStorage";
 import { saveRepoProblemStatement } from "../utils/repoProblemStatementStorage";
 import type {
@@ -221,32 +223,46 @@ export default function CreateTaskForm({
   const initialRepoInput = showRepositorySelector
     ? initialRepo || savedDraft?.repoInput || ""
     : initialRepo;
+  const initialRepoDraft = useMemo(
+    () => loadRepoCreateTaskDraft(resolveRepositoryInput(initialRepoInput)),
+    [initialRepoInput]
+  );
   const effectiveInitialProblemStatement =
     initialProblemStatement !== undefined
       ? initialProblemStatement
-      : savedDraft?.problemStatement || "";
+      : initialRepoDraft?.problemStatement ?? savedDraft?.problemStatement ?? "";
   const [repoInput, setRepoInput] = useState(initialRepoInput);
   const [problemStatement, setProblemStatement] = useState(
     effectiveInitialProblemStatement
   );
-  const [model, setModel] = useState(savedDraft?.model || MODEL_OPTIONS[0].value);
-  const [bearerToken, setBearerToken] = useState(loadBearerToken);
+  const [model, setModel] = useState(
+    initialRepoDraft?.model ?? savedDraft?.model ?? MODEL_OPTIONS[0].value
+  );
+  const [bearerToken, setBearerToken] = useState(
+    initialRepoDraft?.bearerToken ?? savedDraft?.bearerToken ?? loadBearerToken()
+  );
   const [createPullRequest, setCreatePullRequest] = useState(
-    savedDraft?.createPullRequest ?? DEFAULT_CREATE_PULL_REQUEST
+    initialRepoDraft?.createPullRequest ??
+      savedDraft?.createPullRequest ??
+      DEFAULT_CREATE_PULL_REQUEST
   );
   const [pullRequestCompletionMode, setPullRequestCompletionMode] =
     useState<PullRequestCompletionMode>(
-      savedDraft?.createPullRequest === false
+      (initialRepoDraft?.createPullRequest ?? savedDraft?.createPullRequest) ===
+      false
         ? DEFAULT_PULL_REQUEST_COMPLETION_MODE
-        : savedDraft?.pullRequestCompletionMode ??
+        : initialRepoDraft?.pullRequestCompletionMode ??
+            savedDraft?.pullRequestCompletionMode ??
             DEFAULT_PULL_REQUEST_COMPLETION_MODE
     );
-  const [baseRef, setBaseRef] = useState(savedDraft?.baseRef || DEFAULT_BRANCH_NAME);
+  const [baseRef, setBaseRef] = useState(
+    initialRepoDraft?.baseRef ?? savedDraft?.baseRef ?? DEFAULT_BRANCH_NAME
+  );
   const [taskDelayEnabled, setTaskDelayEnabled] = useState(
-    savedDraft?.taskDelayEnabled ?? false
+    initialRepoDraft?.taskDelayEnabled ?? savedDraft?.taskDelayEnabled ?? false
   );
   const [taskDelayMinutes, setTaskDelayMinutes] = useState(
-    savedDraft?.taskDelayMinutes || ""
+    initialRepoDraft?.taskDelayMinutes ?? savedDraft?.taskDelayMinutes ?? ""
   );
 
   const [branches, setBranches] = useState<RepositoryBranch[]>([]);
@@ -430,6 +446,7 @@ export default function CreateTaskForm({
       repoInput,
       problemStatement,
       model,
+      bearerToken,
       createPullRequest,
       pullRequestCompletionMode,
       baseRef,
@@ -440,6 +457,7 @@ export default function CreateTaskForm({
     repoInput,
     problemStatement,
     model,
+    bearerToken,
     createPullRequest,
     pullRequestCompletionMode,
     baseRef,
@@ -451,8 +469,28 @@ export default function CreateTaskForm({
     const repo = resolveRepositoryInput(repoInput);
     if (repo) {
       saveRepoProblemStatement(repo, problemStatement);
+      saveRepoCreateTaskDraft(repo, {
+        problemStatement,
+        model,
+        bearerToken,
+        createPullRequest,
+        pullRequestCompletionMode,
+        baseRef,
+        taskDelayEnabled,
+        taskDelayMinutes,
+      });
     }
-  }, [repoInput, problemStatement]);
+  }, [
+    repoInput,
+    problemStatement,
+    model,
+    bearerToken,
+    createPullRequest,
+    pullRequestCompletionMode,
+    baseRef,
+    taskDelayEnabled,
+    taskDelayMinutes,
+  ]);
 
   useEffect(() => {
     return () => {
