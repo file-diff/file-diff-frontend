@@ -176,10 +176,16 @@ export default function AgentTaskInfoPage({
           selectedTaskId && nextTaskIds.has(selectedTaskId) ? selectedTaskId : "";
         setTasksRaw(result);
         setTasks(nextTasks);
-        setSelectedTaskIds(
-          (prev) => new Set([...prev].filter((taskId) => nextTaskIds.has(taskId)))
-        );
-        if (!nextSelectedTaskId) {
+        setSelectedTaskIds((prev) => {
+          const next = new Set<string>();
+          for (const taskId of prev) {
+            if (nextTaskIds.has(taskId)) {
+              next.add(taskId);
+            }
+          }
+          return next;
+        });
+        if (selectedTaskId && !nextSelectedTaskId) {
           setSelectedTaskId("");
           setTaskDetail(null);
           setTaskDetailTaskId("");
