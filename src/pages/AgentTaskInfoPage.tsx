@@ -110,7 +110,7 @@ export default function AgentTaskInfoPage({
 
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const ownerRepo = useMemo(() => splitOwnerRepo(resolvedRepo), [resolvedRepo]);
-  const hasLoadedTasks = tasksRaw !== null;
+  const hasLoadedTaskData = tasksRaw !== null;
 
   const handleBearerTokenChange = useCallback((value: string) => {
     setLocalBearerToken(value);
@@ -493,10 +493,10 @@ export default function AgentTaskInfoPage({
           onSubmit={handleLoadTasks}
           buttonLabel="Load tasks"
           loadingButtonLabel="Loading…"
-          isLoading={tasksLoading && !hasLoadedTasks}
+          isLoading={tasksLoading && !hasLoadedTaskData}
           disabled={tasksLoading || !repoInput.trim() || !bearerToken.trim()}
           actions={
-            hasLoadedTasks ? (
+            hasLoadedTaskData ? (
               <button
                 type="button"
                 onClick={() => void handleRefresh()}
@@ -510,7 +510,7 @@ export default function AgentTaskInfoPage({
       )}
 
       <div className="agent-task-info-page__input-section">
-        {showRepositorySelector && hasLoadedTasks && (
+        {showRepositorySelector && hasLoadedTaskData && (
           <label className="agent-task-info-page__auto-refresh-toggle">
             <input
               type="checkbox"
@@ -559,7 +559,7 @@ export default function AgentTaskInfoPage({
         </div>
       )}
 
-      {hasLoadedTasks && (
+      {hasLoadedTaskData && (
         <div className="agent-task-info-page__tasks">
           <div className="agent-task-info-page__tasks-header">
             <div className="agent-task-info-page__tasks-header-left">
@@ -585,7 +585,12 @@ export default function AgentTaskInfoPage({
                   : `${String(tasks.length)} task${tasks.length !== 1 ? "s" : ""}`}
               </span>
               {tasksLoading && (
-                <span className="agent-task-info-page__tasks-status">Refreshing…</span>
+                <span
+                  className="agent-task-info-page__tasks-status"
+                  aria-live="polite"
+                >
+                  Refreshing…
+                </span>
               )}
             </div>
           </div>
