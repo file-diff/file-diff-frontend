@@ -9,6 +9,7 @@ import type { RepositoryCommit } from "../utils/repositorySelection";
 import RepositorySelector from "../components/RepositorySelector";
 import CreateTagPopup from "../components/CreateTagPopup";
 import type { CreateTagPopupResult } from "../components/CreateTagPopup";
+import RevertCommitPopup from "../components/RevertCommitPopup";
 import { buildTreeComparisonLink } from "../utils/storage";
 import {
   loadCachedCommits,
@@ -173,6 +174,15 @@ export default function RepositoryBrowserPage({
   );
   const [createTagCommit, setCreateTagCommit] = useState<string | null>(null);
   const [createTagNotice, setCreateTagNotice] = useState("");
+  const [revertCommitTarget, setRevertCommitTarget] = useState<{
+    commit: string;
+    branch: string;
+  } | null>(null);
+  const [revertNotice, setRevertNotice] = useState<{
+    message: string;
+    pullRequestUrl: string | null;
+    pullRequestNumber: number | null;
+  } | null>(null);
   const [localBearerToken, setLocalBearerToken] = useState(loadBearerToken);
   const bearerToken = bearerTokenProp ?? localBearerToken;
 
@@ -816,6 +826,22 @@ export default function RepositoryBrowserPage({
                       </Link>
                       <button
                         type="button"
+                        className="repo-browser__commit-revert-btn"
+                        aria-label={`Revert repository to commit ${entry.commit.slice(0, 7)}`}
+                        title={`Create a pull request to restore the repository to ${entry.commit.slice(0, 7)}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRevertNotice(null);
+                          setRevertCommitTarget({
+                            commit: entry.commit,
+                            branch: entry.branch || "main",
+                          });
+                        }}
+                      >
+                        Revert to This Commit
+                      </button>
+                      <button
+                        type="button"
                         className="repo-browser__commit-tag-btn"
                         aria-label={`Create new tag for commit ${entry.commit.slice(0, 7)}`}
                         title={`Create a new tag pointing at ${entry.commit.slice(0, 7)}`}
@@ -988,6 +1014,35 @@ export default function RepositoryBrowserPage({
         </div>
       )}
 
+      {revertNotice && (
+        <div className="repo-browser__tag-notice" role="status">
+          <span>
+            {revertNotice.message}
+            {revertNotice.pullRequestUrl && revertNotice.pullRequestNumber !== null ? (
+              <>
+                {" "}
+                <a
+                  href={revertNotice.pullRequestUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="repo-browser__notice-link"
+                >
+                  View PR #{String(revertNotice.pullRequestNumber)}
+                </a>
+              </>
+            ) : null}
+          </span>
+          <button
+            type="button"
+            className="repo-browser__tag-notice-close"
+            onClick={() => setRevertNotice(null)}
+            aria-label="Dismiss notification"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {createTagNotice && (
         <div className="repo-browser__tag-notice" role="status">
           {createTagNotice}
@@ -1016,6 +1071,27 @@ export default function RepositoryBrowserPage({
           setCreateTagNotice(
             `Created tag "${result.tag}" on ${result.commit.slice(0, 7)}.`
           );
+        }}
+      />
+      <RevertCommitPopup
+        open={revertCommitTarget !== null}
+        repo={loadedRepo}
+        commit={revertCommitTarget?.commit ?? ""}
+        initialBranch={revertCommitTarget?.branch ?? "main"}
+        bearerToken={bearerToken}
+        onBearerTokenChange={
+          bearerTokenProp === undefined ? handleBearerTokenChange : undefined
+        }
+        onClose={() => setRevertCommitTarget(null)}
+        onCreated={(result) => {
+          setRevertCommitTarget(null);
+          setRevertNotice({
+            message: result.pullRequest
+              ? `Created revert branch "${result.revertBranch}" for ${result.commitShort} targeting "${result.branch}".`
+              : `Created revert branch "${result.revertBranch}" for ${result.commitShort}.`,
+            pullRequestUrl: result.pullRequest?.url ?? null,
+            pullRequestNumber: result.pullRequest?.number ?? null,
+          });
         }}
       />
     </div>

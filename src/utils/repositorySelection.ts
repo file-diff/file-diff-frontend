@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, TAGS_API_URL, ACTIONS_API_URL, DELETE_TAG_API_URL, CREATE_TAG_API_URL, DELETE_ACTION_RUN_API_URL, buildOrganizationRepositoriesUrl, buildAgentTasksUrl, buildAgentTaskUrl, buildAgentTaskArchiveUrl } from "../config/api";
+import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, REVERT_TO_COMMIT_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, TAGS_API_URL, ACTIONS_API_URL, DELETE_TAG_API_URL, CREATE_TAG_API_URL, DELETE_ACTION_RUN_API_URL, buildOrganizationRepositoriesUrl, buildAgentTasksUrl, buildAgentTaskUrl, buildAgentTaskArchiveUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -934,6 +934,59 @@ export async function requestPullRequestOpen(
   }
 
   return (await response.json()) as PullRequestOpenResponse;
+}
+
+export interface RevertToCommitPullRequest {
+  number: number;
+  title: string;
+  url: string;
+}
+
+export interface RevertToCommitResponse {
+  repo: string;
+  branch: string;
+  commit: string;
+  commitShort: string;
+  revertBranch: string;
+  revertCommit: string;
+  revertCommitShort: string;
+  pullRequest: RevertToCommitPullRequest | null;
+  log: unknown[];
+}
+
+export async function requestRevertToCommit(
+  repo: string,
+  commit: string,
+  branch: string,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<RevertToCommitResponse> {
+  const response = await fetch(REVERT_TO_COMMIT_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    body: JSON.stringify({ repo, commit, branch }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `Unable to revert "${commit.slice(0, 7)}"`;
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as RevertToCommitResponse;
 }
 
 export async function requestAgentTasks(

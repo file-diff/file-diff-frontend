@@ -469,6 +469,22 @@
   text-decoration: underline;
 }
 
+.repo-browser__commit-revert-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: #f0883e;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-family: inherit;
+  line-height: inherit;
+}
+
+.repo-browser__commit-revert-btn:hover {
+  text-decoration: underline;
+}
+
 .repo-browser__tag-notice {
   margin: 12px 0;
   padding: 8px 12px;
@@ -495,6 +511,11 @@
 
 .repo-browser__tag-notice-close:hover {
   color: #fff;
+}
+
+.repo-browser__notice-link {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .repo-browser__commit-author {
