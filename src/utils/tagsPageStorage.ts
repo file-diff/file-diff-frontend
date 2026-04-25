@@ -38,6 +38,18 @@ function parseCachedTagsPayload(raw: string | null): CachedTagsPayload | null {
   }
 }
 
+export function hasCachedTags(repo: string): boolean {
+  try {
+    return (
+      parseCachedTagsPayload(
+        localStorage.getItem(TAGS_STORAGE_PREFIX + repositoryKey(repo))
+      ) !== null
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function loadCachedTags(repo: string): RepositoryTag[] {
   try {
     const payload = parseCachedTagsPayload(
