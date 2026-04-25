@@ -173,6 +173,14 @@
   min-width: 0;
 }
 
+.agent-task-info-page__tasks-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .agent-task-info-page__select-all,
 .agent-task-info-page__task-checkbox {
   display: flex;
@@ -189,6 +197,12 @@
 .agent-task-info-page__tasks-count {
   font-size: 0.8rem;
   color: #8b949e;
+}
+
+.agent-task-info-page__tasks-status {
+  font-size: 0.78rem;
+  color: #58a6ff;
+  font-weight: 600;
 }
 
 .agent-task-info-page__task-list {
@@ -220,6 +234,15 @@
 
 .agent-task-info-page__task--selected:hover {
   background: rgba(88, 166, 255, 0.12);
+}
+
+.agent-task-info-page__task--empty,
+.agent-task-info-page__task--empty:hover {
+  background: transparent;
+}
+
+.agent-task-info-page__task--empty .agent-task-info-page__task-main {
+  cursor: default;
 }
 
 .agent-task-info-page__task-main {
@@ -377,40 +400,36 @@
   border-color: #b392f0;
 }
 
-.agent-task-info-page__empty {
-  text-align: center;
-  padding: 60px 24px;
-  border: 1px solid #333;
-  border-radius: 12px;
-  background: #191a1c;
-  margin-bottom: 20px;
+.agent-task-info-page__empty-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.agent-task-info-page__empty-icon {
-  font-size: 3rem;
-  margin-bottom: 12px;
-}
-
-.agent-task-info-page__empty h2 {
-  margin: 0 0 8px;
-  color: #e0e0e0;
-}
-
-.agent-task-info-page__empty p {
+.agent-task-info-page__empty-message {
   color: #999;
-  margin: 0 0 16px;
-  line-height: 1.5;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.agent-task-info-page__empty-message code {
+  color: #58a6ff;
+  font-family: var(--code-font-family);
+}
+
+.agent-task-info-page__empty-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .agent-task-info-page__empty-updated {
   color: #8b949e;
-  font-size: 0.82rem;
-  font-style: italic;
-}
-
-.agent-task-info-page__empty code {
-  color: #58a6ff;
-  font-family: var(--code-font-family);
+  font-size: 0.78rem;
 }
 
 .agent-task-info-page__raw-toggle {
@@ -423,6 +442,24 @@
   cursor: pointer;
   color: #8b949e;
   font-size: 0.82rem;
+  margin-bottom: 8px;
+}
+
+.agent-task-info-page__raw-toggle--compact {
+  max-width: none;
+  margin: 0;
+}
+
+.agent-task-info-page__raw-toggle--compact summary {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.agent-task-info-page__raw-toggle--compact[open] {
+  width: 100%;
+}
+
+.agent-task-info-page__raw-toggle--compact[open] summary {
   margin-bottom: 8px;
 }
 
