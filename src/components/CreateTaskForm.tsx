@@ -223,9 +223,14 @@ export default function CreateTaskForm({
   const initialRepoInput = showRepositorySelector
     ? initialRepo || savedDraft?.repoInput || ""
     : initialRepo;
+  const initialResolvedRepo = initialRepoInput.trim()
+    ? resolveRepositoryInput(initialRepoInput)
+    : "";
   const [initialRepoDraft] = useState(() =>
-    loadRepoCreateTaskDraft(resolveRepositoryInput(initialRepoInput))
+    initialResolvedRepo ? loadRepoCreateTaskDraft(initialResolvedRepo) : null
   );
+  const initialCreatePullRequest =
+    initialRepoDraft?.createPullRequest ?? savedDraft?.createPullRequest;
   const effectiveInitialProblemStatement =
     initialProblemStatement !== undefined
       ? initialProblemStatement
@@ -239,14 +244,11 @@ export default function CreateTaskForm({
   );
   const [bearerToken, setBearerToken] = useState(loadBearerToken);
   const [createPullRequest, setCreatePullRequest] = useState(
-    initialRepoDraft?.createPullRequest ??
-      savedDraft?.createPullRequest ??
-      DEFAULT_CREATE_PULL_REQUEST
+    initialCreatePullRequest ?? DEFAULT_CREATE_PULL_REQUEST
   );
   const [pullRequestCompletionMode, setPullRequestCompletionMode] =
     useState<PullRequestCompletionMode>(
-      (initialRepoDraft?.createPullRequest ?? savedDraft?.createPullRequest) ===
-      false
+      initialCreatePullRequest === false
         ? DEFAULT_PULL_REQUEST_COMPLETION_MODE
         : initialRepoDraft?.pullRequestCompletionMode ??
             savedDraft?.pullRequestCompletionMode ??
