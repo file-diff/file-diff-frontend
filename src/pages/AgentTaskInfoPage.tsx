@@ -13,8 +13,14 @@ import {
 } from "../utils/agentTasks";
 import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
 import {
+  hasCachedTasks,
+  loadCachedTasks,
+  loadCachedTasksFetchedAt,
+  loadLastRepo,
   loadAutoRefreshEnabled,
+  saveCachedTasks,
   saveAutoRefreshEnabled,
+  saveLastRepo,
 } from "../utils/agentTasksPageStorage";
 import { formatRelativeDateTime } from "../utils/organizationBrowserPresentation";
 import RepositorySelector from "../components/RepositorySelector";
@@ -65,6 +71,11 @@ function getTaskDisplayLabel(task: TaskSummary): string {
   return task.name || task.description || task.id;
 }
 
+function resolveInitialRepo(queryRepo: string): string {
+  if (queryRepo) return queryRepo;
+  return loadLastRepo();
+}
+
 interface AgentTaskInfoPageProps {
   showRepositorySelector?: boolean;
   refreshIntervalMs?: number;
@@ -79,17 +90,26 @@ export default function AgentTaskInfoPage({
   const [searchParams, setSearchParams] = useSearchParams();
   const queryRepo = searchParams.get("repo") ?? "";
   const queryTaskId = searchParams.get("taskId") ?? "";
+  const initialRepo = resolveInitialRepo(queryRepo);
 
-  const [repoInput, setRepoInput] = useState(queryRepo);
+  const [repoInput, setRepoInput] = useState(initialRepo);
   const [localBearerToken, setLocalBearerToken] = useState(loadBearerToken);
   const bearerToken = bearerTokenProp ?? localBearerToken;
   const [showToken, setShowToken] = useState(false);
 
-  const [tasks, setTasks] = useState<TaskSummary[]>([]);
-  const [tasksRaw, setTasksRaw] = useState<unknown>(null);
+  const [tasks, setTasks] = useState<TaskSummary[]>(() =>
+    initialRepo ? loadCachedTasks(initialRepo) : []
+  );
+  const [tasksRaw, setTasksRaw] = useState<unknown>(() =>
+    initialRepo && hasCachedTasks(initialRepo)
+      ? { tasks: loadCachedTasks(initialRepo) }
+      : null
+  );
   const [tasksLoading, setTasksLoading] = useState(false);
   const [tasksError, setTasksError] = useState("");
-  const [lastFetchedAt, setLastFetchedAt] = useState("");
+  const [lastFetchedAt, setLastFetchedAt] = useState(() =>
+    initialRepo ? loadCachedTasksFetchedAt(initialRepo) : ""
+  );
   const [actionFeedback, setActionFeedback] = useState<ActionFeedback | null>(null);
   const [archiveInProgress, setArchiveInProgress] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
@@ -137,9 +157,9 @@ export default function AgentTaskInfoPage({
     async (
       repo: string,
       currentOwnerRepo: { owner: string; name: string },
-      options: { preserveState?: boolean } = {}
+      options: { preserveState?: boolean; useCachedTasks?: boolean } = {}
     ) => {
-      const { preserveState = false } = options;
+      const { preserveState = false, useCachedTasks = true } = options;
 
       if (!bearerToken.trim()) {
         setTasksError("Please enter a bearer token.");
@@ -152,14 +172,26 @@ export default function AgentTaskInfoPage({
 
       setTasksLoading(true);
       setTasksError("");
+      const cachedTasks = useCachedTasks ? loadCachedTasks(repo) : [];
+      const cachedTasksFetchedAt = useCachedTasks
+        ? loadCachedTasksFetchedAt(repo)
+        : "";
+      const hasCachedTaskData = useCachedTasks && hasCachedTasks(repo);
       if (!preserveState) {
-        setTasks([]);
-        setTasksRaw(null);
         setActionFeedback(null);
         setSelectedTaskIds(new Set());
         setSelectedTaskId("");
         setTaskDetail(null);
         setTaskDetailError("");
+        if (hasCachedTaskData) {
+          setTasks(cachedTasks);
+          setTasksRaw({ tasks: cachedTasks });
+          setLastFetchedAt(cachedTasksFetchedAt);
+        } else {
+          setTasks([]);
+          setTasksRaw(null);
+          setLastFetchedAt("");
+        }
       }
 
       try {
@@ -176,6 +208,8 @@ export default function AgentTaskInfoPage({
           selectedTaskId && nextTaskIds.has(selectedTaskId) ? selectedTaskId : "";
         setTasksRaw(result);
         setTasks(nextTasks);
+        const fetchedAt = saveCachedTasks(repo, nextTasks);
+        saveLastRepo(repo);
         setSelectedTaskIds((prev) => {
           const next = new Set<string>();
           for (const taskId of prev) {
@@ -191,7 +225,7 @@ export default function AgentTaskInfoPage({
           setTaskDetailTaskId("");
           setTaskDetailError("");
         }
-        setLastFetchedAt(new Date().toISOString());
+        setLastFetchedAt(fetchedAt);
 
         updateSearchParams((params) => {
           params.set("repo", repo);
@@ -208,6 +242,13 @@ export default function AgentTaskInfoPage({
             ? err.message
             : "Unable to fetch agent tasks"
         );
+        if (hasCachedTaskData) {
+          setTasksError(
+            (err instanceof Error && err.message
+              ? err.message
+              : "Unable to refresh agent tasks") + " — showing cached data."
+          );
+        }
       } finally {
         if (!controller.signal.aborted) {
           setTasksLoading(false);
@@ -363,7 +404,11 @@ export default function AgentTaskInfoPage({
     }
 
     if (archivedTaskIds.size > 0) {
-      setTasks((prev) => prev.filter((task) => !archivedTaskIds.has(task.id)));
+      const nextTasks = tasks.filter((task) => !archivedTaskIds.has(task.id));
+      setTasks(nextTasks);
+      setTasksRaw({ tasks: nextTasks });
+      const fetchedAt = saveCachedTasks(resolvedRepo, nextTasks);
+      setLastFetchedAt(fetchedAt);
       setSelectedTaskIds((prev) => {
         const next = new Set(prev);
         for (const taskId of archivedTaskIds) {
@@ -397,6 +442,7 @@ export default function AgentTaskInfoPage({
     ownerRepo,
     resolvedRepo,
     selectedTaskId,
+    tasks,
     selectedTasks,
     updateSearchParams,
   ]);
@@ -406,10 +452,10 @@ export default function AgentTaskInfoPage({
   }, [searchParams]);
 
   useEffect(() => {
-    if (queryRepo && queryRepo !== repoInput) {
-      setRepoInput(queryRepo);
+    if (initialRepo && initialRepo !== repoInput) {
+      setRepoInput(initialRepo);
     }
-  }, [queryRepo, repoInput]);
+  }, [initialRepo, repoInput]);
 
   useEffect(() => {
     setSelectedTaskId(queryTaskId);

@@ -7,6 +7,7 @@ import {
 } from "../utils/repositorySelection";
 import type { RepositoryTag } from "../utils/repositorySelection";
 import {
+  hasCachedTags,
   loadCachedTags,
   loadCachedTagsFetchedAt,
   saveCachedTags,
@@ -96,7 +97,7 @@ export default function TagsPage({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [loadedRepo, setLoadedRepo] = useState(() =>
-    loadInitialTags(initialRepo).length > 0 ? initialRepo : ""
+    initialRepo && hasCachedTags(initialRepo) ? initialRepo : ""
   );
   const [lastFetchedAt, setLastFetchedAt] = useState(() =>
     initialRepo ? loadCachedTagsFetchedAt(initialRepo) : ""
@@ -137,9 +138,10 @@ export default function TagsPage({
 
       const cached = useCachedTags ? loadCachedTags(repo) : [];
       if (useCachedTags) {
-        if (cached.length > 0) {
+        if (hasCachedTags(repo)) {
           setTags(cached);
           setLoadedRepo(repo);
+          setLastFetchedAt(loadCachedTagsFetchedAt(repo));
         } else {
           setTags([]);
           setLoadedRepo("");
@@ -175,7 +177,7 @@ export default function TagsPage({
             ? err.message
             : "Unable to load tags"
         );
-        if (cached.length > 0) {
+        if (hasCachedTags(repo)) {
           setError(
             (err instanceof Error && err.message
               ? err.message
