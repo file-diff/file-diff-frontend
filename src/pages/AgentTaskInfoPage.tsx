@@ -214,7 +214,15 @@ export default function AgentTaskInfoPage({
         }
       }
     },
-    [bearerToken, selectedTaskId, updateSearchParams]
+    [
+      bearerToken,
+      selectedTaskId,
+      setSelectedTaskId,
+      setTaskDetail,
+      setTaskDetailTaskId,
+      setTaskDetailError,
+      updateSearchParams,
+    ]
   );
 
   const handleLoadTasks = useCallback(async () => {
