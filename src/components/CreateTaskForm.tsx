@@ -238,9 +238,7 @@ export default function CreateTaskForm({
   const [model, setModel] = useState(
     initialRepoDraft?.model ?? savedDraft?.model ?? MODEL_OPTIONS[0].value
   );
-  const [bearerToken, setBearerToken] = useState(
-    initialRepoDraft?.bearerToken ?? savedDraft?.bearerToken ?? loadBearerToken()
-  );
+  const [bearerToken, setBearerToken] = useState(loadBearerToken);
   const [createPullRequest, setCreatePullRequest] = useState(
     initialRepoDraft?.createPullRequest ??
       savedDraft?.createPullRequest ??
@@ -446,7 +444,6 @@ export default function CreateTaskForm({
       repoInput,
       problemStatement,
       model,
-      bearerToken,
       createPullRequest,
       pullRequestCompletionMode,
       baseRef,
@@ -457,7 +454,6 @@ export default function CreateTaskForm({
     repoInput,
     problemStatement,
     model,
-    bearerToken,
     createPullRequest,
     pullRequestCompletionMode,
     baseRef,
@@ -472,7 +468,6 @@ export default function CreateTaskForm({
       saveRepoCreateTaskDraft(repo, {
         problemStatement,
         model,
-        bearerToken,
         createPullRequest,
         pullRequestCompletionMode,
         baseRef,
@@ -484,7 +479,6 @@ export default function CreateTaskForm({
     repoInput,
     problemStatement,
     model,
-    bearerToken,
     createPullRequest,
     pullRequestCompletionMode,
     baseRef,

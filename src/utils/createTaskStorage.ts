@@ -12,7 +12,6 @@ export interface CreateTaskDraft {
   repoInput: string;
   problemStatement: string;
   model: string;
-  bearerToken?: string;
   createPullRequest: boolean;
   pullRequestCompletionMode: PullRequestCompletionMode;
   baseRef: string;
@@ -65,8 +64,6 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
   return {
     problemStatement: candidate.problemStatement,
     model: candidate.model,
-    bearerToken:
-      typeof candidate.bearerToken === "string" ? candidate.bearerToken : undefined,
     createPullRequest: candidate.createPullRequest,
     pullRequestCompletionMode,
     baseRef: candidate.baseRef,
