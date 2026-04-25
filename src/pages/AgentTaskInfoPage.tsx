@@ -110,6 +110,7 @@ export default function AgentTaskInfoPage({
 
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const ownerRepo = useMemo(() => splitOwnerRepo(resolvedRepo), [resolvedRepo]);
+  const hasLoadedTasks = tasksRaw !== null;
 
   const handleBearerTokenChange = useCallback((value: string) => {
     setLocalBearerToken(value);
@@ -169,13 +170,32 @@ export default function AgentTaskInfoPage({
           controller.signal
         );
         if (controller.signal.aborted) return;
+        const nextTasks = extractTaskSummaries(result);
+        const nextTaskIds = new Set(nextTasks.map((task) => task.id));
         setTasksRaw(result);
-        setTasks(extractTaskSummaries(result));
+        setTasks(nextTasks);
+        setSelectedTaskIds((prev) => {
+          if (prev.size === 0) {
+            return prev;
+          }
+
+          return new Set([...prev].filter((taskId) => nextTaskIds.has(taskId)));
+        });
+        if (selectedTaskId && !nextTaskIds.has(selectedTaskId)) {
+          setSelectedTaskId("");
+          setTaskDetail(null);
+          setTaskDetailTaskId("");
+          setTaskDetailError("");
+        }
         setLastFetchedAt(new Date().toISOString());
 
         updateSearchParams((params) => {
           params.set("repo", repo);
-          params.delete("taskId");
+          if (selectedTaskId && nextTaskIds.has(selectedTaskId)) {
+            params.set("taskId", selectedTaskId);
+          } else {
+            params.delete("taskId");
+          }
         });
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -190,7 +210,7 @@ export default function AgentTaskInfoPage({
         }
       }
     },
-    [bearerToken, updateSearchParams]
+    [bearerToken, selectedTaskId, updateSearchParams]
   );
 
   const handleLoadTasks = useCallback(async () => {
@@ -461,16 +481,16 @@ export default function AgentTaskInfoPage({
           onSubmit={handleLoadTasks}
           buttonLabel="Load tasks"
           loadingButtonLabel="Loading…"
-          isLoading={tasksLoading && tasks.length === 0}
+          isLoading={tasksLoading && !hasLoadedTasks}
           disabled={tasksLoading || !repoInput.trim() || !bearerToken.trim()}
           actions={
-            tasks.length > 0 ? (
+            hasLoadedTasks ? (
               <button
                 type="button"
                 onClick={() => void handleRefresh()}
-                disabled={tasksLoading}
+                disabled={tasksLoading || !repoInput.trim() || !bearerToken.trim()}
               >
-                {tasksLoading ? "Refreshing…" : "Refresh"}
+                Refresh
               </button>
             ) : null
           }
@@ -478,7 +498,7 @@ export default function AgentTaskInfoPage({
       )}
 
       <div className="agent-task-info-page__input-section">
-        {showRepositorySelector && tasks.length > 0 && (
+        {showRepositorySelector && hasLoadedTasks && (
           <label className="agent-task-info-page__auto-refresh-toggle">
             <input
               type="checkbox"
@@ -527,130 +547,162 @@ export default function AgentTaskInfoPage({
         </div>
       )}
 
-      {tasks.length > 0 && (
+      {hasLoadedTasks && (
         <div className="agent-task-info-page__tasks">
           <div className="agent-task-info-page__tasks-header">
             <div className="agent-task-info-page__tasks-header-left">
-              <label className="agent-task-info-page__select-all">
-                <input
-                  ref={selectAllRef}
-                  type="checkbox"
-                  checked={tasks.length > 0 && selectedTaskIds.size === tasks.length}
-                  onChange={toggleSelectAll}
-                  aria-label="Select all tasks"
-                />
-              </label>
+              {tasks.length > 0 && (
+                <label className="agent-task-info-page__select-all">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={tasks.length > 0 && selectedTaskIds.size === tasks.length}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all tasks"
+                  />
+                </label>
+              )}
               <span className="agent-task-info-page__tasks-title">
                 Tasks for {resolvedRepo}
               </span>
             </div>
-            <span className="agent-task-info-page__tasks-count">
-              {selectedTaskIds.size > 0
-                ? `${String(selectedTaskIds.size)} of ${String(tasks.length)} selected`
-                : `${String(tasks.length)} task${tasks.length !== 1 ? "s" : ""}`}
-            </span>
+            <div className="agent-task-info-page__tasks-header-right">
+              <span className="agent-task-info-page__tasks-count">
+                {selectedTaskIds.size > 0
+                  ? `${String(selectedTaskIds.size)} of ${String(tasks.length)} selected`
+                  : `${String(tasks.length)} task${tasks.length !== 1 ? "s" : ""}`}
+              </span>
+              {tasksLoading && (
+                <span className="agent-task-info-page__tasks-status">Refreshing…</span>
+              )}
+            </div>
           </div>
           <div className="agent-task-info-page__task-list">
-            {tasks.map((task) => (
-              <div
-                key={task.id}
-                className={`agent-task-info-page__task${
-                  selectedTaskId === task.id || selectedTaskIds.has(task.id)
-                    ? " agent-task-info-page__task--selected"
-                    : ""
-                }`}
-              >
-                <label className="agent-task-info-page__task-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selectedTaskIds.has(task.id)}
-                    onChange={() => toggleTaskSelection(task.id)}
-                    aria-label={`Select task ${task.id}`}
-                  />
-                </label>
+            {tasks.length > 0 ? (
+              tasks.map((task) => (
                 <div
-                  className="agent-task-info-page__task-main"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`View details for task ${task.id}`}
-                  onClick={() => void handleSelectTask(task.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      void handleSelectTask(task.id);
-                    }
-                  }}
+                  key={task.id}
+                  className={`agent-task-info-page__task${
+                    selectedTaskId === task.id || selectedTaskIds.has(task.id)
+                      ? " agent-task-info-page__task--selected"
+                      : ""
+                  }`}
                 >
-                  <div className="agent-task-info-page__task-top-row">
-                    <code className="agent-task-info-page__task-id">
-                      {task.id.length > MAX_TASK_ID_DISPLAY_LENGTH
-                        ? `${task.id.slice(0, MAX_TASK_ID_DISPLAY_LENGTH)}…`
-                        : task.id}
-                    </code>
-                    <span
-                      className={`agent-task-info-page__status ${statusClassName(task.status)}`}
-                    >
-                      {task.status}
-                    </span>
-                    {task.htmlUrl && (
-                      <a
-                        href={task.htmlUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="agent-task-info-page__task-link"
-                        onClick={(e) => e.stopPropagation()}
+                  <label className="agent-task-info-page__task-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedTaskIds.has(task.id)}
+                      onChange={() => toggleTaskSelection(task.id)}
+                      aria-label={`Select task ${task.id}`}
+                    />
+                  </label>
+                  <div
+                    className="agent-task-info-page__task-main"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View details for task ${task.id}`}
+                    onClick={() => void handleSelectTask(task.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        void handleSelectTask(task.id);
+                      }
+                    }}
+                  >
+                    <div className="agent-task-info-page__task-top-row">
+                      <code className="agent-task-info-page__task-id">
+                        {task.id.length > MAX_TASK_ID_DISPLAY_LENGTH
+                          ? `${task.id.slice(0, MAX_TASK_ID_DISPLAY_LENGTH)}…`
+                          : task.id}
+                      </code>
+                      <span
+                        className={`agent-task-info-page__status ${statusClassName(task.status)}`}
                       >
-                        🔗 GitHub
-                      </a>
-                    )}
-                  </div>
-                  {(task.name || task.description) && (
-                    <div className="agent-task-info-page__task-description">
-                      {(() => {
-                        const displayText = task.name || task.description;
-                        return displayText.length > MAX_DESCRIPTION_DISPLAY_LENGTH
-                          ? `${displayText.slice(0, MAX_DESCRIPTION_DISPLAY_LENGTH)}…`
-                          : displayText;
-                      })()}
-                    </div>
-                  )}
-                  <div className="agent-task-info-page__task-meta">
-                    {task.creator && (
-                      <span>
-                        Creator:{" "}
-                        {task.creator.profileUrl ? (
-                          <a
-                            href={task.creator.profileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="agent-task-info-page__meta-link"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {task.creator.login}
-                          </a>
-                        ) : (
-                          task.creator.login
-                        )}
+                        {task.status}
                       </span>
+                      {task.htmlUrl && (
+                        <a
+                          href={task.htmlUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="agent-task-info-page__task-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          🔗 GitHub
+                        </a>
+                      )}
+                    </div>
+                    {(task.name || task.description) && (
+                      <div className="agent-task-info-page__task-description">
+                        {(() => {
+                          const displayText = task.name || task.description;
+                          return displayText.length > MAX_DESCRIPTION_DISPLAY_LENGTH
+                            ? `${displayText.slice(0, MAX_DESCRIPTION_DISPLAY_LENGTH)}…`
+                            : displayText;
+                        })()}
+                      </div>
                     )}
-                    {task.model && <span>Model: {task.model}</span>}
-                    {task.headRef && <span>Branch: {task.headRef}</span>}
-                    {!task.headRef && task.branch && (
-                      <span>Base: {task.branch}</span>
-                    )}
-                    {task.sessionCount !== undefined && (
-                      <span>Sessions: {task.sessionCount}</span>
-                    )}
-                    {task.createdAt && (
-                      <span>Created: {formatDateSafe(task.createdAt)}</span>
-                    )}
-                    {task.pullRequestNumber !== undefined && (
-                      <span>PR #{task.pullRequestNumber}</span>
-                    )}
+                    <div className="agent-task-info-page__task-meta">
+                      {task.creator && (
+                        <span>
+                          Creator:{" "}
+                          {task.creator.profileUrl ? (
+                            <a
+                              href={task.creator.profileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="agent-task-info-page__meta-link"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {task.creator.login}
+                            </a>
+                          ) : (
+                            task.creator.login
+                          )}
+                        </span>
+                      )}
+                      {task.model && <span>Model: {task.model}</span>}
+                      {task.headRef && <span>Branch: {task.headRef}</span>}
+                      {!task.headRef && task.branch && (
+                        <span>Base: {task.branch}</span>
+                      )}
+                      {task.sessionCount !== undefined && (
+                        <span>Sessions: {task.sessionCount}</span>
+                      )}
+                      {task.createdAt && (
+                        <span>Created: {formatDateSafe(task.createdAt)}</span>
+                      )}
+                      {task.pullRequestNumber !== undefined && (
+                        <span>PR #{task.pullRequestNumber}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="agent-task-info-page__task agent-task-info-page__task--empty">
+                <div className="agent-task-info-page__task-main">
+                  <div className="agent-task-info-page__empty-row">
+                    <span className="agent-task-info-page__empty-message">
+                      No tasks found for <code>{resolvedRepo}</code>.
+                    </span>
+                    <div className="agent-task-info-page__empty-actions">
+                      {lastFetchedAt && (
+                        <span className="agent-task-info-page__empty-updated">
+                          Updated {formatRelativeDateTime(lastFetchedAt)}
+                        </span>
+                      )}
+                      <details className="agent-task-info-page__raw-toggle agent-task-info-page__raw-toggle--compact">
+                        <summary>Raw response</summary>
+                        <pre className="agent-task-info-page__raw-json">
+                          {JSON.stringify(tasksRaw, null, 2)}
+                        </pre>
+                      </details>
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
@@ -671,28 +723,6 @@ export default function AgentTaskInfoPage({
               {archiveInProgress ? "Archiving…" : "Archive"}
             </button>
           </div>
-        </div>
-      )}
-
-      {tasksRaw !== null && tasks.length === 0 && !tasksLoading && (
-        <div className="agent-task-info-page__empty">
-          <div className="agent-task-info-page__empty-icon">📭</div>
-          <h2>No tasks found</h2>
-          <p>
-            No agent tasks were found for <code>{resolvedRepo}</code>. The
-            response may use a different format.
-          </p>
-          {lastFetchedAt && (
-            <p className="agent-task-info-page__empty-updated">
-              Updated {formatRelativeDateTime(lastFetchedAt)}
-            </p>
-          )}
-          <details className="agent-task-info-page__raw-toggle">
-            <summary>Show raw response</summary>
-            <pre className="agent-task-info-page__raw-json">
-              {JSON.stringify(tasksRaw, null, 2)}
-            </pre>
-          </details>
         </div>
       )}
 
