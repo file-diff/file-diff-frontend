@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { JOBS_API_URL } from "../config/api";
+import CommitActionsMenu from "../components/CommitActionsMenu";
 import {
   resolveRepositoryInput,
   requestRepositoryCommits,
@@ -815,44 +816,6 @@ export default function RepositoryBrowserPage({
                           View Files
                         </span>
                       )}
-                      <Link
-                        to={buildGrepPageUrl(loadedRepo, entry.commit)}
-                        className="repo-browser__commit-grep-link"
-                        aria-label={`Search commit ${entry.commit.slice(0, 7)} with grep`}
-                        title={`Search ${entry.commit.slice(0, 7)} with grep`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Grep
-                      </Link>
-                      <button
-                        type="button"
-                        className="repo-browser__commit-revert-btn"
-                        aria-label={`Revert repository to commit ${entry.commit.slice(0, 7)}`}
-                        title={`Create a pull request to restore the repository to ${entry.commit.slice(0, 7)}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRevertNotice(null);
-                          setRevertCommitTarget({
-                            commit: entry.commit,
-                            branch: entry.branch || "main",
-                          });
-                        }}
-                      >
-                        Revert to This Commit
-                      </button>
-                      <button
-                        type="button"
-                        className="repo-browser__commit-tag-btn"
-                        aria-label={`Create new tag for commit ${entry.commit.slice(0, 7)}`}
-                        title={`Create a new tag pointing at ${entry.commit.slice(0, 7)}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCreateTagNotice("");
-                          setCreateTagCommit(entry.commit);
-                        }}
-                      >
-                        Create Tag
-                      </button>
                       <span className="repo-browser__commit-author">
                         {entry.author}
                       </span>
@@ -923,44 +886,37 @@ export default function RepositoryBrowserPage({
                     )}
                   </div>
                   <div className="repo-browser__commit-badges">
-                    <div className="repo-browser__commit-select-btns">
-                      <button
-                        type="button"
-                        className={
-                          "repo-browser__select-btn repo-browser__select-btn--left" +
-                          (isLeft ? " repo-browser__select-btn--active" : "")
+                    <CommitActionsMenu
+                      commit={entry.commit}
+                      grepUrl={buildGrepPageUrl(loadedRepo, entry.commit)}
+                      isLeft={isLeft}
+                      isRight={isRight}
+                      onSelectLeft={() => {
+                        if (isLeft) {
+                          setLeftCommit(null);
+                        } else {
+                          setLeftCommit(entry.commit);
                         }
-                        title="Select as left commit"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isLeft) {
-                            setLeftCommit(null);
-                          } else {
-                            setLeftCommit(entry.commit);
-                          }
-                        }}
-                      >
-                        L
-                      </button>
-                      <button
-                        type="button"
-                        className={
-                          "repo-browser__select-btn repo-browser__select-btn--right" +
-                          (isRight ? " repo-browser__select-btn--active" : "")
+                      }}
+                      onSelectRight={() => {
+                        if (isRight) {
+                          setRightCommit(null);
+                        } else {
+                          setRightCommit(entry.commit);
                         }
-                        title="Select as right commit"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isRight) {
-                            setRightCommit(null);
-                          } else {
-                            setRightCommit(entry.commit);
-                          }
-                        }}
-                      >
-                        R
-                      </button>
-                    </div>
+                      }}
+                      onRevert={() => {
+                        setRevertNotice(null);
+                        setRevertCommitTarget({
+                          commit: entry.commit,
+                          branch: entry.branch || "main",
+                        });
+                      }}
+                      onCreateTag={() => {
+                        setCreateTagNotice("");
+                        setCreateTagCommit(entry.commit);
+                      }}
+                    />
                     {entry.branch && (
                       <span className="repo-browser__branch-badge">
                         {entry.branch}

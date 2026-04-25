@@ -1,0 +1,95 @@
+.commit-actions-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.commit-actions-menu__toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  border: 1px solid #555;
+  background: transparent;
+  color: #c9d1d9;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.commit-actions-menu__toggle:hover,
+.commit-actions-menu__toggle[aria-expanded="true"] {
+  background: #2d2d2d;
+  border-color: #888;
+  color: #fff;
+}
+
+.commit-actions-menu__popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  background: #1c1c1c;
+  border: 1px solid #444;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.commit-actions-menu__item {
+  display: block;
+  text-align: left;
+  color: #ccc;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+
+.commit-actions-menu__item:hover {
+  color: #fff;
+  background: #2d2d2d;
+}
+
+.commit-actions-menu__item--button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+
+.commit-actions-menu__item--active-left {
+  color: #58a6ff;
+  background: rgba(88, 166, 255, 0.15);
+}
+
+.commit-actions-menu__item--active-right {
+  color: #e3b341;
+  background: rgba(227, 179, 65, 0.15);
+}
+
+.commit-actions-menu__item--danger {
+  color: #f0883e;
+}
+
+.commit-actions-menu__item--danger:hover {
+  color: #ffb37a;
+  background: rgba(240, 136, 62, 0.12);
+}
+
+.commit-actions-menu__separator {
+  height: 1px;
+  margin: 4px 2px;
+  background: #333;
+}
