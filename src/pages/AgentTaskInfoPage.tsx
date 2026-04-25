@@ -172,16 +172,14 @@ export default function AgentTaskInfoPage({
         if (controller.signal.aborted) return;
         const nextTasks = extractTaskSummaries(result);
         const nextTaskIds = new Set(nextTasks.map((task) => task.id));
+        const nextSelectedTaskId =
+          selectedTaskId && nextTaskIds.has(selectedTaskId) ? selectedTaskId : "";
         setTasksRaw(result);
         setTasks(nextTasks);
-        setSelectedTaskIds((prev) => {
-          if (prev.size === 0) {
-            return prev;
-          }
-
-          return new Set([...prev].filter((taskId) => nextTaskIds.has(taskId)));
-        });
-        if (selectedTaskId && !nextTaskIds.has(selectedTaskId)) {
+        setSelectedTaskIds(
+          (prev) => new Set([...prev].filter((taskId) => nextTaskIds.has(taskId)))
+        );
+        if (!nextSelectedTaskId) {
           setSelectedTaskId("");
           setTaskDetail(null);
           setTaskDetailTaskId("");
@@ -191,8 +189,8 @@ export default function AgentTaskInfoPage({
 
         updateSearchParams((params) => {
           params.set("repo", repo);
-          if (selectedTaskId && nextTaskIds.has(selectedTaskId)) {
-            params.set("taskId", selectedTaskId);
+          if (nextSelectedTaskId) {
+            params.set("taskId", nextSelectedTaskId);
           } else {
             params.delete("taskId");
           }
