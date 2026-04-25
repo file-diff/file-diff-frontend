@@ -66,7 +66,7 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
     problemStatement: candidate.problemStatement,
     model: candidate.model,
     bearerToken:
-      typeof candidate.bearerToken === "string" ? candidate.bearerToken : "",
+      typeof candidate.bearerToken === "string" ? candidate.bearerToken : undefined,
     createPullRequest: candidate.createPullRequest,
     pullRequestCompletionMode,
     baseRef: candidate.baseRef,
