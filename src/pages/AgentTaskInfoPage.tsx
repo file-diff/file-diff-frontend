@@ -108,7 +108,7 @@ function decodeEscapedText(value: string): string {
   );
 }
 
-function shouldShowCombinedOutput(
+function hasCombinedOutputDifferentFromStreams(
   output: string,
   stdout: string,
   stderr: string
@@ -145,7 +145,13 @@ function getTaskLogSections(taskDetail: unknown): TaskLogSection[] {
   if (decodedStderr) {
     sections.push({ label: "Stderr", value: decodedStderr });
   }
-  if (shouldShowCombinedOutput(decodedOutput, decodedStdout, decodedStderr)) {
+  if (
+    hasCombinedOutputDifferentFromStreams(
+      decodedOutput,
+      decodedStdout,
+      decodedStderr
+    )
+  ) {
     sections.push({
       label: hasSplitLogs ? "Combined output" : "Output",
       value: decodedOutput,
