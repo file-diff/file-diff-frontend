@@ -34,6 +34,19 @@ interface ActionFeedback {
   message: string;
 }
 
+interface TaskLogSection {
+  label: string;
+  value: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
 function formatDateSafe(dateStr: string): string {
   if (!dateStr) return "";
   try {
@@ -59,6 +72,105 @@ function getTaskDescription(task: TaskSummary): string {
   if (task.error) return task.error;
   if (task.output) return task.output;
   return "";
+}
+
+function decodeEscapedText(value: string): string {
+  return value.replace(
+    /\\u([0-9a-fA-F]{4})|\\x([0-9a-fA-F]{2})|\\([\\'"bfnrtv])/g,
+    (
+      match,
+      unicodeHex: string | undefined,
+      hexValue: string | undefined,
+      escapedChar: string | undefined
+    ) => {
+      if (unicodeHex) {
+        return String.fromCharCode(Number.parseInt(unicodeHex, 16));
+      }
+      if (hexValue) {
+        return String.fromCharCode(Number.parseInt(hexValue, 16));
+      }
+
+      switch (escapedChar) {
+        case "\\":
+          return "\\";
+        case "'":
+          return "'";
+        case '"':
+          return '"';
+        case "b":
+          return "\b";
+        case "f":
+          return "\f";
+        case "n":
+          return "\n";
+        case "r":
+          return "\r";
+        case "t":
+          return "\t";
+        case "v":
+          return "\v";
+        default:
+          return match;
+      }
+    }
+  );
+}
+
+function normalizeOutputForComparison(value: string): string {
+  return value.replace(/\r\n/g, "\n").replace(/\n{2,}/g, "\n").trimEnd();
+}
+
+function hasCombinedOutputDifferentFromStreams(
+  output: string,
+  stdout: string,
+  stderr: string
+): boolean {
+  if (!output) return false;
+  if (!stdout && !stderr) return true;
+
+  const normalizedOutput = normalizeOutputForComparison(output);
+  const normalizedStdout = normalizeOutputForComparison(stdout);
+  const normalizedStderr = normalizeOutputForComparison(stderr);
+  const combinedVariants = new Set([
+    normalizeOutputForComparison(`${normalizedStdout}${normalizedStderr}`),
+    normalizeOutputForComparison(`${normalizedStdout}\n${normalizedStderr}`),
+  ]);
+
+  return !combinedVariants.has(normalizedOutput);
+}
+
+function getTaskLogSections(taskDetail: unknown): TaskLogSection[] {
+  if (!isRecord(taskDetail)) return [];
+
+  const sections: TaskLogSection[] = [];
+  const output = asString(taskDetail.output)?.trim() ?? "";
+  const stdout = asString(taskDetail.stdout)?.trim() ?? "";
+  const stderr = asString(taskDetail.stderr)?.trim() ?? "";
+  const decodedOutput = output ? decodeEscapedText(output) : "";
+  const decodedStdout = stdout ? decodeEscapedText(stdout) : "";
+  const decodedStderr = stderr ? decodeEscapedText(stderr) : "";
+  const hasSplitLogs = Boolean(decodedStdout || decodedStderr);
+
+  if (decodedStdout) {
+    sections.push({ label: "Stdout", value: decodedStdout });
+  }
+  if (decodedStderr) {
+    sections.push({ label: "Stderr", value: decodedStderr });
+  }
+  if (
+    hasCombinedOutputDifferentFromStreams(
+      decodedOutput,
+      decodedStdout,
+      decodedStderr
+    )
+  ) {
+    sections.push({
+      label: hasSplitLogs ? "Combined output" : "Output",
+      value: decodedOutput,
+    });
+  }
+
+  return sections;
 }
 
 function resolveInitialRepo(queryRepo: string): string {
@@ -120,6 +232,7 @@ export default function AgentTaskInfoPage({
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const ownerRepo = useMemo(() => splitOwnerRepo(resolvedRepo), [resolvedRepo]);
   const hasLoadedTaskData = tasksRaw !== null;
+  const taskLogSections = useMemo(() => getTaskLogSections(taskDetail), [taskDetail]);
 
   const handleBearerTokenChange = useCallback((value: string) => {
     setLocalBearerToken(value);
@@ -670,9 +783,36 @@ export default function AgentTaskInfoPage({
           )}
 
           {taskDetail !== null && taskDetailTaskId === selectedTaskId && (
-            <pre className="agent-task-info-page__detail-json">
-              {JSON.stringify(taskDetail, null, 2)}
-            </pre>
+            <div className="agent-task-info-page__detail-body">
+              {taskLogSections.length > 0 && (
+                <div className="agent-task-info-page__detail-logs">
+                  {taskLogSections.map((section) => (
+                    <div
+                      key={section.label}
+                      className="agent-task-info-page__detail-log-section"
+                    >
+                      <label>{section.label}</label>
+                      <textarea
+                        className="agent-task-info-page__detail-textarea"
+                        value={section.value}
+                        readOnly
+                        rows={10}
+                        spellCheck={false}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <details
+                className="agent-task-info-page__raw-toggle"
+                aria-label="Raw task response"
+              >
+                <summary>Raw task response</summary>
+                <pre className="agent-task-info-page__detail-json">
+                  {JSON.stringify(taskDetail, null, 2)}
+                </pre>
+              </details>
+            </div>
           )}
         </div>
       )}

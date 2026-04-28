@@ -511,8 +511,45 @@
   font-size: 0.85rem;
 }
 
-.agent-task-info-page__detail-json {
+.agent-task-info-page__detail-body {
   padding: 16px;
+}
+
+.agent-task-info-page__detail-logs {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.agent-task-info-page__detail-log-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-task-info-page__detail-log-section label {
+  color: #bbb;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.agent-task-info-page__detail-textarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 12px;
+  resize: vertical;
+  box-sizing: border-box;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #161616;
+  color: #d4d4d4;
+  font-family: var(--code-font-family);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.agent-task-info-page__detail-json {
   font-size: 0.78rem;
   color: #d4d4d4;
   overflow-x: auto;
