@@ -119,9 +119,7 @@ function getAgentTaskStatusPresentation(task: TaskSummary): {
   label: string;
   tone: "completed" | "failed" | "active" | "waiting" | "cancelled" | "neutral";
 } {
-  const normalizedStatus = prettifyStatusLabel(task.status);
-  const normalizedState = prettifyStatusLabel(task.state);
-  const value = normalizedStatus || normalizedState;
+  const value = prettifyStatusLabel(task.status);
 
   if (
     value === "completed" ||
@@ -234,14 +232,11 @@ function parseTaskTimestamp(task: TaskSummary): number | undefined {
 }
 
 function buildAssignedTaskUrl(repo: string, task: TaskSummary): string {
-  if (task.htmlUrl) return task.htmlUrl;
+  if (task.pullRequestUrl) return task.pullRequestUrl;
   return `/agent-tasks?repo=${encodeURIComponent(repo)}&taskId=${encodeURIComponent(task.id)}`;
 }
 
 function resolveTaskBranchName(task: TaskSummary): string | undefined {
-  const headRef = task.headRef.trim();
-  if (headRef) return headRef;
-
   const branch = task.branch.trim();
   return branch || undefined;
 }

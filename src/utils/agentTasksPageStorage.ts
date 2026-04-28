@@ -1,6 +1,6 @@
 import type { TaskSummary } from "./agentTasks";
 
-const TASKS_STORAGE_PREFIX = "agent-tasks-page-tasks-";
+const TASKS_STORAGE_PREFIX = "agent-tasks-page-tasks-v2-";
 const LAST_REPO_STORAGE_KEY = "agent-tasks-page-last-repo";
 const AUTO_REFRESH_ENABLED_STORAGE_KEY = "agent-tasks-page-auto-refresh-enabled";
 
