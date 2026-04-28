@@ -632,7 +632,7 @@ export default function CreateTaskForm({
                 target="_blank"
                 rel="noreferrer"
               >
-                Open backend task status
+                View task status
               </a>
               <span className="create-task-form__result-link-hint">
                 Job ID: <code>{createdTaskInfo.jobId}</code>
