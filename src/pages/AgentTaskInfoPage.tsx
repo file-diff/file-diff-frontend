@@ -22,6 +22,7 @@ import {
   saveLastRepo,
 } from "../utils/agentTasksPageStorage";
 import { formatRelativeDateTime } from "../utils/organizationBrowserPresentation";
+import { ansiToReactNodes } from "../utils/ansiToHtml";
 import RepositorySelector from "../components/RepositorySelector";
 import "./AgentTaskInfoPage.css";
 
@@ -792,13 +793,9 @@ export default function AgentTaskInfoPage({
                       className="agent-task-info-page__detail-log-section"
                     >
                       <label>{section.label}</label>
-                      <textarea
-                        className="agent-task-info-page__detail-textarea"
-                        value={section.value}
-                        readOnly
-                        rows={10}
-                        spellCheck={false}
-                      />
+                      <pre className="agent-task-info-page__detail-textarea agent-task-info-page__detail-output">
+                        {ansiToReactNodes(section.value)}
+                      </pre>
                     </div>
                   ))}
                 </div>

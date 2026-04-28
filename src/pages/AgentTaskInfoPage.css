@@ -549,6 +549,15 @@
   line-height: 1.5;
 }
 
+.agent-task-info-page__detail-output {
+  overflow-x: auto;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  resize: vertical;
+}
+
 .agent-task-info-page__detail-json {
   font-size: 0.78rem;
   color: #d4d4d4;
