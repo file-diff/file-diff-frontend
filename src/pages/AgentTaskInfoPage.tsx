@@ -112,18 +112,28 @@ function getTaskLogSections(taskDetail: unknown): TaskLogSection[] {
   if (!isRecord(taskDetail)) return [];
 
   const sections: TaskLogSection[] = [];
-  const output = asString(taskDetail.output)?.trim();
-  const stdout = asString(taskDetail.stdout)?.trim();
-  const stderr = asString(taskDetail.stderr)?.trim();
+  const output = asString(taskDetail.output)?.trim() ?? "";
+  const stdout = asString(taskDetail.stdout)?.trim() ?? "";
+  const stderr = asString(taskDetail.stderr)?.trim() ?? "";
+  const decodedOutput = output ? decodeEscapedText(output) : "";
+  const decodedStdout = stdout ? decodeEscapedText(stdout) : "";
+  const decodedStderr = stderr ? decodeEscapedText(stderr) : "";
+  const hasSplitLogs = Boolean(decodedStdout || decodedStderr);
 
-  if (output) {
-    sections.push({ label: "Output", value: decodeEscapedText(output) });
+  if (decodedStdout) {
+    sections.push({ label: "Stdout", value: decodedStdout });
   }
-  if (stdout) {
-    sections.push({ label: "Stdout", value: decodeEscapedText(stdout) });
+  if (decodedStderr) {
+    sections.push({ label: "Stderr", value: decodedStderr });
   }
-  if (stderr) {
-    sections.push({ label: "Stderr", value: decodeEscapedText(stderr) });
+  if (
+    decodedOutput &&
+    (!hasSplitLogs || decodedOutput !== `${decodedStdout}${decodedStderr}`)
+  ) {
+    sections.push({
+      label: hasSplitLogs ? "Combined output" : "Output",
+      value: decodedOutput,
+    });
   }
 
   return sections;
