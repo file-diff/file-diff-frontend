@@ -76,10 +76,18 @@ function getTaskDescription(task: TaskSummary): string {
 
 function decodeEscapedText(value: string): string {
   return value.replace(
-    /\\u([0-9a-fA-F]{4})|\\([\\'"bfnrtv])/g,
-    (_match, unicodeHex: string | undefined, escapedChar: string | undefined) => {
+    /\\u([0-9a-fA-F]{4})|\\x([0-9a-fA-F]{2})|\\([\\'"bfnrtv])/g,
+    (
+      match,
+      unicodeHex: string | undefined,
+      hexValue: string | undefined,
+      escapedChar: string | undefined
+    ) => {
       if (unicodeHex) {
         return String.fromCharCode(Number.parseInt(unicodeHex, 16));
+      }
+      if (hexValue) {
+        return String.fromCharCode(Number.parseInt(hexValue, 16));
       }
 
       switch (escapedChar) {
@@ -102,10 +110,14 @@ function decodeEscapedText(value: string): string {
         case "v":
           return "\v";
         default:
-          return _match;
+          return match;
       }
     }
   );
+}
+
+function normalizeOutputForComparison(value: string): string {
+  return value.replace(/\r\n/g, "\n").replace(/\n{2,}/g, "\n").trimEnd();
 }
 
 function hasCombinedOutputDifferentFromStreams(
@@ -116,15 +128,15 @@ function hasCombinedOutputDifferentFromStreams(
   if (!output) return false;
   if (!stdout && !stderr) return true;
 
+  const normalizedOutput = normalizeOutputForComparison(output);
+  const normalizedStdout = normalizeOutputForComparison(stdout);
+  const normalizedStderr = normalizeOutputForComparison(stderr);
   const combinedVariants = new Set([
-    `${stdout}${stderr}`,
-    `${stdout}\n${stderr}`,
-    `${stdout}\r\n${stderr}`,
-    `${stdout}\n\n${stderr}`,
-    `${stdout}\r\n\r\n${stderr}`,
+    normalizeOutputForComparison(`${normalizedStdout}${normalizedStderr}`),
+    normalizeOutputForComparison(`${normalizedStdout}\n${normalizedStderr}`),
   ]);
 
-  return !combinedVariants.has(output);
+  return !combinedVariants.has(normalizedOutput);
 }
 
 function getTaskLogSections(taskDetail: unknown): TaskLogSection[] {
