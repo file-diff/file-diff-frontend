@@ -224,9 +224,15 @@ export default function CreateTaskForm({
       return;
     }
 
-    const trimmedProblemStatement = problemStatement.trim();
-    if (!trimmedProblemStatement) {
+    const validatedProblemStatement = problemStatement.trim();
+    if (!validatedProblemStatement) {
       setSubmitError(PROBLEM_STATEMENT_REQUIRED_ERROR);
+      return;
+    }
+
+    const validatedBaseRef = baseRef.trim();
+    if (!validatedBaseRef) {
+      setSubmitError("Please enter a target branch.");
       return;
     }
 
@@ -267,11 +273,11 @@ export default function CreateTaskForm({
 
     const request: CreateTaskRequest = {
       repo,
-      problem_statement: trimmedProblemStatement,
+      problem_statement: validatedProblemStatement,
       model,
       create_pull_request: createPullRequest,
       pull_request_completion_mode: effectivePullRequestCompletionMode,
-      base_ref: baseRef || "main",
+      base_ref: validatedBaseRef,
     };
 
     if (typeof taskDelayMs === "number") {
@@ -366,6 +372,7 @@ export default function CreateTaskForm({
     !isSubmitting &&
     repoInput.trim() !== "" &&
     problemStatement.trim() !== "" &&
+    baseRef.trim() !== "" &&
     bearerToken.trim() !== "";
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const isAutoMerge =
