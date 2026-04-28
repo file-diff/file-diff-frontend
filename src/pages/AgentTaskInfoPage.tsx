@@ -4,7 +4,6 @@ import {
   resolveRepositoryInput,
   requestAgentTasks,
   requestAgentTask,
-  requestArchiveAgentTask,
 } from "../utils/repositorySelection";
 import {
   extractTaskSummaries,
@@ -28,8 +27,7 @@ import "./AgentTaskInfoPage.css";
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const MAX_TASK_ID_DISPLAY_LENGTH = 12;
-const MAX_DESCRIPTION_DISPLAY_LENGTH = 120;
-const MAX_CONFIRM_LIST_LENGTH = 10;
+const MAX_DESCRIPTION_DISPLAY_LENGTH = 200;
 
 interface ActionFeedback {
   tone: "success" | "error";
@@ -57,18 +55,10 @@ function statusClassName(status: string): string {
   return "";
 }
 
-function formatConfirmList(items: string[]): string {
-  if (items.length <= MAX_CONFIRM_LIST_LENGTH) {
-    return items.join("\n");
-  }
-
-  const visibleItems = items.slice(0, MAX_CONFIRM_LIST_LENGTH);
-  const remainingCount = items.length - MAX_CONFIRM_LIST_LENGTH;
-  return `${visibleItems.join("\n")}\n... and ${String(remainingCount)} more`;
-}
-
-function getTaskDisplayLabel(task: TaskSummary): string {
-  return task.name || task.description || task.id;
+function getTaskDescription(task: TaskSummary): string {
+  if (task.error) return task.error;
+  if (task.output) return task.output;
+  return "";
 }
 
 function resolveInitialRepo(queryRepo: string): string {
@@ -111,7 +101,6 @@ export default function AgentTaskInfoPage({
     initialRepo ? loadCachedTasksFetchedAt(initialRepo) : ""
   );
   const [actionFeedback, setActionFeedback] = useState<ActionFeedback | null>(null);
-  const [archiveInProgress, setArchiveInProgress] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(
     loadAutoRefreshEnabled
   );
@@ -347,106 +336,6 @@ export default function AgentTaskInfoPage({
     });
   }, [tasks]);
 
-  const selectedTasks = tasks.filter((task) => selectedTaskIds.has(task.id));
-
-  const handleArchiveTasks = useCallback(async () => {
-    if (!ownerRepo || selectedTasks.length === 0) {
-      return;
-    }
-    if (!bearerToken.trim()) {
-      setActionFeedback({
-        tone: "error",
-        message: "Please enter a bearer token.",
-      });
-      return;
-    }
-
-    const archivableTasks = selectedTasks.filter((task) => !task.archivedAt);
-    if (archivableTasks.length === 0) {
-      setActionFeedback({
-        tone: "error",
-        message: "All selected tasks are already archived.",
-      });
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Archive ${String(archivableTasks.length)} task${archivableTasks.length !== 1 ? "s" : ""}?\n\n${formatConfirmList(
-        archivableTasks.map(getTaskDisplayLabel)
-      )}`
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    setArchiveInProgress(true);
-    setActionFeedback(null);
-
-    const archivedTaskIds = new Set<string>();
-    const failedTaskLabels: string[] = [];
-
-    for (const task of archivableTasks) {
-      try {
-        await requestArchiveAgentTask(
-          ownerRepo.owner,
-          ownerRepo.name,
-          task.id,
-          bearerToken.trim()
-        );
-        archivedTaskIds.add(task.id);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error && error.message
-            ? ` (${error.message})`
-            : "";
-        failedTaskLabels.push(`${getTaskDisplayLabel(task)}${errorMessage}`);
-      }
-    }
-
-    if (archivedTaskIds.size > 0) {
-      const nextTasks = tasks.filter((task) => !archivedTaskIds.has(task.id));
-      setTasks(nextTasks);
-      setTasksRaw({ tasks: nextTasks });
-      const fetchedAt = saveCachedTasks(resolvedRepo, nextTasks);
-      setLastFetchedAt(fetchedAt);
-      setSelectedTaskIds((prev) => {
-        const next = new Set(prev);
-        for (const taskId of archivedTaskIds) {
-          next.delete(taskId);
-        }
-        return next;
-      });
-
-      if (selectedTaskId && archivedTaskIds.has(selectedTaskId)) {
-        setSelectedTaskId("");
-        setTaskDetail(null);
-        setTaskDetailTaskId("");
-        setTaskDetailError("");
-        updateSearchParams((params) => {
-          params.set("repo", resolvedRepo);
-          params.delete("taskId");
-        });
-      }
-    }
-
-    setActionFeedback({
-      tone: failedTaskLabels.length === 0 ? "success" : "error",
-      message:
-        failedTaskLabels.length === 0
-          ? `Archived ${String(archivedTaskIds.size)} task${archivedTaskIds.size !== 1 ? "s" : ""}.`
-          : `Archived ${String(archivedTaskIds.size)} task${archivedTaskIds.size !== 1 ? "s" : ""}. Failed to archive ${String(failedTaskLabels.length)}: ${failedTaskLabels.join("; ")}`,
-    });
-    setArchiveInProgress(false);
-  }, [
-    bearerToken,
-    ownerRepo,
-    resolvedRepo,
-    selectedTaskId,
-    tasks,
-    selectedTasks,
-    updateSearchParams,
-  ]);
-
   useEffect(() => {
     currentSearchRef.current = searchParams.toString();
   }, [searchParams]);
@@ -492,7 +381,7 @@ export default function AgentTaskInfoPage({
     }
 
     const intervalId = window.setInterval(() => {
-      if (tasksLoading || archiveInProgress) {
+      if (tasksLoading) {
         return;
       }
 
@@ -503,7 +392,6 @@ export default function AgentTaskInfoPage({
       window.clearInterval(intervalId);
     };
   }, [
-    archiveInProgress,
     autoRefreshEnabled,
     bearerToken,
     loadTasksForRepo,
@@ -527,7 +415,7 @@ export default function AgentTaskInfoPage({
       <div className="page-header">
         <h1>📋 Agent Tasks</h1>
         <p className="page-subtitle">
-          View GitHub Copilot agent tasks for a repository.
+          View locally-managed agent tasks for a repository.
         </p>
       </div>
 
@@ -683,60 +571,46 @@ export default function AgentTaskInfoPage({
                       >
                         {task.status}
                       </span>
-                      {task.htmlUrl && (
+                      {task.pullRequestUrl && (
                         <a
-                          href={task.htmlUrl}
+                          href={task.pullRequestUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="agent-task-info-page__task-link"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          🔗 GitHub
+                          🔗 PR
+                          {task.pullRequestNumber !== undefined
+                            ? ` #${String(task.pullRequestNumber)}`
+                            : ""}
                         </a>
                       )}
                     </div>
-                    {(task.name || task.description) && (
-                      <div className="agent-task-info-page__task-description">
-                        {(() => {
-                          const displayText = task.name || task.description;
-                          return displayText.length > MAX_DESCRIPTION_DISPLAY_LENGTH
-                            ? `${displayText.slice(0, MAX_DESCRIPTION_DISPLAY_LENGTH)}…`
-                            : displayText;
-                        })()}
-                      </div>
-                    )}
+                    {(() => {
+                      const description = getTaskDescription(task);
+                      if (!description) return null;
+                      return (
+                        <div className="agent-task-info-page__task-description">
+                          {description.length > MAX_DESCRIPTION_DISPLAY_LENGTH
+                            ? `${description.slice(0, MAX_DESCRIPTION_DISPLAY_LENGTH)}…`
+                            : description}
+                        </div>
+                      );
+                    })()}
                     <div className="agent-task-info-page__task-meta">
-                      {task.creator && (
-                        <span>
-                          Creator:{" "}
-                          {task.creator.profileUrl ? (
-                            <a
-                              href={task.creator.profileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="agent-task-info-page__meta-link"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {task.creator.login}
-                            </a>
-                          ) : (
-                            task.creator.login
-                          )}
-                        </span>
-                      )}
                       {task.model && <span>Model: {task.model}</span>}
-                      {task.headRef && <span>Branch: {task.headRef}</span>}
-                      {!task.headRef && task.branch && (
-                        <span>Base: {task.branch}</span>
+                      {task.branch && <span>Branch: {task.branch}</span>}
+                      {task.baseRef && <span>Base: {task.baseRef}</span>}
+                      {task.taskStatus && (
+                        <span>Remote status: {task.taskStatus}</span>
                       )}
-                      {task.sessionCount !== undefined && (
-                        <span>Sessions: {task.sessionCount}</span>
+                      {task.scheduledAt && (
+                        <span>
+                          Scheduled: {formatDateSafe(task.scheduledAt)}
+                        </span>
                       )}
                       {task.createdAt && (
                         <span>Created: {formatDateSafe(task.createdAt)}</span>
-                      )}
-                      {task.pullRequestNumber !== undefined && (
-                        <span>PR #{task.pullRequestNumber}</span>
                       )}
                     </div>
                   </div>
@@ -775,17 +649,6 @@ export default function AgentTaskInfoPage({
           <span className="agent-task-info-page__action-bar-count">
             {String(selectedTaskIds.size)} selected
           </span>
-          <div className="agent-task-info-page__action-bar-actions">
-            <button
-              type="button"
-              className="agent-task-info-page__action-btn agent-task-info-page__action-btn--archive"
-              onClick={() => void handleArchiveTasks()}
-              disabled={archiveInProgress}
-              title="Archive selected tasks"
-            >
-              {archiveInProgress ? "Archiving…" : "Archive"}
-            </button>
-          </div>
         </div>
       )}
 
