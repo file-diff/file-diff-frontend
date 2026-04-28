@@ -453,7 +453,7 @@ export default function CreateTaskForm({
           placeholder="Additional prompting for the agent…"
           rows={12}
           spellCheck={false}
-          aria-required
+          aria-required={true}
         />
       </div>
 
