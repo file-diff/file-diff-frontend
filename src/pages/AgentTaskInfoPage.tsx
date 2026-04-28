@@ -108,6 +108,25 @@ function decodeEscapedText(value: string): string {
   );
 }
 
+function shouldShowCombinedOutput(
+  output: string,
+  stdout: string,
+  stderr: string
+): boolean {
+  if (!output) return false;
+  if (!stdout && !stderr) return true;
+
+  const combinedVariants = new Set([
+    `${stdout}${stderr}`,
+    `${stdout}\n${stderr}`,
+    `${stdout}\r\n${stderr}`,
+    `${stdout}\n\n${stderr}`,
+    `${stdout}\r\n\r\n${stderr}`,
+  ]);
+
+  return !combinedVariants.has(output);
+}
+
 function getTaskLogSections(taskDetail: unknown): TaskLogSection[] {
   if (!isRecord(taskDetail)) return [];
 
@@ -126,10 +145,7 @@ function getTaskLogSections(taskDetail: unknown): TaskLogSection[] {
   if (decodedStderr) {
     sections.push({ label: "Stderr", value: decodedStderr });
   }
-  if (
-    decodedOutput &&
-    (!hasSplitLogs || decodedOutput !== `${decodedStdout}${decodedStderr}`)
-  ) {
+  if (shouldShowCombinedOutput(decodedOutput, decodedStdout, decodedStderr)) {
     sections.push({
       label: hasSplitLogs ? "Combined output" : "Output",
       value: decodedOutput,
@@ -769,7 +785,10 @@ export default function AgentTaskInfoPage({
                   ))}
                 </div>
               )}
-              <details className="agent-task-info-page__raw-toggle">
+              <details
+                className="agent-task-info-page__raw-toggle"
+                aria-label="Raw task response"
+              >
                 <summary>Raw task response</summary>
                 <pre className="agent-task-info-page__detail-json">
                   {JSON.stringify(taskDetail, null, 2)}
