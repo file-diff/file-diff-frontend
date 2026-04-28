@@ -39,6 +39,7 @@ const DEFAULT_CREATE_PULL_REQUEST = true;
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 const DEFAULT_BRANCH_NAME = "main";
 const DEFAULT_MODEL = MODEL_OPTIONS[0].value;
+const BASE_REF_REQUIRED_ERROR = "Please enter a target branch.";
 const MIN_TASK_DELAY_MINUTES = 1;
 const PROBLEM_STATEMENT_REQUIRED_ERROR = "Please enter a problem statement.";
 const TASK_DELAY_REQUIRED_ERROR = "Please enter how many minutes to delay the task.";
@@ -232,7 +233,7 @@ export default function CreateTaskForm({
 
     const validatedBaseRef = baseRef.trim();
     if (!validatedBaseRef) {
-      setSubmitError("Please enter a target branch.");
+      setSubmitError(BASE_REF_REQUIRED_ERROR);
       return;
     }
 
