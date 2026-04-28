@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buildCreateTaskJobUrl } from "../config/api";
 import {
   PULL_REQUEST_COMPLETION_MODE_VALUES,
   resolveRepositoryInput,
@@ -16,6 +17,7 @@ import { saveRepoProblemStatement } from "../utils/repoProblemStatementStorage";
 import type {
   RepositoryBranch,
   CreateTaskRequest,
+  CreateTaskResponse,
   PullRequestCompletionMode,
 } from "../utils/repositorySelection";
 import RepositorySelector from "./RepositorySelector";
@@ -23,24 +25,9 @@ import CreateTaskConfirmPopup from "./CreateTaskConfirmPopup";
 import "./CreateTaskForm.css";
 
 const MODEL_OPTIONS = [
-  { value: "gpt-5.4", label: "GPT-5.4" },
-  { value: "gpt-5.5", label: "GPT-5.5" },
-  { value: "claude-sonnet-4.6", label: "Claude Sonnet 4.6" },
-  { value: "claude-opus-4.7", label: "Claude Opus 4.7" },
+  { value: "deepseek-v4-flash", label: "DeepSeek Flash" },
+  { value: "deepseek-v4-pro", label: "DeepSeek Pro" },
 ];
-const GITHUB_ACTIONS_RUN_URL_PATTERN =
-  /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/actions\/runs\/[0-9]+/;
-const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
-const TASK_ID_KEYS = new Set([
-  "taskid",
-  "runid",
-  "workflowrunid",
-  "jobid",
-  "idtask",
-  "idrun",
-  "idworkflow",
-  "idjob",
-]);
 
 export interface CreateTaskFormProps {
   initialRepo?: string;
@@ -51,7 +38,10 @@ export interface CreateTaskFormProps {
 const DEFAULT_CREATE_PULL_REQUEST = true;
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 const DEFAULT_BRANCH_NAME = "main";
+const DEFAULT_MODEL = MODEL_OPTIONS[0].value;
+const BASE_REF_REQUIRED_ERROR = "Please enter a target branch.";
 const MIN_TASK_DELAY_MINUTES = 1;
+const PROBLEM_STATEMENT_REQUIRED_ERROR = "Please enter a problem statement.";
 const TASK_DELAY_REQUIRED_ERROR = "Please enter how many minutes to delay the task.";
 const TASK_DELAY_NUMBER_ERROR = "Task delay must be a valid number of minutes.";
 const TASK_DELAY_INTEGER_ERROR = "Task delay must be a whole number of minutes.";
@@ -65,153 +55,29 @@ const PULL_REQUEST_COMPLETION_MODE_LABELS: Record<
   AutoMerge: "Auto merge",
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+function isModelOption(value: string): boolean {
+  return MODEL_OPTIONS.some((option) => option.value === value);
 }
 
-function normalizeWhitespace(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function normalizeDescriptionBlock(value: string): string {
-  return value.trim().replace(/\r\n?/g, "\n");
-}
-
-function buildTaskDescription({
-  repo,
-  baseRef,
-  problemStatement,
-}: {
-  repo: string;
-  baseRef: string;
-  problemStatement: string;
-}): string {
-  const normalizedRepo = normalizeWhitespace(repo);
-  const normalizedBaseRef = normalizeWhitespace(baseRef);
-  const normalizedProblemStatement = normalizeDescriptionBlock(problemStatement);
-  const sections = [
-    `Repository: ${normalizedRepo}`,
-    `Base branch: ${normalizedBaseRef}`,
-  ];
-
-  if (normalizedProblemStatement) {
-    sections.push(`Problem statement:\n${normalizedProblemStatement}`);
+function normalizeModelSelection(value: string | undefined): string {
+  if (!value) {
+    return DEFAULT_MODEL;
   }
 
-  return sections.join("\n\n");
+  return isModelOption(value) ? value : DEFAULT_MODEL;
 }
 
-function isTaskIdKey(key: string): boolean {
-  const normalizedKey = key
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .toLowerCase();
-  const compactKey = normalizedKey.replace(/[^a-z0-9]+/g, "");
-  return TASK_ID_KEYS.has(compactKey);
-}
-
-function getIdentifier(value: unknown): string | null {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed || null;
-  }
-
-  if (typeof value === "number") {
-    return String(value);
-  }
-
-  return null;
-}
-
-function findGitHubActionsRunUrl(value: unknown): string | null {
-  if (typeof value === "string") {
-    const match = value.match(GITHUB_ACTIONS_RUN_URL_PATTERN);
-    return match ? match[0] : null;
-  }
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const nestedMatch = findGitHubActionsRunUrl(item);
-      if (nestedMatch) return nestedMatch;
-    }
+function getCreatedTaskInfo(
+  result: CreateTaskResponse | null
+): { jobId: string; statusUrl: string } | null {
+  const jobId = result?.id?.trim();
+  if (!jobId) {
     return null;
-  }
-
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  for (const nestedValue of Object.values(value)) {
-    const nestedMatch = findGitHubActionsRunUrl(nestedValue);
-    if (nestedMatch) return nestedMatch;
-  }
-
-  return null;
-}
-
-function findTaskId(value: unknown): string | null {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const nestedTaskId = findTaskId(item);
-      if (nestedTaskId) return nestedTaskId;
-    }
-    return null;
-  }
-
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const priorityKeys = [
-    "task_id",
-    "taskId",
-    "run_id",
-    "runId",
-    "workflow_run_id",
-    "workflowRunId",
-    "job_id",
-    "jobId",
-  ];
-
-  for (const key of priorityKeys) {
-    const candidateId = getIdentifier(value[key]);
-    if (candidateId) {
-      return candidateId;
-    }
-  }
-
-  for (const [key, nestedValue] of Object.entries(value)) {
-    const nestedId = getIdentifier(nestedValue);
-    if (isTaskIdKey(key) && nestedId) {
-      return nestedId;
-    }
-    const nestedTaskId = findTaskId(nestedValue);
-    if (nestedTaskId) return nestedTaskId;
-  }
-
-  return null;
-}
-
-function getGitHubTaskInfo(
-  repo: string,
-  result: unknown
-): { url: string | null; taskId: string | null } {
-  const directUrl = findGitHubActionsRunUrl(result);
-  if (directUrl) {
-    const taskIdMatch = directUrl.match(/\/actions\/runs\/([0-9]+)/);
-    return {
-      url: directUrl,
-      taskId: taskIdMatch ? taskIdMatch[1] : findTaskId(result),
-    };
-  }
-
-  const taskId = findTaskId(result);
-  if (!taskId || !REPO_PATTERN.test(repo)) {
-    return { url: null, taskId };
   }
 
   return {
-    url: `https://github.com/${repo}/actions/runs/${encodeURIComponent(taskId)}`,
-    taskId,
+    jobId,
+    statusUrl: buildCreateTaskJobUrl(jobId),
   };
 }
 
@@ -241,7 +107,7 @@ export default function CreateTaskForm({
     effectiveInitialProblemStatement
   );
   const [model, setModel] = useState(
-    initialRepoDraft?.model ?? savedDraft?.model ?? MODEL_OPTIONS[0].value
+    normalizeModelSelection(initialRepoDraft?.model ?? savedDraft?.model)
   );
   const [bearerToken, setBearerToken] = useState(loadBearerToken);
   const [createPullRequest, setCreatePullRequest] = useState(
@@ -272,7 +138,7 @@ export default function CreateTaskForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [submitResult, setSubmitResult] = useState<unknown>(null);
+  const [submitResult, setSubmitResult] = useState<CreateTaskResponse | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -359,7 +225,18 @@ export default function CreateTaskForm({
       return;
     }
 
-    const trimmedProblemStatement = problemStatement.trim();
+    const validatedProblemStatement = problemStatement.trim();
+    if (!validatedProblemStatement) {
+      setSubmitError(PROBLEM_STATEMENT_REQUIRED_ERROR);
+      return;
+    }
+
+    const validatedBaseRef = baseRef.trim();
+    if (!validatedBaseRef) {
+      setSubmitError(BASE_REF_REQUIRED_ERROR);
+      return;
+    }
+
     const effectivePullRequestCompletionMode = createPullRequest
       ? pullRequestCompletionMode
       : DEFAULT_PULL_REQUEST_COMPLETION_MODE;
@@ -397,23 +274,15 @@ export default function CreateTaskForm({
 
     const request: CreateTaskRequest = {
       repo,
-      event_content: buildTaskDescription({
-        repo,
-        baseRef: baseRef || "main",
-        problemStatement: trimmedProblemStatement,
-      }),
+      problem_statement: validatedProblemStatement,
       model,
       create_pull_request: createPullRequest,
       pull_request_completion_mode: effectivePullRequestCompletionMode,
-      base_ref: baseRef || "main",
+      base_ref: validatedBaseRef,
     };
 
     if (typeof taskDelayMs === "number") {
       request.task_delay_ms = taskDelayMs;
-    }
-
-    if (trimmedProblemStatement) {
-      request.problem_statement = trimmedProblemStatement;
     }
 
     try {
@@ -503,6 +372,8 @@ export default function CreateTaskForm({
   const canSubmit =
     !isSubmitting &&
     repoInput.trim() !== "" &&
+    problemStatement.trim() !== "" &&
+    baseRef.trim() !== "" &&
     bearerToken.trim() !== "";
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const isAutoMerge =
@@ -540,12 +411,9 @@ export default function CreateTaskForm({
       TASK_DELAY_INTEGER_ERROR,
       TASK_DELAY_MINIMUM_ERROR,
     ].includes(submitError);
-  const githubTaskInfo = useMemo(
-    () =>
-      submitResult !== null
-        ? getGitHubTaskInfo(resolvedRepo, submitResult)
-        : { url: null, taskId: null },
-    [resolvedRepo, submitResult]
+  const createdTaskInfo = useMemo(
+    () => getCreatedTaskInfo(submitResult),
+    [submitResult]
   );
 
   return (
@@ -585,9 +453,7 @@ export default function CreateTaskForm({
       </div>
 
       <div className="create-task-form__field">
-        <label htmlFor="create-task-problem-statement">
-          Problem statement <span className="create-task-form__optional">(optional)</span>
-        </label>
+        <label htmlFor="create-task-problem-statement">Problem statement</label>
         <textarea
           id="create-task-problem-statement"
           value={problemStatement}
@@ -595,6 +461,7 @@ export default function CreateTaskForm({
           placeholder="Additional prompting for the agent…"
           rows={12}
           spellCheck={false}
+          aria-required={true}
         />
       </div>
 
@@ -686,7 +553,7 @@ export default function CreateTaskForm({
           className="create-task-form__field-hint"
         >
           {taskDelayEnabled
-            ? "The remote GitHub task will start after this delay."
+            ? "The remote task will start after this delay."
             : 'Enable "Delay task start" to schedule the task for later.'}
         </div>
       </div>
@@ -756,22 +623,20 @@ export default function CreateTaskForm({
 
       {submitResult !== null && (
         <div className="create-task-form__result">
-          <div className="create-task-form__result-header">Task created</div>
-          {githubTaskInfo.url && (
+          <div className="create-task-form__result-header">Task queued</div>
+          {createdTaskInfo && (
             <div className="create-task-form__result-link-row">
               <a
                 className="create-task-form__result-link"
-                href={githubTaskInfo.url}
+                href={createdTaskInfo.statusUrl}
                 target="_blank"
                 rel="noreferrer"
               >
-                Open task in GitHub
+                View task status
               </a>
-              {githubTaskInfo.taskId && (
-                <span className="create-task-form__result-link-hint">
-                  Task ID: <code>{githubTaskInfo.taskId}</code>
-                </span>
-              )}
+              <span className="create-task-form__result-link-hint">
+                Job ID: <code>{createdTaskInfo.jobId}</code>
+              </span>
             </div>
           )}
           <pre className="create-task-form__result-json">
