@@ -56,8 +56,6 @@ interface AnsiStyle {
   backgroundColor?: string;
 }
 
-const defaultStyle: AnsiStyle = {};
-
 function applySgr(params: number[], current: AnsiStyle): AnsiStyle {
   if (params.length === 0) return {};
 
