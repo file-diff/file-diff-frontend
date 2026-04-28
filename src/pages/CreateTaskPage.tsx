@@ -45,7 +45,7 @@ export default function CreateTaskPage({
       <div className="page-header">
         <h1>🤖 Create Agent Task</h1>
         <p className="page-subtitle">
-          Create a new GitHub Copilot coding agent task for a repository.
+          Create a new agent task for a repository.
         </p>
       </div>
 

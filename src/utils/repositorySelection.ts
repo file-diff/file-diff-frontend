@@ -728,21 +728,24 @@ export type PullRequestCompletionMode =
 
 export interface CreateTaskRequest {
   repo: string;
-  event_content: string;
   model?: string;
-  problem_statement?: string;
+  problem_statement: string;
   custom_agent?: string;
   create_pull_request?: boolean;
   pull_request_completion_mode?: PullRequestCompletionMode;
-  base_ref?: string;
+  base_ref: string;
   task_delay_ms?: number;
+}
+
+export interface CreateTaskResponse {
+  id: string;
 }
 
 export async function requestCreateTask(
   request: CreateTaskRequest,
   bearerToken: string,
   signal?: AbortSignal
-): Promise<unknown> {
+): Promise<CreateTaskResponse> {
   const response = await fetch(CREATE_TASK_API_URL, {
     method: "POST",
     headers: {
@@ -768,7 +771,7 @@ export async function requestCreateTask(
     throw new Error(message);
   }
 
-  return (await response.json()) as unknown;
+  return (await response.json()) as CreateTaskResponse;
 }
 
 export interface DeleteRemoteBranchResponse {

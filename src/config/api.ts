@@ -29,6 +29,10 @@ export const DELETE_TAG_API_URL = `${JOBS_API_URL}/delete-tag`;
 export const CREATE_TAG_API_URL = `${JOBS_API_URL}/create-tag`;
 export const DELETE_ACTION_RUN_API_URL = `${JOBS_API_URL}/delete-action-run`;
 
+export function buildCreateTaskJobUrl(taskId: string): string {
+  return `${CREATE_TASK_API_URL}/${encodeURIComponent(taskId)}`;
+}
+
 export function buildCommitFilesUrl(commit: string, format?: string): string {
   const base = `${trimmedDefaultApiBaseUrl}/commit/${encodeURIComponent(commit)}/files`;
   if (format) {
