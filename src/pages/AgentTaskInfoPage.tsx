@@ -4,6 +4,8 @@ import {
   resolveRepositoryInput,
   requestAgentTasks,
   requestAgentTask,
+  requestCancelAgentTask,
+  requestDeleteAgentTask,
 } from "../utils/repositorySelection";
 import {
   extractTaskSummaries,
@@ -40,6 +42,8 @@ interface TaskLogSection {
   value: string;
 }
 
+type TaskActionType = "cancel" | "delete";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -67,6 +71,23 @@ function statusClassName(status: string): string {
   if (lower === "waiting" || lower === "queued" || lower === "pending") return "agent-task-info-page__status--waiting";
   if (lower === "cancelled" || lower === "canceled") return "agent-task-info-page__status--cancelled";
   return "";
+}
+
+function normalizeTaskStatus(status: string): string {
+  return status.trim().toLowerCase();
+}
+
+function isTaskRunningStatus(status: string): boolean {
+  const normalizedStatus = normalizeTaskStatus(status);
+  return (
+    normalizedStatus === "active" ||
+    normalizedStatus === "in_progress" ||
+    normalizedStatus === "running"
+  );
+}
+
+function isTaskRunning(task: TaskSummary): boolean {
+  return isTaskRunningStatus(task.taskStatus || task.status);
 }
 
 function getTaskDescription(task: TaskSummary): string {
@@ -220,6 +241,8 @@ export default function AgentTaskInfoPage({
 
   const [selectedTaskId, setSelectedTaskId] = useState(queryTaskId);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [taskActionInProgress, setTaskActionInProgress] =
+    useState<TaskActionType | null>(null);
   const [taskDetail, setTaskDetail] = useState<unknown>(null);
   const [taskDetailTaskId, setTaskDetailTaskId] = useState("");
   const [taskDetailLoading, setTaskDetailLoading] = useState(false);
@@ -234,6 +257,22 @@ export default function AgentTaskInfoPage({
   const ownerRepo = useMemo(() => splitOwnerRepo(resolvedRepo), [resolvedRepo]);
   const hasLoadedTaskData = tasksRaw !== null;
   const taskLogSections = useMemo(() => getTaskLogSections(taskDetail), [taskDetail]);
+  const selectedTasks = useMemo(
+    () => tasks.filter((task) => selectedTaskIds.has(task.id)),
+    [selectedTaskIds, tasks]
+  );
+  const selectedRunningTasks = useMemo(
+    () => selectedTasks.filter(isTaskRunning),
+    [selectedTasks]
+  );
+  const selectedNonRunningTasks = useMemo(
+    () => selectedTasks.filter((task) => !isTaskRunning(task)),
+    [selectedTasks]
+  );
+  const selectedTaskSummary = useMemo(
+    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
+    [selectedTaskId, tasks]
+  );
 
   const handleBearerTokenChange = useCallback((value: string) => {
     setLocalBearerToken(value);
@@ -449,6 +488,133 @@ export default function AgentTaskInfoPage({
       return new Set(tasks.map((task) => task.id));
     });
   }, [tasks]);
+
+  const runTaskAction = useCallback(
+    async (
+      action: TaskActionType,
+      targetTasks: TaskSummary[],
+      options: { clearSelection?: boolean; clearTaskDetail?: boolean } = {}
+    ) => {
+      if (!ownerRepo || !resolvedRepo || targetTasks.length === 0) {
+        return;
+      }
+
+      const trimmedBearerToken = bearerToken.trim();
+      if (!trimmedBearerToken) {
+        setTasksError("Please enter a bearer token.");
+        return;
+      }
+
+      const clearSelection = options.clearSelection ?? false;
+      const clearTaskDetail = options.clearTaskDetail ?? false;
+      const verb = action === "cancel" ? "cancel" : "delete";
+      const confirmed = window.confirm(
+        `${action === "cancel" ? "Cancel" : "Delete"} ${String(targetTasks.length)} agent task${
+          targetTasks.length !== 1 ? "s" : ""
+        }?\n\n${targetTasks.map((task) => task.id).join("\n")}`
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      setTaskActionInProgress(action);
+      setActionFeedback(null);
+      setTasksError("");
+
+      const failures: string[] = [];
+
+      try {
+        for (const task of targetTasks) {
+          try {
+            if (action === "cancel") {
+              await requestCancelAgentTask(
+                ownerRepo.owner,
+                ownerRepo.name,
+                task.id,
+                trimmedBearerToken
+              );
+            } else {
+              await requestDeleteAgentTask(
+                ownerRepo.owner,
+                ownerRepo.name,
+                task.id,
+                trimmedBearerToken
+              );
+            }
+          } catch (err) {
+            failures.push(
+              err instanceof Error && err.message
+                ? `${task.id}: ${err.message}`
+                : `${task.id}: Failed to ${verb}`
+            );
+          }
+        }
+
+        if (clearSelection) {
+          setSelectedTaskIds(new Set());
+        }
+
+        if (clearTaskDetail) {
+          setSelectedTaskId("");
+          setTaskDetail(null);
+          setTaskDetailTaskId("");
+          setTaskDetailError("");
+          updateSearchParams((params) => {
+            params.set("repo", resolvedRepo);
+            params.delete("taskId");
+          });
+        }
+
+        await loadTasksForRepo(resolvedRepo, ownerRepo, {
+          preserveState: true,
+          useCachedTasks: false,
+        });
+
+        if (failures.length > 0) {
+          setActionFeedback({
+            tone: "error",
+            message: failures.join(" | "),
+          });
+          return;
+        }
+
+        setActionFeedback({
+          tone: "success",
+          message: `${action === "cancel" ? "Cancelled" : "Deleted"} ${
+            targetTasks.length
+          } agent task${targetTasks.length !== 1 ? "s" : ""}.`,
+        });
+      } finally {
+        setTaskActionInProgress(null);
+      }
+    },
+    [bearerToken, loadTasksForRepo, ownerRepo, resolvedRepo, updateSearchParams]
+  );
+
+  const handleCancelSelected = useCallback(() => {
+    void runTaskAction("cancel", selectedRunningTasks, { clearSelection: true });
+  }, [runTaskAction, selectedRunningTasks]);
+
+  const handleDeleteSelected = useCallback(() => {
+    void runTaskAction("delete", selectedNonRunningTasks, { clearSelection: true });
+  }, [runTaskAction, selectedNonRunningTasks]);
+
+  const handleCancelTask = useCallback(
+    (task: TaskSummary) => {
+      void runTaskAction("cancel", [task]);
+    },
+    [runTaskAction]
+  );
+
+  const handleDeleteTask = useCallback(
+    (task: TaskSummary) => {
+      void runTaskAction("delete", [task], {
+        clearSelection: selectedTaskIds.has(task.id),
+        clearTaskDetail: selectedTaskId === task.id,
+      });
+    },
+    [runTaskAction, selectedTaskId, selectedTaskIds]
+  );
 
   useEffect(() => {
     currentSearchRef.current = searchParams.toString();
@@ -763,14 +929,64 @@ export default function AgentTaskInfoPage({
           <span className="agent-task-info-page__action-bar-count">
             {String(selectedTaskIds.size)} selected
           </span>
+          <div className="agent-task-info-page__action-bar-actions">
+            {selectedRunningTasks.length > 0 && (
+              <button
+                type="button"
+                className="agent-task-info-page__action-btn agent-task-info-page__action-btn--cancel"
+                onClick={handleCancelSelected}
+                disabled={taskActionInProgress !== null}
+                title="Cancel selected running agent tasks"
+              >
+                {taskActionInProgress === "cancel"
+                  ? "Cancelling…"
+                  : `Cancel (${String(selectedRunningTasks.length)})`}
+              </button>
+            )}
+            {selectedNonRunningTasks.length > 0 && (
+              <button
+                type="button"
+                className="agent-task-info-page__action-btn agent-task-info-page__action-btn--delete"
+                onClick={handleDeleteSelected}
+                disabled={taskActionInProgress !== null}
+                title="Delete selected non-running agent tasks"
+              >
+                {taskActionInProgress === "delete"
+                  ? "Deleting…"
+                  : `Delete (${String(selectedNonRunningTasks.length)})`}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {selectedTaskId && (
         <div className="agent-task-info-page__detail">
           <div className="agent-task-info-page__detail-header">
-            <h2>Task details</h2>
-            <code>{selectedTaskId}</code>
+            <div className="agent-task-info-page__detail-header-main">
+              <h2>Task details</h2>
+              <code>{selectedTaskId}</code>
+            </div>
+            {selectedTaskSummary &&
+              (isTaskRunning(selectedTaskSummary) ? (
+                <button
+                  type="button"
+                  className="agent-task-info-page__action-btn agent-task-info-page__action-btn--cancel"
+                  onClick={() => handleCancelTask(selectedTaskSummary)}
+                  disabled={taskActionInProgress !== null}
+                >
+                  {taskActionInProgress === "cancel" ? "Cancelling…" : "Cancel"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="agent-task-info-page__action-btn agent-task-info-page__action-btn--delete"
+                  onClick={() => handleDeleteTask(selectedTaskSummary)}
+                  disabled={taskActionInProgress !== null}
+                >
+                  {taskActionInProgress === "delete" ? "Deleting…" : "Delete"}
+                </button>
+              ))}
           </div>
 
           {taskDetailLoading && (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, REVERT_TO_COMMIT_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, TAGS_API_URL, ACTIONS_API_URL, DELETE_TAG_API_URL, CREATE_TAG_API_URL, DELETE_ACTION_RUN_API_URL, buildOrganizationRepositoriesUrl, buildAgentTasksUrl, buildAgentTaskUrl } from "../config/api";
+import { JOBS_API_URL, COMMITS_API_URL, BRANCHES_API_URL, CREATE_TASK_API_URL, REVERT_TO_COMMIT_API_URL, DELETE_REMOTE_BRANCH_API_URL, PULL_REQUEST_READY_API_URL, PULL_REQUEST_MERGE_API_URL, PULL_REQUEST_OPEN_API_URL, TAGS_API_URL, ACTIONS_API_URL, DELETE_TAG_API_URL, CREATE_TAG_API_URL, DELETE_ACTION_RUN_API_URL, buildOrganizationRepositoriesUrl, buildAgentTasksUrl, buildAgentTaskUrl, buildCancelAgentTaskUrl, buildDeleteAgentTaskUrl } from "../config/api";
 
 const LIST_REFS_URL = `${JOBS_API_URL}/refs`;
 const RESOLVE_COMMIT_URL = `${JOBS_API_URL}/resolve`;
@@ -1082,6 +1082,86 @@ export async function requestAgentTask(
   }
 
   return (await response.json()) as unknown;
+}
+
+export interface CancelAgentTaskResponse {
+  id?: string;
+  taskId?: string;
+  status?: string;
+}
+
+export async function requestCancelAgentTask(
+  owner: string,
+  repo: string,
+  taskId: string,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<CancelAgentTaskResponse> {
+  const response = await fetch(buildCancelAgentTaskUrl(owner, repo, taskId), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `Unable to cancel agent task "${taskId}"`;
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as CancelAgentTaskResponse;
+}
+
+export interface DeleteAgentTaskResponse {
+  id?: string;
+  taskId?: string;
+  deleted?: boolean;
+}
+
+export async function requestDeleteAgentTask(
+  owner: string,
+  repo: string,
+  taskId: string,
+  bearerToken: string,
+  signal?: AbortSignal
+): Promise<DeleteAgentTaskResponse> {
+  const response = await fetch(buildDeleteAgentTaskUrl(owner, repo, taskId), {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${bearerToken}`,
+    },
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = `Unable to delete agent task "${taskId}"`;
+
+    try {
+      const errorData = (await response.json()) as ErrorResponse;
+      if (typeof errorData.error === "string" && errorData.error.trim()) {
+        message = errorData.error.trim();
+      }
+    } catch {
+      // Ignore response parsing failures and fall back to the generic message.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as DeleteAgentTaskResponse;
 }
 
 export interface RepositoryTag {
