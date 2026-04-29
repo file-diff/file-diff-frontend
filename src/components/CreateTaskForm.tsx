@@ -333,6 +333,8 @@ export default function CreateTaskForm({
       return;
     }
 
+    const validatedGeneratedBranchTitle = generatedBranchTitle.trim();
+
     const validatedModel = normalizeModelSelection(task, model);
     const effectiveCustomAgent =
       customAgent.trim() || (task === "opencode" ? "opencode" : "");
@@ -382,6 +384,7 @@ export default function CreateTaskForm({
       repo,
       base_ref: validatedBaseRef,
       problem_statement: validatedProblemStatement,
+      branch_title: validatedGeneratedBranchTitle || null,
       create_pull_request: true,
       pull_request_completion_mode: pullRequestCompletionMode,
     };
@@ -430,6 +433,7 @@ export default function CreateTaskForm({
     taskDelayEnabled,
     taskDelayMinutes,
     pullRequestCompletionMode,
+    generatedBranchTitle,
     reasoningEffort,
     reasoningSummary,
   ]);
@@ -699,7 +703,7 @@ export default function CreateTaskForm({
             {generatedBranchTitle
               ? isGeneratedBranchTitleStale
                 ? "Generated from an older problem statement. Generate again to refresh it."
-                : "Generated from the current problem statement. Task submission is unchanged for now."
+                : "Generated from the current problem statement and will be included in task creation."
               : 'Generate a lowercase hyphenated branch title prefixed with "fd-agent/" from the current problem statement.'}
           </div>
         )}
