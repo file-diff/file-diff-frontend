@@ -744,9 +744,16 @@ export const REASONING_SUMMARY_VALUES = [
 
 export type ReasoningSummary = (typeof REASONING_SUMMARY_VALUES)[number];
 
-export const VERBOSITY_VALUES = ["low", "medium", "high"] as const;
+export const CREATE_TASK_RUNNER_VALUES = ["codex", "opencode"] as const;
 
-export type Verbosity = (typeof VERBOSITY_VALUES)[number];
+export type CreateTaskRunner = (typeof CREATE_TASK_RUNNER_VALUES)[number];
+
+export const OPENCODE_MODEL_VALUES = [
+  "deepseek-v4-flash",
+  "deepseek-v4-pro",
+] as const;
+
+export type OpencodeModel = (typeof OPENCODE_MODEL_VALUES)[number];
 
 export interface CreateTaskRequest {
   repo: string;
@@ -759,8 +766,6 @@ export interface CreateTaskRequest {
   model?: string;
   reasoning_effort?: ReasoningEffort;
   reasoning_summary?: ReasoningSummary;
-  verbosity?: Verbosity;
-  codex_web_search?: boolean;
   task_delay_ms?: number;
 }
 

@@ -1,22 +1,24 @@
 import {
+  CREATE_TASK_RUNNER_VALUES,
   PULL_REQUEST_COMPLETION_MODE_VALUES,
   REASONING_EFFORT_VALUES,
   REASONING_SUMMARY_VALUES,
-  VERBOSITY_VALUES,
+  type CreateTaskRunner,
   type PullRequestCompletionMode,
   type ReasoningEffort,
   type ReasoningSummary,
-  type Verbosity,
 } from "./repositorySelection";
 
 export const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
 export const REPO_CREATE_TASK_DRAFTS_STORAGE_KEY = "repo-create-task-drafts";
 
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
+const DEFAULT_CREATE_TASK_RUNNER: CreateTaskRunner = "codex";
 
 export interface CreateTaskDraft {
   repoInput: string;
   problemStatement: string;
+  task: CreateTaskRunner;
   model: string;
   agentId: string;
   customAgent: string;
@@ -24,8 +26,6 @@ export interface CreateTaskDraft {
   pullRequestCompletionMode: PullRequestCompletionMode;
   reasoningEffort: ReasoningEffort | "";
   reasoningSummary: ReasoningSummary | "";
-  verbosity: Verbosity | "";
-  codexWebSearch: boolean;
   taskDelayEnabled: boolean;
   taskDelayMinutes: string;
 }
@@ -34,6 +34,13 @@ export type RepoCreateTaskDraft = Omit<CreateTaskDraft, "repoInput">;
 
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
+}
+
+function isCreateTaskRunner(value: unknown): value is CreateTaskRunner {
+  return (
+    typeof value === "string" &&
+    CREATE_TASK_RUNNER_VALUES.includes(value as CreateTaskRunner)
+  );
 }
 
 function isPullRequestCompletionMode(
@@ -61,13 +68,6 @@ function isReasoningSummary(value: unknown): value is ReasoningSummary {
   );
 }
 
-function isVerbosity(value: unknown): value is Verbosity {
-  return (
-    typeof value === "string" &&
-    VERBOSITY_VALUES.includes(value as Verbosity)
-  );
-}
-
 function normalizeRepoKey(repo: string): string {
   return repo.trim().toLowerCase();
 }
@@ -88,6 +88,11 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
 
   return {
     problemStatement: candidate.problemStatement,
+    task: isCreateTaskRunner(candidate.task)
+      ? candidate.task
+      : candidate.customAgent === "opencode"
+        ? "opencode"
+        : DEFAULT_CREATE_TASK_RUNNER,
     model: candidate.model,
     agentId: typeof candidate.agentId === "string" ? candidate.agentId : "",
     customAgent:
@@ -104,10 +109,6 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
     reasoningSummary: isReasoningSummary(candidate.reasoningSummary)
       ? candidate.reasoningSummary
       : "",
-    verbosity: isVerbosity(candidate.verbosity) ? candidate.verbosity : "",
-    codexWebSearch: isBoolean(candidate.codexWebSearch)
-      ? candidate.codexWebSearch
-      : false,
     taskDelayEnabled: isBoolean(candidate.taskDelayEnabled)
       ? candidate.taskDelayEnabled
       : false,

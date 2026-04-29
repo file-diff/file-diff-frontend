@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildCreateTaskJobUrl } from "../config/api";
 import {
+  OPENCODE_MODEL_VALUES,
   PULL_REQUEST_COMPLETION_MODE_VALUES,
   REASONING_EFFORT_VALUES,
   REASONING_SUMMARY_VALUES,
-  VERBOSITY_VALUES,
   resolveRepositoryInput,
   requestRepositoryBranches,
   requestCreateTask,
@@ -21,19 +21,23 @@ import { saveRepoProblemStatement } from "../utils/repoProblemStatementStorage";
 import type {
   CreateTaskRequest,
   CreateTaskResponse,
+  CreateTaskRunner,
   PullRequestCompletionMode,
   ReasoningEffort,
   ReasoningSummary,
   RepositoryBranch,
-  Verbosity,
 } from "../utils/repositorySelection";
 import RepositorySelector from "./RepositorySelector";
 import CreateTaskConfirmPopup from "./CreateTaskConfirmPopup";
 import "./CreateTaskForm.css";
 
 const CODEX_DEFAULT_MODEL = "gpt-5.2-codex";
+const DEFAULT_CODEX_MODEL = "";
 const DEFAULT_BRANCH_NAME = "main";
+const DEFAULT_OPENCODE_MODEL = OPENCODE_MODEL_VALUES[0];
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
+const DEFAULT_TASK: CreateTaskRunner = "codex";
+const BRANCH_TITLE_PREFIX = "fd-agent/";
 const CODEX_MODEL_VALUES = [
   "gpt-5.5",
   "gpt-5.4",
@@ -55,9 +59,40 @@ function isCodexModel(value: string): boolean {
   return (CODEX_MODEL_VALUES as readonly string[]).includes(value);
 }
 
-function normalizeModelSelection(value: string | undefined): string {
+function isOpencodeModel(value: string): boolean {
+  return OPENCODE_MODEL_VALUES.includes(
+    value as (typeof OPENCODE_MODEL_VALUES)[number]
+  );
+}
+
+function normalizeTaskSelection(value: CreateTaskRunner | undefined): CreateTaskRunner {
+  return value === "opencode" ? "opencode" : DEFAULT_TASK;
+}
+
+function normalizeModelSelection(
+  task: CreateTaskRunner,
+  value: string | undefined
+): string {
   const trimmed = value?.trim() ?? "";
-  return isCodexModel(trimmed) ? trimmed : "";
+
+  if (task === "opencode") {
+    return isOpencodeModel(trimmed) ? trimmed : DEFAULT_OPENCODE_MODEL;
+  }
+
+  return isCodexModel(trimmed) ? trimmed : DEFAULT_CODEX_MODEL;
+}
+
+function prefixGeneratedBranchTitle(title: string): string {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const withoutPrefix = trimmed.startsWith(BRANCH_TITLE_PREFIX)
+    ? trimmed.slice(BRANCH_TITLE_PREFIX.length)
+    : trimmed;
+
+  return `${BRANCH_TITLE_PREFIX}${withoutPrefix}`;
 }
 
 function getCreatedTaskInfo(
@@ -99,13 +134,20 @@ export default function CreateTaskForm({
     initialProblemStatement !== undefined
       ? initialProblemStatement
       : initialRepoDraft?.problemStatement ?? savedDraft?.problemStatement ?? "";
+  const initialTask = normalizeTaskSelection(
+    initialRepoDraft?.task ?? savedDraft?.task
+  );
 
   const [repoInput, setRepoInput] = useState(initialRepoInput);
   const [problemStatement, setProblemStatement] = useState(
     effectiveInitialProblemStatement
   );
+  const [task, setTask] = useState<CreateTaskRunner>(initialTask);
   const [model, setModel] = useState(
-    normalizeModelSelection(initialRepoDraft?.model ?? savedDraft?.model)
+    normalizeModelSelection(
+      initialTask,
+      initialRepoDraft?.model ?? savedDraft?.model
+    )
   );
   const [agentId, setAgentId] = useState(
     initialRepoDraft?.agentId ?? savedDraft?.agentId ?? ""
@@ -129,12 +171,6 @@ export default function CreateTaskForm({
   const [reasoningSummary, setReasoningSummary] = useState<
     ReasoningSummary | ""
   >(initialRepoDraft?.reasoningSummary ?? savedDraft?.reasoningSummary ?? "");
-  const [verbosity, setVerbosity] = useState<Verbosity | "">(
-    initialRepoDraft?.verbosity ?? savedDraft?.verbosity ?? ""
-  );
-  const [codexWebSearch, setCodexWebSearch] = useState(
-    initialRepoDraft?.codexWebSearch ?? savedDraft?.codexWebSearch ?? false
-  );
   const [taskDelayEnabled, setTaskDelayEnabled] = useState(
     initialRepoDraft?.taskDelayEnabled ?? savedDraft?.taskDelayEnabled ?? false
   );
@@ -216,6 +252,11 @@ export default function CreateTaskForm({
     saveBearerToken(value);
   }, []);
 
+  const handleTaskChange = useCallback((value: CreateTaskRunner) => {
+    setTask(value);
+    setModel((currentModel) => normalizeModelSelection(value, currentModel));
+  }, []);
+
   const handleTaskDelayChange = useCallback((checked: boolean) => {
     setTaskDelayEnabled(checked);
     if (!checked) {
@@ -248,7 +289,7 @@ export default function CreateTaskForm({
         return;
       }
 
-      setGeneratedBranchTitle(result.title);
+      setGeneratedBranchTitle(prefixGeneratedBranchTitle(result.title));
       setGeneratedBranchTitleSource(trimmedProblemStatement);
     } catch (err) {
       if (controller.signal.aborted) {
@@ -291,6 +332,10 @@ export default function CreateTaskForm({
       setSubmitError(BASE_REF_REQUIRED_ERROR);
       return;
     }
+
+    const validatedModel = normalizeModelSelection(task, model);
+    const effectiveCustomAgent =
+      customAgent.trim() || (task === "opencode" ? "opencode" : "");
 
     const validatedAgentId = agentId.trim();
     let parsedAgentId: number | undefined;
@@ -344,23 +389,17 @@ export default function CreateTaskForm({
     if (parsedAgentId !== undefined) {
       request.agent_id = parsedAgentId;
     }
-    if (model) {
-      request.model = model;
+    if (validatedModel) {
+      request.model = validatedModel;
     }
-    if (customAgent.trim()) {
-      request.custom_agent = customAgent.trim();
+    if (effectiveCustomAgent) {
+      request.custom_agent = effectiveCustomAgent;
     }
-    if (reasoningEffort) {
+    if (task === "codex" && reasoningEffort) {
       request.reasoning_effort = reasoningEffort;
     }
-    if (reasoningSummary) {
+    if (task === "codex" && reasoningSummary) {
       request.reasoning_summary = reasoningSummary;
-    }
-    if (verbosity) {
-      request.verbosity = verbosity;
-    }
-    if (codexWebSearch) {
-      request.codex_web_search = true;
     }
     if (typeof taskDelayMs === "number") {
       request.task_delay_ms = taskDelayMs;
@@ -384,22 +423,22 @@ export default function CreateTaskForm({
     bearerToken,
     problemStatement,
     baseRef,
+    task,
+    model,
+    customAgent,
     agentId,
     taskDelayEnabled,
     taskDelayMinutes,
     pullRequestCompletionMode,
-    model,
-    customAgent,
     reasoningEffort,
     reasoningSummary,
-    verbosity,
-    codexWebSearch,
   ]);
 
   useEffect(() => {
     saveCreateTaskDraft({
       repoInput,
       problemStatement,
+      task,
       model,
       agentId,
       customAgent,
@@ -407,14 +446,13 @@ export default function CreateTaskForm({
       pullRequestCompletionMode,
       reasoningEffort,
       reasoningSummary,
-      verbosity,
-      codexWebSearch,
       taskDelayEnabled,
       taskDelayMinutes,
     });
   }, [
     repoInput,
     problemStatement,
+    task,
     model,
     agentId,
     customAgent,
@@ -422,8 +460,6 @@ export default function CreateTaskForm({
     pullRequestCompletionMode,
     reasoningEffort,
     reasoningSummary,
-    verbosity,
-    codexWebSearch,
     taskDelayEnabled,
     taskDelayMinutes,
   ]);
@@ -434,6 +470,7 @@ export default function CreateTaskForm({
       saveRepoProblemStatement(repo, problemStatement);
       saveRepoCreateTaskDraft(repo, {
         problemStatement,
+        task,
         model,
         agentId,
         customAgent,
@@ -441,8 +478,6 @@ export default function CreateTaskForm({
         pullRequestCompletionMode,
         reasoningEffort,
         reasoningSummary,
-        verbosity,
-        codexWebSearch,
         taskDelayEnabled,
         taskDelayMinutes,
       });
@@ -450,6 +485,7 @@ export default function CreateTaskForm({
   }, [
     repoInput,
     problemStatement,
+    task,
     model,
     agentId,
     customAgent,
@@ -457,8 +493,6 @@ export default function CreateTaskForm({
     pullRequestCompletionMode,
     reasoningEffort,
     reasoningSummary,
-    verbosity,
-    codexWebSearch,
     taskDelayEnabled,
     taskDelayMinutes,
   ]);
@@ -484,12 +518,16 @@ export default function CreateTaskForm({
     bearerToken.trim() !== "";
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const variantLabel = useMemo(() => {
-    return taskDelayEnabled ? "delayed" : "task";
-  }, [taskDelayEnabled]);
+    const labels: string[] = [task];
+    if (taskDelayEnabled) {
+      labels.push("delayed");
+    }
+    return labels.join(" ");
+  }, [task, taskDelayEnabled]);
   const buttonLabel = useMemo(() => {
     if (isSubmitting) return "Creating task...";
-    return taskDelayEnabled ? "Create delayed task" : "Create task";
-  }, [isSubmitting, taskDelayEnabled]);
+    return `Create ${variantLabel} task`;
+  }, [isSubmitting, variantLabel]);
 
   const handleAttemptSubmit = useCallback(() => {
     if (!canSubmit) return;
@@ -544,19 +582,45 @@ export default function CreateTaskForm({
       )}
 
       <div className="create-task-form__field">
-        <label htmlFor="create-task-model">Model</label>
+        <label htmlFor="create-task-runner">Task runner</label>
         <select
-          id="create-task-model"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
+          id="create-task-runner"
+          value={task}
+          onChange={(e) => handleTaskChange(e.target.value as CreateTaskRunner)}
         >
-          <option value="">{`Server default (${CODEX_DEFAULT_MODEL})`}</option>
-          {CODEX_MODEL_VALUES.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
+          <option value="codex">codex</option>
+          <option value="opencode">opencode</option>
         </select>
+      </div>
+
+      <div className="create-task-form__field">
+        <label htmlFor="create-task-model">Model</label>
+        {task === "opencode" ? (
+          <select
+            id="create-task-model"
+            value={normalizeModelSelection(task, model)}
+            onChange={(e) => setModel(e.target.value)}
+          >
+            {OPENCODE_MODEL_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <select
+            id="create-task-model"
+            value={normalizeModelSelection(task, model)}
+            onChange={(e) => setModel(e.target.value)}
+          >
+            <option value="">{`Server default (${CODEX_DEFAULT_MODEL})`}</option>
+            {CODEX_MODEL_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="create-task-form__field">
@@ -577,14 +641,15 @@ export default function CreateTaskForm({
 
       <div className="create-task-form__field">
         <label htmlFor="create-task-custom-agent">
-          Custom agent <span className="create-task-form__optional">(optional)</span>
+          Custom agent override{" "}
+          <span className="create-task-form__optional">(optional)</span>
         </label>
         <input
           id="create-task-custom-agent"
           type="text"
           value={customAgent}
           onChange={(e) => setCustomAgent(e.target.value)}
-          placeholder="Override the default agent identifier"
+          placeholder="Overrides the selected task runner"
           spellCheck={false}
         />
       </div>
@@ -635,7 +700,7 @@ export default function CreateTaskForm({
               ? isGeneratedBranchTitleStale
                 ? "Generated from an older problem statement. Generate again to refresh it."
                 : "Generated from the current problem statement. Task submission is unchanged for now."
-              : "Generate a lowercase hyphenated branch title from the current problem statement."}
+              : 'Generate a lowercase hyphenated branch title prefixed with "fd-agent/" from the current problem statement.'}
           </div>
         )}
       </div>
@@ -709,72 +774,51 @@ export default function CreateTaskForm({
         </div>
       </div>
 
-      <div className="create-task-form__field">
-        <label htmlFor="create-task-reasoning-effort">
-          Reasoning effort <span className="create-task-form__optional">(Codex only)</span>
-        </label>
-        <select
-          id="create-task-reasoning-effort"
-          value={reasoningEffort}
-          onChange={(e) => setReasoningEffort(e.target.value as ReasoningEffort | "")}
-        >
-          <option value="">Default</option>
-          {REASONING_EFFORT_VALUES.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-      </div>
+      {task === "codex" && (
+        <>
+          <div className="create-task-form__field">
+            <label htmlFor="create-task-reasoning-effort">
+              Reasoning effort{" "}
+              <span className="create-task-form__optional">(Codex only)</span>
+            </label>
+            <select
+              id="create-task-reasoning-effort"
+              value={reasoningEffort}
+              onChange={(e) =>
+                setReasoningEffort(e.target.value as ReasoningEffort | "")
+              }
+            >
+              <option value="">Default</option>
+              {REASONING_EFFORT_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      <div className="create-task-form__field">
-        <label htmlFor="create-task-reasoning-summary">
-          Reasoning summary <span className="create-task-form__optional">(Codex only)</span>
-        </label>
-        <select
-          id="create-task-reasoning-summary"
-          value={reasoningSummary}
-          onChange={(e) =>
-            setReasoningSummary(e.target.value as ReasoningSummary | "")
-          }
-        >
-          <option value="">Default</option>
-          {REASONING_SUMMARY_VALUES.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="create-task-form__field">
-        <label htmlFor="create-task-verbosity">
-          Verbosity <span className="create-task-form__optional">(Codex only)</span>
-        </label>
-        <select
-          id="create-task-verbosity"
-          value={verbosity}
-          onChange={(e) => setVerbosity(e.target.value as Verbosity | "")}
-        >
-          <option value="">Default</option>
-          {VERBOSITY_VALUES.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="create-task-form__field create-task-form__checkbox-field">
-        <label>
-          <input
-            type="checkbox"
-            checked={codexWebSearch}
-            onChange={(e) => setCodexWebSearch(e.target.checked)}
-          />
-          Enable Codex web search
-        </label>
-      </div>
+          <div className="create-task-form__field">
+            <label htmlFor="create-task-reasoning-summary">
+              Reasoning summary{" "}
+              <span className="create-task-form__optional">(Codex only)</span>
+            </label>
+            <select
+              id="create-task-reasoning-summary"
+              value={reasoningSummary}
+              onChange={(e) =>
+                setReasoningSummary(e.target.value as ReasoningSummary | "")
+              }
+            >
+              <option value="">Default</option>
+              {REASONING_SUMMARY_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
+      )}
 
       <div className="create-task-form__field create-task-form__checkbox-field">
         <label>
