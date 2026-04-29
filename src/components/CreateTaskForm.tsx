@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildCreateTaskJobUrl } from "../config/api";
 import {
-  PULL_REQUEST_COMPLETION_MODE_VALUES,
+  OPENCODE_MODEL_VALUES,
   resolveRepositoryInput,
   requestRepositoryBranches,
   requestCreateTask,
@@ -15,30 +15,20 @@ import {
 } from "../utils/createTaskStorage";
 import { saveRepoProblemStatement } from "../utils/repoProblemStatementStorage";
 import type {
-  RepositoryBranch,
   CreateTaskRequest,
   CreateTaskResponse,
-  PullRequestCompletionMode,
+  CreateTaskRunner,
+  RepositoryBranch,
 } from "../utils/repositorySelection";
 import RepositorySelector from "./RepositorySelector";
 import CreateTaskConfirmPopup from "./CreateTaskConfirmPopup";
 import "./CreateTaskForm.css";
 
-const MODEL_OPTIONS = [
-  { value: "deepseek-v4-flash", label: "DeepSeek Flash" },
-  { value: "deepseek-v4-pro", label: "DeepSeek Pro" },
-];
-
-export interface CreateTaskFormProps {
-  initialRepo?: string;
-  initialProblemStatement?: string;
-  showRepositorySelector?: boolean;
-}
-
-const DEFAULT_CREATE_PULL_REQUEST = true;
-const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
+const CODEX_DEFAULT_MODEL = "gpt-5.2-codex";
+const DEFAULT_CODEX_MODEL = "";
+const DEFAULT_OPENCODE_MODEL = OPENCODE_MODEL_VALUES[0];
+const DEFAULT_TASK: CreateTaskRunner = "codex";
 const DEFAULT_BRANCH_NAME = "main";
-const DEFAULT_MODEL = MODEL_OPTIONS[0].value;
 const BASE_REF_REQUIRED_ERROR = "Please enter a target branch.";
 const MIN_TASK_DELAY_MINUTES = 1;
 const PROBLEM_STATEMENT_REQUIRED_ERROR = "Please enter a problem statement.";
@@ -46,25 +36,27 @@ const TASK_DELAY_REQUIRED_ERROR = "Please enter how many minutes to delay the ta
 const TASK_DELAY_NUMBER_ERROR = "Task delay must be a valid number of minutes.";
 const TASK_DELAY_INTEGER_ERROR = "Task delay must be a whole number of minutes.";
 const TASK_DELAY_MINIMUM_ERROR = "Task delay must be at least 1 whole minute.";
-const PULL_REQUEST_COMPLETION_MODE_LABELS: Record<
-  PullRequestCompletionMode,
-  string
-> = {
-  None: "None",
-  AutoReady: "Auto ready",
-  AutoMerge: "Auto merge",
-};
 
-function isModelOption(value: string): boolean {
-  return MODEL_OPTIONS.some((option) => option.value === value);
+function isOpencodeModel(value: string): boolean {
+  return OPENCODE_MODEL_VALUES.includes(
+    value as (typeof OPENCODE_MODEL_VALUES)[number]
+  );
 }
 
-function normalizeModelSelection(value: string | undefined): string {
-  if (!value) {
-    return DEFAULT_MODEL;
+function normalizeTaskSelection(value: CreateTaskRunner | undefined): CreateTaskRunner {
+  return value === "opencode" ? "opencode" : DEFAULT_TASK;
+}
+
+function normalizeModelSelection(
+  task: CreateTaskRunner,
+  value: string | undefined
+): string {
+  if (task === "opencode") {
+    return value && isOpencodeModel(value) ? value : DEFAULT_OPENCODE_MODEL;
   }
 
-  return isModelOption(value) ? value : DEFAULT_MODEL;
+  const trimmed = value?.trim() ?? "";
+  return trimmed && !isOpencodeModel(trimmed) ? trimmed : DEFAULT_CODEX_MODEL;
 }
 
 function getCreatedTaskInfo(
@@ -79,6 +71,12 @@ function getCreatedTaskInfo(
     jobId,
     statusUrl: buildCreateTaskJobUrl(jobId),
   };
+}
+
+export interface CreateTaskFormProps {
+  initialRepo?: string;
+  initialProblemStatement?: string;
+  showRepositorySelector?: boolean;
 }
 
 export default function CreateTaskForm({
@@ -96,31 +94,30 @@ export default function CreateTaskForm({
   const [initialRepoDraft] = useState(() =>
     initialResolvedRepo ? loadRepoCreateTaskDraft(initialResolvedRepo) : null
   );
-  const initialCreatePullRequest =
-    initialRepoDraft?.createPullRequest ?? savedDraft?.createPullRequest;
   const effectiveInitialProblemStatement =
     initialProblemStatement !== undefined
       ? initialProblemStatement
       : initialRepoDraft?.problemStatement ?? savedDraft?.problemStatement ?? "";
+  const initialTask = normalizeTaskSelection(
+    initialRepoDraft?.task ?? savedDraft?.task
+  );
+
   const [repoInput, setRepoInput] = useState(initialRepoInput);
   const [problemStatement, setProblemStatement] = useState(
     effectiveInitialProblemStatement
   );
+  const [task, setTask] = useState<CreateTaskRunner>(initialTask);
   const [model, setModel] = useState(
-    normalizeModelSelection(initialRepoDraft?.model ?? savedDraft?.model)
+    normalizeModelSelection(
+      initialTask,
+      initialRepoDraft?.model ?? savedDraft?.model
+    )
   );
   const [bearerToken, setBearerToken] = useState(loadBearerToken);
-  const [createPullRequest, setCreatePullRequest] = useState(
-    initialCreatePullRequest ?? DEFAULT_CREATE_PULL_REQUEST
+  const [githubKey, setGithubKey] = useState(
+    initialRepoDraft?.githubKey ?? savedDraft?.githubKey ?? ""
   );
-  const [pullRequestCompletionMode, setPullRequestCompletionMode] =
-    useState<PullRequestCompletionMode>(
-      initialCreatePullRequest === false
-        ? DEFAULT_PULL_REQUEST_COMPLETION_MODE
-        : initialRepoDraft?.pullRequestCompletionMode ??
-            savedDraft?.pullRequestCompletionMode ??
-            DEFAULT_PULL_REQUEST_COMPLETION_MODE
-    );
+  const [deepseekApiKey, setDeepseekApiKey] = useState("");
   const [baseRef, setBaseRef] = useState(
     initialRepoDraft?.baseRef ?? savedDraft?.baseRef ?? DEFAULT_BRANCH_NAME
   );
@@ -200,11 +197,9 @@ export default function CreateTaskForm({
     saveBearerToken(value);
   }, []);
 
-  const handleCreatePullRequestChange = useCallback((checked: boolean) => {
-    setCreatePullRequest(checked);
-    if (!checked) {
-      setPullRequestCompletionMode(DEFAULT_PULL_REQUEST_COMPLETION_MODE);
-    }
+  const handleTaskChange = useCallback((value: CreateTaskRunner) => {
+    setTask(value);
+    setModel((currentModel) => normalizeModelSelection(value, currentModel));
   }, []);
 
   const handleTaskDelayChange = useCallback((checked: boolean) => {
@@ -237,9 +232,7 @@ export default function CreateTaskForm({
       return;
     }
 
-    const effectivePullRequestCompletionMode = createPullRequest
-      ? pullRequestCompletionMode
-      : DEFAULT_PULL_REQUEST_COMPLETION_MODE;
+    const validatedModel = normalizeModelSelection(task, model);
     const trimmedTaskDelayMinutes = taskDelayMinutes.trim();
 
     let taskDelayMs: number | undefined;
@@ -274,15 +267,22 @@ export default function CreateTaskForm({
 
     const request: CreateTaskRequest = {
       repo,
-      problem_statement: validatedProblemStatement,
-      model,
-      create_pull_request: createPullRequest,
-      pull_request_completion_mode: effectivePullRequestCompletionMode,
       base_ref: validatedBaseRef,
+      problem_statement: validatedProblemStatement,
+      task,
     };
 
+    if (task === "opencode" || validatedModel) {
+      request.model = validatedModel;
+    }
     if (typeof taskDelayMs === "number") {
       request.task_delay_ms = taskDelayMs;
+    }
+    if (githubKey.trim()) {
+      request.githubKey = githubKey.trim();
+    }
+    if (task === "opencode" && deepseekApiKey.trim()) {
+      request.deepseek_api_key = deepseekApiKey.trim();
     }
 
     try {
@@ -301,9 +301,10 @@ export default function CreateTaskForm({
   }, [
     repoInput,
     bearerToken,
+    task,
     model,
-    createPullRequest,
-    pullRequestCompletionMode,
+    githubKey,
+    deepseekApiKey,
     baseRef,
     problemStatement,
     taskDelayEnabled,
@@ -314,22 +315,22 @@ export default function CreateTaskForm({
     saveCreateTaskDraft({
       repoInput,
       problemStatement,
+      task,
       model,
-      createPullRequest,
-      pullRequestCompletionMode,
       baseRef,
       taskDelayEnabled,
       taskDelayMinutes,
+      githubKey,
     });
   }, [
     repoInput,
     problemStatement,
+    task,
     model,
-    createPullRequest,
-    pullRequestCompletionMode,
     baseRef,
     taskDelayEnabled,
     taskDelayMinutes,
+    githubKey,
   ]);
 
   useEffect(() => {
@@ -338,23 +339,23 @@ export default function CreateTaskForm({
       saveRepoProblemStatement(repo, problemStatement);
       saveRepoCreateTaskDraft(repo, {
         problemStatement,
+        task,
         model,
-        createPullRequest,
-        pullRequestCompletionMode,
         baseRef,
         taskDelayEnabled,
         taskDelayMinutes,
+        githubKey,
       });
     }
   }, [
     repoInput,
     problemStatement,
+    task,
     model,
-    createPullRequest,
-    pullRequestCompletionMode,
     baseRef,
     taskDelayEnabled,
     taskDelayMinutes,
+    githubKey,
   ]);
 
   useEffect(() => {
@@ -376,20 +377,14 @@ export default function CreateTaskForm({
     baseRef.trim() !== "" &&
     bearerToken.trim() !== "";
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
-  const isAutoMerge =
-    createPullRequest && pullRequestCompletionMode === "AutoMerge";
   const variantLabel = useMemo(() => {
-    if (taskDelayEnabled && isAutoMerge) return "delayed auto-merge";
-    if (taskDelayEnabled) return "delayed";
-    if (isAutoMerge) return "auto-merge";
-    return "";
-  }, [taskDelayEnabled, isAutoMerge]);
+    const labels = [task === "opencode" ? "opencode" : "codex"];
+    if (taskDelayEnabled) labels.push("delayed");
+    return labels.join(" ");
+  }, [task, taskDelayEnabled]);
   const buttonLabel = useMemo(() => {
-    if (isSubmitting) return "Creating task…";
-    if (variantLabel) {
-      return `Create ${variantLabel} task`;
-    }
-    return "Create task";
+    if (isSubmitting) return "Creating task...";
+    return `Create ${variantLabel} task`;
   }, [isSubmitting, variantLabel]);
 
   const handleAttemptSubmit = useCallback(() => {
@@ -426,7 +421,7 @@ export default function CreateTaskForm({
             onChange={setRepoInput}
             onSubmit={handleLoadBranches}
             buttonLabel="Load branches"
-            loadingButtonLabel="Loading…"
+            loadingButtonLabel="Loading..."
             isLoading={branchesLoading}
             disabled={branchesLoading || !repoInput.trim()}
             className="create-task-form__repository-selector"
@@ -438,18 +433,46 @@ export default function CreateTaskForm({
       )}
 
       <div className="create-task-form__field">
-        <label htmlFor="create-task-model">Model</label>
+        <label htmlFor="create-task-runner">Task runner</label>
         <select
-          id="create-task-model"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
+          id="create-task-runner"
+          value={task}
+          onChange={(e) => handleTaskChange(e.target.value as CreateTaskRunner)}
         >
-          {MODEL_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
+          <option value="codex">Codex</option>
+          <option value="opencode">opencode</option>
         </select>
+        <div className="create-task-form__field-hint">
+          Codex is the default runner. opencode requires a DeepSeek model.
+        </div>
+      </div>
+
+      <div className="create-task-form__field">
+        <label htmlFor="create-task-model">Model</label>
+        {task === "opencode" ? (
+          <select
+            id="create-task-model"
+            value={normalizeModelSelection(task, model)}
+            onChange={(e) => setModel(e.target.value)}
+          >
+            {OPENCODE_MODEL_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {value === "deepseek-v4-flash"
+                  ? "DeepSeek Flash"
+                  : "DeepSeek Pro"}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id="create-task-model"
+            type="text"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            placeholder={`Server default (${CODEX_DEFAULT_MODEL})`}
+            spellCheck={false}
+          />
+        )}
       </div>
 
       <div className="create-task-form__field">
@@ -458,7 +481,7 @@ export default function CreateTaskForm({
           id="create-task-problem-statement"
           value={problemStatement}
           onChange={(e) => setProblemStatement(e.target.value)}
-          placeholder="Additional prompting for the agent…"
+          placeholder="Additional prompting for the agent..."
           rows={12}
           spellCheck={false}
           aria-required={true}
@@ -472,10 +495,40 @@ export default function CreateTaskForm({
           type="password"
           value={bearerToken}
           onChange={(e) => handleBearerTokenChange(e.target.value)}
-          placeholder="Authorization token"
+          placeholder="Admin authorization token"
           spellCheck={false}
         />
       </div>
+
+      <div className="create-task-form__field">
+        <label htmlFor="create-task-github-key">
+          GitHub token override <span className="create-task-form__optional">(optional)</span>
+        </label>
+        <input
+          id="create-task-github-key"
+          type="password"
+          value={githubKey}
+          onChange={(e) => setGithubKey(e.target.value)}
+          placeholder="Uses server token when empty"
+          spellCheck={false}
+        />
+      </div>
+
+      {task === "opencode" && (
+        <div className="create-task-form__field">
+          <label htmlFor="create-task-deepseek-api-key">
+            DeepSeek API key override <span className="create-task-form__optional">(optional)</span>
+          </label>
+          <input
+            id="create-task-deepseek-api-key"
+            type="password"
+            value={deepseekApiKey}
+            onChange={(e) => setDeepseekApiKey(e.target.value)}
+            placeholder="Uses server DEEPSEEK_API_KEY when empty"
+            spellCheck={false}
+          />
+        </div>
+      )}
 
       <div className="create-task-form__field">
         <label htmlFor="create-task-branch">Target branch</label>
@@ -514,17 +567,6 @@ export default function CreateTaskForm({
         <label>
           <input
             type="checkbox"
-            checked={createPullRequest}
-            onChange={(e) => handleCreatePullRequestChange(e.target.checked)}
-          />
-          Create pull request
-        </label>
-      </div>
-
-      <div className="create-task-form__field create-task-form__checkbox-field">
-        <label>
-          <input
-            type="checkbox"
             checked={taskDelayEnabled}
             onChange={(e) => handleTaskDelayChange(e.target.checked)}
           />
@@ -553,35 +595,8 @@ export default function CreateTaskForm({
           className="create-task-form__field-hint"
         >
           {taskDelayEnabled
-            ? "The remote task will start after this delay."
+            ? "The queued worker will start after this delay."
             : 'Enable "Delay task start" to schedule the task for later.'}
-        </div>
-      </div>
-
-      <div className="create-task-form__field">
-        <label htmlFor="create-task-pr-completion-mode">
-          Pull request completion mode
-        </label>
-        <select
-          id="create-task-pr-completion-mode"
-          value={pullRequestCompletionMode}
-          onChange={(e) =>
-            setPullRequestCompletionMode(
-              e.target.value as PullRequestCompletionMode
-            )
-          }
-          disabled={!createPullRequest}
-        >
-          {PULL_REQUEST_COMPLETION_MODE_VALUES.map((mode) => (
-            <option key={mode} value={mode}>
-              {PULL_REQUEST_COMPLETION_MODE_LABELS[mode]}
-            </option>
-          ))}
-        </select>
-        <div className="create-task-form__field-hint">
-          {createPullRequest
-            ? "Choose what happens after a successful run."
-            : 'Enable "Create pull request" to use AutoReady or AutoMerge.'}
         </div>
       </div>
 
@@ -593,7 +608,9 @@ export default function CreateTaskForm({
         type="button"
         onClick={handleAttemptSubmit}
         disabled={!canSubmit}
-        className={`create-task-form__submit-btn${variantLabel ? " create-task-form__submit-btn--needs-confirm" : ""}`}
+        className={`create-task-form__submit-btn${
+          taskDelayEnabled ? " create-task-form__submit-btn--needs-confirm" : ""
+        }`}
       >
         <span className="create-task-form__submit-btn-label">
           {buttonLabel}
@@ -612,7 +629,7 @@ export default function CreateTaskForm({
 
       <CreateTaskConfirmPopup
         open={confirmOpen}
-        variantLabel={variantLabel || "task"}
+        variantLabel={variantLabel}
         repo={resolvedRepo}
         branch={baseRef}
         problemStatement={problemStatement}

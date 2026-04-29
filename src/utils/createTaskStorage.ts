@@ -1,39 +1,35 @@
 import {
-  PULL_REQUEST_COMPLETION_MODE_VALUES,
-  type PullRequestCompletionMode,
+  CREATE_TASK_RUNNER_VALUES,
+  type CreateTaskRunner,
 } from "./repositorySelection";
 
 export const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
 export const REPO_CREATE_TASK_DRAFTS_STORAGE_KEY = "repo-create-task-drafts";
 
-const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
+const DEFAULT_CREATE_TASK_RUNNER: CreateTaskRunner = "codex";
 
 export interface CreateTaskDraft {
   repoInput: string;
   problemStatement: string;
   model: string;
-  createPullRequest: boolean;
-  pullRequestCompletionMode: PullRequestCompletionMode;
+  task: CreateTaskRunner;
   baseRef: string;
   taskDelayEnabled: boolean;
   taskDelayMinutes: string;
+  githubKey: string;
 }
 
 export type RepoCreateTaskDraft = Omit<CreateTaskDraft, "repoInput">;
 
-function isBoolean(value: unknown): value is boolean {
-  return typeof value === "boolean";
-}
-
-function isPullRequestCompletionMode(
-  value: unknown
-): value is PullRequestCompletionMode {
+function isCreateTaskRunner(value: unknown): value is CreateTaskRunner {
   return (
     typeof value === "string" &&
-    PULL_REQUEST_COMPLETION_MODE_VALUES.includes(
-      value as PullRequestCompletionMode
-    )
+    CREATE_TASK_RUNNER_VALUES.includes(value as CreateTaskRunner)
   );
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
 }
 
 function normalizeRepoKey(repo: string): string {
@@ -49,23 +45,17 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
   if (
     typeof candidate.problemStatement !== "string" ||
     typeof candidate.model !== "string" ||
-    !isBoolean(candidate.createPullRequest) ||
     typeof candidate.baseRef !== "string"
   ) {
     return null;
   }
 
-  const pullRequestCompletionMode = isPullRequestCompletionMode(
-    candidate.pullRequestCompletionMode
-  )
-    ? candidate.pullRequestCompletionMode
-    : DEFAULT_PULL_REQUEST_COMPLETION_MODE;
-
   return {
     problemStatement: candidate.problemStatement,
     model: candidate.model,
-    createPullRequest: candidate.createPullRequest,
-    pullRequestCompletionMode,
+    task: isCreateTaskRunner(candidate.task)
+      ? candidate.task
+      : DEFAULT_CREATE_TASK_RUNNER,
     baseRef: candidate.baseRef,
     taskDelayEnabled: isBoolean(candidate.taskDelayEnabled)
       ? candidate.taskDelayEnabled
@@ -74,6 +64,8 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
       typeof candidate.taskDelayMinutes === "string"
         ? candidate.taskDelayMinutes
         : "",
+    githubKey:
+      typeof candidate.githubKey === "string" ? candidate.githubKey : "",
   };
 }
 

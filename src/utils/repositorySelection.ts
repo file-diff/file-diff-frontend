@@ -726,15 +726,26 @@ export const PULL_REQUEST_COMPLETION_MODE_VALUES = [
 export type PullRequestCompletionMode =
   (typeof PULL_REQUEST_COMPLETION_MODE_VALUES)[number];
 
+export const CREATE_TASK_RUNNER_VALUES = ["codex", "opencode"] as const;
+
+export type CreateTaskRunner = (typeof CREATE_TASK_RUNNER_VALUES)[number];
+
+export const OPENCODE_MODEL_VALUES = [
+  "deepseek-v4-flash",
+  "deepseek-v4-pro",
+] as const;
+
+export type OpencodeModel = (typeof OPENCODE_MODEL_VALUES)[number];
+
 export interface CreateTaskRequest {
   repo: string;
-  model?: string;
   problem_statement: string;
-  custom_agent?: string;
-  create_pull_request?: boolean;
-  pull_request_completion_mode?: PullRequestCompletionMode;
   base_ref: string;
+  task?: CreateTaskRunner;
+  model?: string;
   task_delay_ms?: number;
+  githubKey?: string;
+  deepseek_api_key?: string;
 }
 
 export interface CreateTaskResponse {
