@@ -741,6 +741,7 @@ export interface CreateTaskRequest {
   repo: string;
   problem_statement: string;
   base_ref: string;
+  pull_request_completion_mode?: PullRequestCompletionMode;
   task?: CreateTaskRunner;
   model?: string;
   task_delay_ms?: number;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildCreateTaskJobUrl } from "../config/api";
 import {
   OPENCODE_MODEL_VALUES,
+  PULL_REQUEST_COMPLETION_MODE_VALUES,
   resolveRepositoryInput,
   requestRepositoryBranches,
   requestCreateTask,
@@ -18,6 +19,7 @@ import type {
   CreateTaskRequest,
   CreateTaskResponse,
   CreateTaskRunner,
+  PullRequestCompletionMode,
   RepositoryBranch,
 } from "../utils/repositorySelection";
 import RepositorySelector from "./RepositorySelector";
@@ -29,6 +31,7 @@ const DEFAULT_CODEX_MODEL = "";
 const DEFAULT_OPENCODE_MODEL = OPENCODE_MODEL_VALUES[0];
 const DEFAULT_TASK: CreateTaskRunner = "codex";
 const DEFAULT_BRANCH_NAME = "main";
+const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 const CODEX_MODEL_VALUES = [
   "gpt-5.5",
   "gpt-5.4",
@@ -56,6 +59,28 @@ function isCodexModel(value: string): boolean {
 
 function normalizeTaskSelection(value: CreateTaskRunner | undefined): CreateTaskRunner {
   return value === "opencode" ? "opencode" : DEFAULT_TASK;
+}
+
+function normalizePullRequestCompletionMode(
+  value: PullRequestCompletionMode | undefined
+): PullRequestCompletionMode {
+  return PULL_REQUEST_COMPLETION_MODE_VALUES.includes(
+    value as PullRequestCompletionMode
+  )
+    ? (value as PullRequestCompletionMode)
+    : DEFAULT_PULL_REQUEST_COMPLETION_MODE;
+}
+
+function formatPullRequestCompletionMode(
+  value: PullRequestCompletionMode
+): string {
+  if (value === "AutoReady") {
+    return "Auto ready";
+  }
+  if (value === "AutoMerge") {
+    return "Auto merge";
+  }
+  return "None";
 }
 
 function normalizeModelSelection(
@@ -131,6 +156,12 @@ export default function CreateTaskForm({
   const [deepseekApiKey, setDeepseekApiKey] = useState("");
   const [baseRef, setBaseRef] = useState(
     initialRepoDraft?.baseRef ?? savedDraft?.baseRef ?? DEFAULT_BRANCH_NAME
+  );
+  const [pullRequestCompletionMode, setPullRequestCompletionMode] = useState(
+    normalizePullRequestCompletionMode(
+      initialRepoDraft?.pullRequestCompletionMode ??
+        savedDraft?.pullRequestCompletionMode
+    )
   );
   const [taskDelayEnabled, setTaskDelayEnabled] = useState(
     initialRepoDraft?.taskDelayEnabled ?? savedDraft?.taskDelayEnabled ?? false
@@ -283,6 +314,9 @@ export default function CreateTaskForm({
       task,
     };
 
+    if (pullRequestCompletionMode !== "None") {
+      request.pull_request_completion_mode = pullRequestCompletionMode;
+    }
     if (task === "opencode" || validatedModel) {
       request.model = validatedModel;
     }
@@ -317,6 +351,7 @@ export default function CreateTaskForm({
     githubKey,
     deepseekApiKey,
     baseRef,
+    pullRequestCompletionMode,
     problemStatement,
     taskDelayEnabled,
     taskDelayMinutes,
@@ -329,6 +364,7 @@ export default function CreateTaskForm({
       task,
       model,
       baseRef,
+      pullRequestCompletionMode,
       taskDelayEnabled,
       taskDelayMinutes,
       githubKey,
@@ -339,6 +375,7 @@ export default function CreateTaskForm({
     task,
     model,
     baseRef,
+    pullRequestCompletionMode,
     taskDelayEnabled,
     taskDelayMinutes,
     githubKey,
@@ -353,6 +390,7 @@ export default function CreateTaskForm({
         task,
         model,
         baseRef,
+        pullRequestCompletionMode,
         taskDelayEnabled,
         taskDelayMinutes,
         githubKey,
@@ -364,6 +402,7 @@ export default function CreateTaskForm({
     task,
     model,
     baseRef,
+    pullRequestCompletionMode,
     taskDelayEnabled,
     taskDelayMinutes,
     githubKey,
@@ -397,6 +436,10 @@ export default function CreateTaskForm({
     if (isSubmitting) return "Creating task...";
     return `Create ${variantLabel} task`;
   }, [isSubmitting, variantLabel]);
+  const pullRequestCompletionModeLabel = useMemo(
+    () => formatPullRequestCompletionMode(pullRequestCompletionMode),
+    [pullRequestCompletionMode]
+  );
 
   const handleAttemptSubmit = useCallback(() => {
     if (!canSubmit) return;
@@ -578,6 +621,27 @@ export default function CreateTaskForm({
         )}
       </div>
 
+      <div className="create-task-form__field">
+        <label htmlFor="create-task-pr-completion">Pull request completion</label>
+        <select
+          id="create-task-pr-completion"
+          value={pullRequestCompletionMode}
+          onChange={(e) =>
+            setPullRequestCompletionMode(
+              e.target.value as PullRequestCompletionMode
+            )
+          }
+        >
+          <option value="None">None</option>
+          <option value="AutoReady">Auto ready</option>
+          <option value="AutoMerge">Auto merge</option>
+        </select>
+        <div className="create-task-form__field-hint">
+          Choose whether the created pull request should stay as-is, be marked
+          ready automatically, or be merged automatically when possible.
+        </div>
+      </div>
+
       <div className="create-task-form__field create-task-form__checkbox-field">
         <label>
           <input
@@ -647,6 +711,7 @@ export default function CreateTaskForm({
         variantLabel={variantLabel}
         repo={resolvedRepo}
         branch={baseRef}
+        pullRequestCompletionModeLabel={pullRequestCompletionModeLabel}
         problemStatement={problemStatement}
         isSubmitting={isSubmitting}
         onConfirm={() => void handleSubmit()}
