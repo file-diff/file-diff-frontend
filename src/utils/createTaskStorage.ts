@@ -1,35 +1,39 @@
 import {
-  CREATE_TASK_RUNNER_VALUES,
   PULL_REQUEST_COMPLETION_MODE_VALUES,
+  REASONING_EFFORT_VALUES,
+  REASONING_SUMMARY_VALUES,
+  VERBOSITY_VALUES,
   type PullRequestCompletionMode,
-  type CreateTaskRunner,
+  type ReasoningEffort,
+  type ReasoningSummary,
+  type Verbosity,
 } from "./repositorySelection";
 
 export const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
 export const REPO_CREATE_TASK_DRAFTS_STORAGE_KEY = "repo-create-task-drafts";
 
-const DEFAULT_CREATE_TASK_RUNNER: CreateTaskRunner = "codex";
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 
 export interface CreateTaskDraft {
   repoInput: string;
   problemStatement: string;
   model: string;
-  task: CreateTaskRunner;
+  agentId: string;
+  customAgent: string;
   baseRef: string;
   pullRequestCompletionMode: PullRequestCompletionMode;
+  reasoningEffort: ReasoningEffort | "";
+  reasoningSummary: ReasoningSummary | "";
+  verbosity: Verbosity | "";
+  codexWebSearch: boolean;
   taskDelayEnabled: boolean;
   taskDelayMinutes: string;
-  githubKey: string;
 }
 
 export type RepoCreateTaskDraft = Omit<CreateTaskDraft, "repoInput">;
 
-function isCreateTaskRunner(value: unknown): value is CreateTaskRunner {
-  return (
-    typeof value === "string" &&
-    CREATE_TASK_RUNNER_VALUES.includes(value as CreateTaskRunner)
-  );
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
 }
 
 function isPullRequestCompletionMode(
@@ -37,12 +41,31 @@ function isPullRequestCompletionMode(
 ): value is PullRequestCompletionMode {
   return (
     typeof value === "string" &&
-    PULL_REQUEST_COMPLETION_MODE_VALUES.includes(value as PullRequestCompletionMode)
+    PULL_REQUEST_COMPLETION_MODE_VALUES.includes(
+      value as PullRequestCompletionMode
+    )
   );
 }
 
-function isBoolean(value: unknown): value is boolean {
-  return typeof value === "boolean";
+function isReasoningEffort(value: unknown): value is ReasoningEffort {
+  return (
+    typeof value === "string" &&
+    REASONING_EFFORT_VALUES.includes(value as ReasoningEffort)
+  );
+}
+
+function isReasoningSummary(value: unknown): value is ReasoningSummary {
+  return (
+    typeof value === "string" &&
+    REASONING_SUMMARY_VALUES.includes(value as ReasoningSummary)
+  );
+}
+
+function isVerbosity(value: unknown): value is Verbosity {
+  return (
+    typeof value === "string" &&
+    VERBOSITY_VALUES.includes(value as Verbosity)
+  );
 }
 
 function normalizeRepoKey(repo: string): string {
@@ -66,15 +89,25 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
   return {
     problemStatement: candidate.problemStatement,
     model: candidate.model,
-    task: isCreateTaskRunner(candidate.task)
-      ? candidate.task
-      : DEFAULT_CREATE_TASK_RUNNER,
+    agentId: typeof candidate.agentId === "string" ? candidate.agentId : "",
+    customAgent:
+      typeof candidate.customAgent === "string" ? candidate.customAgent : "",
     baseRef: candidate.baseRef,
     pullRequestCompletionMode: isPullRequestCompletionMode(
       candidate.pullRequestCompletionMode
     )
       ? candidate.pullRequestCompletionMode
       : DEFAULT_PULL_REQUEST_COMPLETION_MODE,
+    reasoningEffort: isReasoningEffort(candidate.reasoningEffort)
+      ? candidate.reasoningEffort
+      : "",
+    reasoningSummary: isReasoningSummary(candidate.reasoningSummary)
+      ? candidate.reasoningSummary
+      : "",
+    verbosity: isVerbosity(candidate.verbosity) ? candidate.verbosity : "",
+    codexWebSearch: isBoolean(candidate.codexWebSearch)
+      ? candidate.codexWebSearch
+      : false,
     taskDelayEnabled: isBoolean(candidate.taskDelayEnabled)
       ? candidate.taskDelayEnabled
       : false,
@@ -82,8 +115,6 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
       typeof candidate.taskDelayMinutes === "string"
         ? candidate.taskDelayMinutes
         : "",
-    githubKey:
-      typeof candidate.githubKey === "string" ? candidate.githubKey : "",
   };
 }
 

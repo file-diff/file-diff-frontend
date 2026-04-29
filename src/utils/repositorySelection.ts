@@ -726,27 +726,42 @@ export const PULL_REQUEST_COMPLETION_MODE_VALUES = [
 export type PullRequestCompletionMode =
   (typeof PULL_REQUEST_COMPLETION_MODE_VALUES)[number];
 
-export const CREATE_TASK_RUNNER_VALUES = ["codex", "opencode"] as const;
-
-export type CreateTaskRunner = (typeof CREATE_TASK_RUNNER_VALUES)[number];
-
-export const OPENCODE_MODEL_VALUES = [
-  "deepseek-v4-flash",
-  "deepseek-v4-pro",
+export const REASONING_EFFORT_VALUES = [
+  "low",
+  "medium",
+  "high",
+  "xhigh",
 ] as const;
 
-export type OpencodeModel = (typeof OPENCODE_MODEL_VALUES)[number];
+export type ReasoningEffort = (typeof REASONING_EFFORT_VALUES)[number];
+
+export const REASONING_SUMMARY_VALUES = [
+  "none",
+  "auto",
+  "concise",
+  "detailed",
+] as const;
+
+export type ReasoningSummary = (typeof REASONING_SUMMARY_VALUES)[number];
+
+export const VERBOSITY_VALUES = ["low", "medium", "high"] as const;
+
+export type Verbosity = (typeof VERBOSITY_VALUES)[number];
 
 export interface CreateTaskRequest {
   repo: string;
   problem_statement: string;
   base_ref: string;
+  agent_id?: number;
+  custom_agent?: string;
+  create_pull_request?: true;
   pull_request_completion_mode?: PullRequestCompletionMode;
-  task?: CreateTaskRunner;
   model?: string;
+  reasoning_effort?: ReasoningEffort;
+  reasoning_summary?: ReasoningSummary;
+  verbosity?: Verbosity;
+  codex_web_search?: boolean;
   task_delay_ms?: number;
-  githubKey?: string;
-  deepseek_api_key?: string;
 }
 
 export interface CreateTaskResponse {
