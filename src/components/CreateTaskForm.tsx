@@ -10,6 +10,7 @@ import {
   requestCreateTask,
 } from "../utils/repositorySelection";
 import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
+import { requestPromptTitle } from "../utils/promptTitle";
 import {
   loadCreateTaskDraft,
   loadRepoCreateTaskDraft,
@@ -140,6 +141,10 @@ export default function CreateTaskForm({
   const [taskDelayMinutes, setTaskDelayMinutes] = useState(
     initialRepoDraft?.taskDelayMinutes ?? savedDraft?.taskDelayMinutes ?? ""
   );
+  const [generatedBranchTitle, setGeneratedBranchTitle] = useState("");
+  const [generatedBranchTitleSource, setGeneratedBranchTitleSource] = useState("");
+  const [isGeneratingBranchTitle, setIsGeneratingBranchTitle] = useState(false);
+  const [generatedBranchTitleError, setGeneratedBranchTitleError] = useState("");
 
   const [branches, setBranches] = useState<RepositoryBranch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
@@ -152,6 +157,7 @@ export default function CreateTaskForm({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const promptTitleAbortControllerRef = useRef<AbortController | null>(null);
 
   const loadBranches = useCallback(async (repo: string) => {
     abortControllerRef.current?.abort();
@@ -216,6 +222,52 @@ export default function CreateTaskForm({
       setTaskDelayMinutes("");
     }
   }, []);
+
+  const handleGenerateBranchTitle = useCallback(async () => {
+    const trimmedProblemStatement = problemStatement.trim();
+    if (!trimmedProblemStatement) {
+      setGeneratedBranchTitle("");
+      setGeneratedBranchTitleSource("");
+      setGeneratedBranchTitleError(PROBLEM_STATEMENT_REQUIRED_ERROR);
+      return;
+    }
+
+    promptTitleAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    promptTitleAbortControllerRef.current = controller;
+
+    setIsGeneratingBranchTitle(true);
+    setGeneratedBranchTitleError("");
+
+    try {
+      const result = await requestPromptTitle(
+        trimmedProblemStatement,
+        controller.signal
+      );
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setGeneratedBranchTitle(result.title);
+      setGeneratedBranchTitleSource(trimmedProblemStatement);
+    } catch (err) {
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setGeneratedBranchTitle("");
+      setGeneratedBranchTitleSource("");
+      setGeneratedBranchTitleError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Unable to generate branch title"
+      );
+    } finally {
+      if (!controller.signal.aborted) {
+        setIsGeneratingBranchTitle(false);
+      }
+    }
+  }, [problemStatement]);
 
   const handleSubmit = useCallback(async () => {
     const repo = resolveRepositoryInput(repoInput);
@@ -414,6 +466,7 @@ export default function CreateTaskForm({
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
+      promptTitleAbortControllerRef.current?.abort();
     };
   }, []);
 
@@ -461,6 +514,13 @@ export default function CreateTaskForm({
     () => getCreatedTaskInfo(submitResult),
     [submitResult]
   );
+  const isGeneratedBranchTitleStale = useMemo(() => {
+    if (!generatedBranchTitleSource) {
+      return false;
+    }
+
+    return generatedBranchTitleSource !== problemStatement.trim();
+  }, [generatedBranchTitleSource, problemStatement]);
 
   return (
     <div className="create-task-form">
@@ -540,6 +600,44 @@ export default function CreateTaskForm({
           spellCheck={false}
           aria-required={true}
         />
+      </div>
+
+      <div className="create-task-form__field">
+        <label htmlFor="create-task-generated-branch-title">
+          Branch title{" "}
+          <span className="create-task-form__optional">(generated)</span>
+        </label>
+        <div className="create-task-form__input-row">
+          <input
+            id="create-task-generated-branch-title"
+            type="text"
+            value={generatedBranchTitle}
+            readOnly
+            placeholder="Generate from the problem statement"
+            spellCheck={false}
+          />
+          <button
+            type="button"
+            className="create-task-form__secondary-btn"
+            onClick={() => void handleGenerateBranchTitle()}
+            disabled={isGeneratingBranchTitle || !problemStatement.trim()}
+          >
+            {isGeneratingBranchTitle ? "Generating..." : "Generate title"}
+          </button>
+        </div>
+        {generatedBranchTitleError ? (
+          <div className="create-task-form__field-error">
+            {generatedBranchTitleError}
+          </div>
+        ) : (
+          <div className="create-task-form__field-hint">
+            {generatedBranchTitle
+              ? isGeneratedBranchTitleStale
+                ? "Generated from an older problem statement. Generate again to refresh it."
+                : "Generated from the current problem statement. Task submission is unchanged for now."
+              : "Generate a lowercase hyphenated branch title from the current problem statement."}
+          </div>
+        )}
       </div>
 
       <div className="create-task-form__field">
