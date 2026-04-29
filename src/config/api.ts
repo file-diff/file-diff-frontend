@@ -17,6 +17,7 @@ export const CACHE_API_URL = `${JOBS_API_URL}/cache`;
 export const COMMITS_API_URL = `${JOBS_API_URL}/commits`;
 export const BRANCHES_API_URL = `${JOBS_API_URL}/branches`;
 export const STATS_API_URL = `${trimmedDefaultApiBaseUrl}/stats`;
+export const SHORTEN_PROMPT_API_URL = `${trimmedDefaultApiBaseUrl}/shorten-prompt`;
 export const CREATE_TASK_API_URL = `${JOBS_API_URL}/create-task`;
 export const REVERT_TO_COMMIT_API_URL = `${JOBS_API_URL}/revert-to-commit`;
 export const DELETE_REMOTE_BRANCH_API_URL = `${JOBS_API_URL}/delete-remote-branch`;
