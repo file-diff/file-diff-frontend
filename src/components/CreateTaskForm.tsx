@@ -29,6 +29,13 @@ const DEFAULT_CODEX_MODEL = "";
 const DEFAULT_OPENCODE_MODEL = OPENCODE_MODEL_VALUES[0];
 const DEFAULT_TASK: CreateTaskRunner = "codex";
 const DEFAULT_BRANCH_NAME = "main";
+const CODEX_MODEL_VALUES = [
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.4-mini",
+  "gpt-5.3-codex",
+  "gpt-5.3-codex-spark",
+] as const;
 const BASE_REF_REQUIRED_ERROR = "Please enter a target branch.";
 const MIN_TASK_DELAY_MINUTES = 1;
 const PROBLEM_STATEMENT_REQUIRED_ERROR = "Please enter a problem statement.";
@@ -41,6 +48,10 @@ function isOpencodeModel(value: string): boolean {
   return OPENCODE_MODEL_VALUES.includes(
     value as (typeof OPENCODE_MODEL_VALUES)[number]
   );
+}
+
+function isCodexModel(value: string): boolean {
+  return (CODEX_MODEL_VALUES as readonly string[]).includes(value);
 }
 
 function normalizeTaskSelection(value: CreateTaskRunner | undefined): CreateTaskRunner {
@@ -56,7 +67,7 @@ function normalizeModelSelection(
   }
 
   const trimmed = value?.trim() ?? "";
-  return trimmed && !isOpencodeModel(trimmed) ? trimmed : DEFAULT_CODEX_MODEL;
+  return isCodexModel(trimmed) ? trimmed : DEFAULT_CODEX_MODEL;
 }
 
 function getCreatedTaskInfo(
@@ -464,14 +475,18 @@ export default function CreateTaskForm({
             ))}
           </select>
         ) : (
-          <input
+          <select
             id="create-task-model"
-            type="text"
-            value={model}
+            value={normalizeModelSelection(task, model)}
             onChange={(e) => setModel(e.target.value)}
-            placeholder={`Server default (${CODEX_DEFAULT_MODEL})`}
-            spellCheck={false}
-          />
+          >
+            <option value="">{`Server default (${CODEX_DEFAULT_MODEL})`}</option>
+            {CODEX_MODEL_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 
