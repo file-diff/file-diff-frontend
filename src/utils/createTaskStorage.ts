@@ -1,5 +1,7 @@
 import {
   CREATE_TASK_RUNNER_VALUES,
+  PULL_REQUEST_COMPLETION_MODE_VALUES,
+  type PullRequestCompletionMode,
   type CreateTaskRunner,
 } from "./repositorySelection";
 
@@ -7,6 +9,7 @@ export const CREATE_TASK_DRAFT_STORAGE_KEY = "create-task-draft";
 export const REPO_CREATE_TASK_DRAFTS_STORAGE_KEY = "repo-create-task-drafts";
 
 const DEFAULT_CREATE_TASK_RUNNER: CreateTaskRunner = "codex";
+const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 
 export interface CreateTaskDraft {
   repoInput: string;
@@ -14,6 +17,7 @@ export interface CreateTaskDraft {
   model: string;
   task: CreateTaskRunner;
   baseRef: string;
+  pullRequestCompletionMode: PullRequestCompletionMode;
   taskDelayEnabled: boolean;
   taskDelayMinutes: string;
   githubKey: string;
@@ -25,6 +29,15 @@ function isCreateTaskRunner(value: unknown): value is CreateTaskRunner {
   return (
     typeof value === "string" &&
     CREATE_TASK_RUNNER_VALUES.includes(value as CreateTaskRunner)
+  );
+}
+
+function isPullRequestCompletionMode(
+  value: unknown
+): value is PullRequestCompletionMode {
+  return (
+    typeof value === "string" &&
+    PULL_REQUEST_COMPLETION_MODE_VALUES.includes(value as PullRequestCompletionMode)
   );
 }
 
@@ -57,6 +70,11 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
       ? candidate.task
       : DEFAULT_CREATE_TASK_RUNNER,
     baseRef: candidate.baseRef,
+    pullRequestCompletionMode: isPullRequestCompletionMode(
+      candidate.pullRequestCompletionMode
+    )
+      ? candidate.pullRequestCompletionMode
+      : DEFAULT_PULL_REQUEST_COMPLETION_MODE,
     taskDelayEnabled: isBoolean(candidate.taskDelayEnabled)
       ? candidate.taskDelayEnabled
       : false,

@@ -6,6 +6,7 @@ export interface CreateTaskConfirmPopupProps {
   variantLabel: string;
   repo: string;
   branch: string;
+  pullRequestCompletionModeLabel: string;
   problemStatement: string;
   isSubmitting: boolean;
   onConfirm: () => void;
@@ -17,6 +18,7 @@ export default function CreateTaskConfirmPopup({
   variantLabel,
   repo,
   branch,
+  pullRequestCompletionModeLabel,
   problemStatement,
   isSubmitting,
   onConfirm,
@@ -80,6 +82,10 @@ export default function CreateTaskConfirmPopup({
           <p className="create-task-confirm__repo">{repo || "(no repository)"}</p>
           <p className="create-task-confirm__branch">
             on branch <strong>{branch || "(default)"}</strong>
+          </p>
+          <p className="create-task-confirm__branch">
+            pull request completion{" "}
+            <strong>{pullRequestCompletionModeLabel}</strong>
           </p>
 
           <label
