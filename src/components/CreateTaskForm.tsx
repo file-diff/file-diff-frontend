@@ -381,6 +381,7 @@ export default function CreateTaskForm({
     const request: CreateTaskRequest = {
       repo,
       base_ref: validatedBaseRef,
+      branch: validatedBaseRef,
       problem_statement: validatedProblemStatement,
       create_pull_request: true,
       pull_request_completion_mode: pullRequestCompletionMode,

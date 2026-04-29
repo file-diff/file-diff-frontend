@@ -759,6 +759,7 @@ export interface CreateTaskRequest {
   repo: string;
   problem_statement: string;
   base_ref: string;
+  branch: string;
   agent_id?: number;
   custom_agent?: string;
   create_pull_request?: true;
