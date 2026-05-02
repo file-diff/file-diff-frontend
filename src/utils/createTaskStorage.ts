@@ -1,4 +1,5 @@
 import {
+  CLAUDE_MODEL_VALUES,
   CREATE_TASK_RUNNER_VALUES,
   PULL_REQUEST_COMPLETION_MODE_VALUES,
   REASONING_EFFORT_VALUES,
@@ -45,7 +46,28 @@ function isCreateTaskRunner(value: unknown): value is CreateTaskRunner {
   );
 }
 
-function normalizeStoredTask(value: unknown, customAgent: unknown): CreateTaskRunner {
+function isClaudeModel(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    CLAUDE_MODEL_VALUES.includes(value as (typeof CLAUDE_MODEL_VALUES)[number])
+  );
+}
+
+function usesLegacyCustomAgentRunnerValue(
+  task: unknown,
+  customAgent: unknown
+): boolean {
+  return (
+    !isCreateTaskRunner(task) &&
+    (customAgent === LEGACY_OPENCODE_RUNNER || customAgent === CLAUDE_RUNNER)
+  );
+}
+
+function normalizeStoredTask(
+  value: unknown,
+  model: unknown,
+  customAgent: unknown
+): CreateTaskRunner {
   if (isCreateTaskRunner(value)) {
     return value;
   }
@@ -55,6 +77,10 @@ function normalizeStoredTask(value: unknown, customAgent: unknown): CreateTaskRu
   }
 
   if (customAgent === CLAUDE_RUNNER) {
+    return CLAUDE_RUNNER;
+  }
+
+  if (isClaudeModel(model)) {
     return CLAUDE_RUNNER;
   }
 
@@ -106,11 +132,18 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
 
   return {
     problemStatement: candidate.problemStatement,
-    task: normalizeStoredTask(candidate.task, candidate.customAgent),
+    task: normalizeStoredTask(
+      candidate.task,
+      candidate.model,
+      candidate.customAgent
+    ),
     model: candidate.model,
     agentId: typeof candidate.agentId === "string" ? candidate.agentId : "",
     customAgent:
-      typeof candidate.customAgent === "string" ? candidate.customAgent : "",
+      typeof candidate.customAgent === "string" &&
+      !usesLegacyCustomAgentRunnerValue(candidate.task, candidate.customAgent)
+        ? candidate.customAgent
+        : "",
     baseRef: candidate.baseRef,
     pullRequestCompletionMode: isPullRequestCompletionMode(
       candidate.pullRequestCompletionMode
