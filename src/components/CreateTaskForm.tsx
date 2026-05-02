@@ -25,6 +25,11 @@ import {
   saveRepoCreateTaskDraft,
 } from "../utils/createTaskStorage";
 import { saveRepoProblemStatement } from "../utils/repoProblemStatementStorage";
+import {
+  loadCachedBranches,
+  loadCachedBranchesFetchedAt,
+  saveCachedBranches,
+} from "../utils/branchesPageStorage";
 import type {
   CreateTaskRequest,
   CreateTaskResponse,
@@ -36,6 +41,7 @@ import type {
 } from "../utils/repositorySelection";
 import RepositorySelector from "./RepositorySelector";
 import CreateTaskConfirmPopup from "./CreateTaskConfirmPopup";
+import BranchAutocomplete from "./BranchAutocomplete";
 import "./CreateTaskForm.css";
 
 const DEFAULT_BRANCH_NAME = "main";
@@ -164,6 +170,7 @@ export default function CreateTaskForm({
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [branchesError, setBranchesError] = useState("");
   const [loadedBranchesRepo, setLoadedBranchesRepo] = useState("");
+  const [branchesFetchedAt, setBranchesFetchedAt] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -180,13 +187,13 @@ export default function CreateTaskForm({
 
     setBranchesLoading(true);
     setBranchesError("");
-    setBranches([]);
-    setLoadedBranchesRepo("");
 
     try {
       const result = await requestRepositoryBranches(repo, controller.signal);
       setBranches(result);
       setLoadedBranchesRepo(repo);
+      saveCachedBranches(repo, result);
+      setBranchesFetchedAt(loadCachedBranchesFetchedAt(repo));
 
       setBaseRef((currentBaseRef) => {
         if (currentBaseRef && result.some((b) => b.name === currentBaseRef)) {
@@ -487,6 +494,30 @@ export default function CreateTaskForm({
     }
   }, [initialRepo, showRepositorySelector]);
 
+  useEffect(() => {
+    const repo = resolveRepositoryInput(repoInput);
+    if (!repo) {
+      setBranches([]);
+      setLoadedBranchesRepo("");
+      setBranchesFetchedAt("");
+      return;
+    }
+    if (repo === loadedBranchesRepo) {
+      return;
+    }
+    const cached = loadCachedBranches(repo);
+    if (cached.length > 0) {
+      setBranches(cached);
+      setLoadedBranchesRepo(repo);
+      setBranchesFetchedAt(loadCachedBranchesFetchedAt(repo));
+      setBranchesError("");
+    } else {
+      setBranches([]);
+      setLoadedBranchesRepo("");
+      setBranchesFetchedAt("");
+    }
+  }, [repoInput, loadedBranchesRepo]);
+
   const canSubmit =
     !isSubmitting &&
     repoInput.trim() !== "" &&
@@ -553,9 +584,6 @@ export default function CreateTaskForm({
             disabled={branchesLoading || !repoInput.trim()}
             className="create-task-form__repository-selector"
           />
-          {branchesError && (
-            <div className="create-task-form__field-error">{branchesError}</div>
-          )}
         </div>
       )}
 
@@ -710,33 +738,44 @@ export default function CreateTaskForm({
 
       <div className="create-task-form__field">
         <label htmlFor="create-task-branch">Target branch</label>
-        {branches.length > 0 ? (
-          <select
-            id="create-task-branch"
+        <div className="create-task-form__input-row">
+          <BranchAutocomplete
+            inputId="create-task-branch"
             value={baseRef}
-            onChange={(e) => setBaseRef(e.target.value)}
-          >
-            {branches.map((b) => (
-              <option key={b.ref} value={b.name}>
-                {b.name}
-                {b.isDefault ? " (default)" : ""}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            id="create-task-branch"
-            type="text"
-            value={baseRef}
-            onChange={(e) => setBaseRef(e.target.value)}
+            onChange={setBaseRef}
+            branches={branches}
             placeholder="main"
-            spellCheck={false}
           />
+          <button
+            type="button"
+            className="create-task-form__secondary-btn"
+            onClick={handleLoadBranches}
+            disabled={branchesLoading || !repoInput.trim()}
+            title={
+              loadedBranchesRepo
+                ? `Refresh branches for ${loadedBranchesRepo}`
+                : "Download branches from server"
+            }
+          >
+            {branchesLoading ? "Downloading..." : "Download branches"}
+          </button>
+        </div>
+        {branchesError && (
+          <div className="create-task-form__field-error">{branchesError}</div>
         )}
-        {loadedBranchesRepo && (
+        {!branchesError && loadedBranchesRepo && (
           <div className="create-task-form__field-hint">
-            {branches.length} branch{branches.length !== 1 ? "es" : ""} loaded
-            from {loadedBranchesRepo}
+            {branches.length} branch{branches.length !== 1 ? "es" : ""} cached
+            for {loadedBranchesRepo}
+            {branchesFetchedAt
+              ? ` · updated ${new Date(branchesFetchedAt).toLocaleString()}`
+              : ""}
+          </div>
+        )}
+        {!branchesError && !loadedBranchesRepo && (
+          <div className="create-task-form__field-hint">
+            Type a branch name, or click Download branches to load suggestions
+            from the server.
           </div>
         )}
       </div>
