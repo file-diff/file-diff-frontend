@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildCreateTaskJobUrl } from "../config/api";
 import {
-  OPENCODE_MODEL_VALUES,
+  CLAUDE_MODEL_VALUES,
   PULL_REQUEST_COMPLETION_MODE_VALUES,
   REASONING_EFFORT_VALUES,
   REASONING_SUMMARY_VALUES,
@@ -34,7 +34,7 @@ import "./CreateTaskForm.css";
 const CODEX_DEFAULT_MODEL = "gpt-5.2-codex";
 const DEFAULT_CODEX_MODEL = "";
 const DEFAULT_BRANCH_NAME = "main";
-const DEFAULT_OPENCODE_MODEL = OPENCODE_MODEL_VALUES[0];
+const DEFAULT_CLAUDE_MODEL = CLAUDE_MODEL_VALUES[0];
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 const DEFAULT_TASK: CreateTaskRunner = "codex";
 const BRANCH_TITLE_PREFIX = "fd-agent/";
@@ -60,14 +60,14 @@ function isCodexModel(value: string): boolean {
   return (CODEX_MODEL_VALUES as readonly string[]).includes(value);
 }
 
-function isOpencodeModel(value: string): boolean {
-  return OPENCODE_MODEL_VALUES.includes(
-    value as (typeof OPENCODE_MODEL_VALUES)[number]
+function isClaudeModel(value: string): boolean {
+  return CLAUDE_MODEL_VALUES.includes(
+    value as (typeof CLAUDE_MODEL_VALUES)[number]
   );
 }
 
 function normalizeTaskSelection(value: CreateTaskRunner | undefined): CreateTaskRunner {
-  return value === "opencode" ? "opencode" : DEFAULT_TASK;
+  return value === "claude" ? "claude" : DEFAULT_TASK;
 }
 
 function normalizeModelSelection(
@@ -76,8 +76,8 @@ function normalizeModelSelection(
 ): string {
   const trimmed = value?.trim() ?? "";
 
-  if (task === "opencode") {
-    return isOpencodeModel(trimmed) ? trimmed : DEFAULT_OPENCODE_MODEL;
+  if (task === "claude") {
+    return isClaudeModel(trimmed) ? trimmed : DEFAULT_CLAUDE_MODEL;
   }
 
   return isCodexModel(trimmed) ? trimmed : DEFAULT_CODEX_MODEL;
@@ -342,7 +342,7 @@ export default function CreateTaskForm({
 
     const validatedModel = normalizeModelSelection(task, model);
     const effectiveCustomAgent =
-      customAgent.trim() || (task === "opencode" ? "opencode" : "");
+      customAgent.trim() || (task === "claude" ? "claude" : "");
 
     const validatedAgentId = agentId.trim();
     let parsedAgentId: number | undefined;
@@ -599,19 +599,19 @@ export default function CreateTaskForm({
           onChange={(e) => handleTaskChange(e.target.value as CreateTaskRunner)}
         >
           <option value="codex">codex</option>
-          <option value="opencode">opencode</option>
+          <option value="claude">claude</option>
         </select>
       </div>
 
       <div className="create-task-form__field">
         <label htmlFor="create-task-model">Model</label>
-        {task === "opencode" ? (
+        {task === "claude" ? (
           <select
             id="create-task-model"
             value={normalizeModelSelection(task, model)}
             onChange={(e) => setModel(e.target.value)}
           >
-            {OPENCODE_MODEL_VALUES.map((value) => (
+            {CLAUDE_MODEL_VALUES.map((value) => (
               <option key={value} value={value}>
                 {value}
               </option>

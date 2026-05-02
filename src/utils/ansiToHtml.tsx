@@ -136,7 +136,7 @@ interface AnsiSegment {
 }
 
 function parseAnsi(text: string): AnsiSegment[] {
-  const ansiRegex = /\x1b\[([\d;]*)m/g;
+  const ansiRegex = new RegExp(`${String.fromCharCode(27)}\\[([\\d;]*)m`, "g");
   const segments: AnsiSegment[] = [];
   let lastIndex = 0;
   let currentStyle: AnsiStyle = {};
@@ -154,20 +154,6 @@ function parseAnsi(text: string): AnsiSegment[] {
     const params = paramStr
       ? paramStr.split(";").map((p) => Number.parseInt(p, 10))
       : [];
-
-    // Consume parameters for extended color sequences
-    let consumed = 0;
-    for (let j = 0; j < params.length; j++) {
-      if ((params[j] === 38 || params[j] === 48) && j + 1 < params.length) {
-        if (params[j + 1] === 5 && j + 2 < params.length) {
-          consumed += 3;
-          j += 2;
-        } else if (params[j + 1] === 2 && j + 4 < params.length) {
-          consumed += 5;
-          j += 4;
-        }
-      }
-    }
 
     currentStyle = applySgr(params, currentStyle);
     lastIndex = match.index + match[0].length;

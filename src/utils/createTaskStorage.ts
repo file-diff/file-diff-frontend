@@ -14,6 +14,8 @@ export const REPO_CREATE_TASK_DRAFTS_STORAGE_KEY = "repo-create-task-drafts";
 
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 const DEFAULT_CREATE_TASK_RUNNER: CreateTaskRunner = "codex";
+const LEGACY_OPENCODE_RUNNER = "opencode";
+const CLAUDE_RUNNER: CreateTaskRunner = "claude";
 
 export interface CreateTaskDraft {
   repoInput: string;
@@ -41,6 +43,22 @@ function isCreateTaskRunner(value: unknown): value is CreateTaskRunner {
     typeof value === "string" &&
     CREATE_TASK_RUNNER_VALUES.includes(value as CreateTaskRunner)
   );
+}
+
+function normalizeStoredTask(value: unknown, customAgent: unknown): CreateTaskRunner {
+  if (isCreateTaskRunner(value)) {
+    return value;
+  }
+
+  if (value === LEGACY_OPENCODE_RUNNER || customAgent === LEGACY_OPENCODE_RUNNER) {
+    return CLAUDE_RUNNER;
+  }
+
+  if (customAgent === CLAUDE_RUNNER) {
+    return CLAUDE_RUNNER;
+  }
+
+  return DEFAULT_CREATE_TASK_RUNNER;
 }
 
 function isPullRequestCompletionMode(
@@ -88,11 +106,7 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
 
   return {
     problemStatement: candidate.problemStatement,
-    task: isCreateTaskRunner(candidate.task)
-      ? candidate.task
-      : candidate.customAgent === "opencode"
-        ? "opencode"
-        : DEFAULT_CREATE_TASK_RUNNER,
+    task: normalizeStoredTask(candidate.task, candidate.customAgent),
     model: candidate.model,
     agentId: typeof candidate.agentId === "string" ? candidate.agentId : "",
     customAgent:
