@@ -1,5 +1,6 @@
 import express from "express";
 import { rateLimit } from "express-rate-limit";
+import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +16,17 @@ const ssrHealthCacheKey = `ssr-health:${Buffer.from(apiBaseUrl).toString(
   "base64url"
 )}`;
 const ssrHealthCacheTtlSeconds = 10;
+const codexStatsTimeoutMs = 30_000;
+const codexStatsCommand = "npx";
+const codexStatsArgs = [
+  "-y",
+  "@ccusage/codex@latest",
+  "daily",
+  "--compact",
+  "--noColor",
+];
+const ansiPattern =
+  /[\u001B\u009B][[\]()#;?]*(?:(?:(?:;[-a-zA-Z\d/#&.:=?%@~_]+)*)?\u0007|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
 
 const clientDir = resolve(__dirname, "dist/client");
 const indexHtml = readFileSync(resolve(clientDir, "index.html"), "utf-8");
@@ -47,8 +59,113 @@ const ssrHealthRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+function runCodexStats() {
+  return new Promise((resolve, reject) => {
+    const child = spawn(codexStatsCommand, codexStatsArgs, {
+      env: {
+        ...process.env,
+        FORCE_COLOR: "0",
+        NO_COLOR: "1",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const finish = (callback) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timeoutHandle);
+      callback();
+    };
+
+    const timeoutHandle = setTimeout(() => {
+      child.kill("SIGTERM");
+      finish(() => {
+        reject({
+          message: `Timed out after ${codexStatsTimeoutMs} ms while generating Codex usage stats.`,
+          statusCode: 504,
+        });
+      });
+    }, codexStatsTimeoutMs);
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", (error) => {
+      finish(() => {
+        reject({
+          message:
+            error.code === "ENOENT"
+              ? "The Codex usage analyzer is unavailable because `npx` is not installed."
+              : `Failed to start the Codex usage analyzer: ${error.message}`,
+          statusCode: 503,
+        });
+      });
+    });
+
+    child.on("close", (code) => {
+      finish(() => {
+        const trimmedStdout = stdout.replace(ansiPattern, "").trimEnd();
+        const trimmedStderr = stderr.replace(ansiPattern, "").trim();
+
+        if (code === 0) {
+          resolve(trimmedStdout || "No Codex usage data available.");
+          return;
+        }
+
+        const detail = trimmedStderr || trimmedStdout || `Process exited with code ${String(code)}.`;
+        reject({
+          message: `Failed to generate Codex usage stats.\n\n${detail}`,
+          statusCode: 502,
+        });
+      });
+    });
+  });
+}
+
 // Serve static client assets (do not serve index.html for /)
 app.use(express.static(clientDir, { index: false }));
+
+app.get("/api/codex/stats", async (_req, res) => {
+  try {
+    const output = await runCodexStats();
+    res
+      .status(200)
+      .set({ "Content-Type": "text/plain; charset=utf-8" })
+      .send(output);
+  } catch (error) {
+    const statusCode =
+      typeof error === "object" &&
+      error !== null &&
+      "statusCode" in error &&
+      typeof error.statusCode === "number"
+        ? error.statusCode
+        : 500;
+    const message =
+      typeof error === "object" &&
+      error !== null &&
+      "message" in error &&
+      typeof error.message === "string"
+        ? error.message
+        : "Failed to generate Codex usage stats.";
+
+    console.error("Codex stats error:", error);
+    res
+      .status(statusCode)
+      .set({ "Content-Type": "text/plain; charset=utf-8" })
+      .send(message);
+  }
+});
 
 // SSR-rendered health page
 app.get("/ssr-health", ssrHealthRateLimiter, async (_req, res) => {

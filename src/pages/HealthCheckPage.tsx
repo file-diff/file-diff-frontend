@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   CACHE_API_URL,
+  CODEX_STATS_API_URL,
   DEFAULT_API_BASE_URL,
   HEALTH_API_URL,
   STATS_API_URL,
@@ -236,6 +237,8 @@ export default function HealthCheckPage() {
   const [result, setResult] = useState<BackendCheckResult | null>(null);
   const [cacheData, setCacheData] = useState<CacheData | null>(null);
   const [cacheError, setCacheError] = useState<string | null>(null);
+  const [codexStatsOutput, setCodexStatsOutput] = useState<string | null>(null);
+  const [codexStatsError, setCodexStatsError] = useState<string | null>(null);
   const [statsData, setStatsData] = useState<StatsData | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
 
@@ -244,11 +247,19 @@ export default function HealthCheckPage() {
 
     setCacheData(null);
     setCacheError(null);
+    setCodexStatsOutput(null);
+    setCodexStatsError(null);
     setStatsData(null);
     setStatsError(null);
 
     try {
-      const [healthResult, versionResult, cacheResult, statsResult] =
+      const [
+        healthResult,
+        versionResult,
+        cacheResult,
+        statsResult,
+        codexStatsResult,
+      ] =
         await Promise.allSettled([
           fetch(HEALTH_API_URL, {
             headers: {
@@ -265,6 +276,9 @@ export default function HealthCheckPage() {
           }),
           fetch(STATS_API_URL, {
             headers: { Accept: "application/json" },
+          }),
+          fetch(CODEX_STATS_API_URL, {
+            headers: { Accept: "text/plain" },
           }),
         ]);
       const healthResponse =
@@ -326,6 +340,17 @@ export default function HealthCheckPage() {
         }
       } else {
         setStatsError(describeSettledError(statsResult));
+      }
+
+      if (codexStatsResult.status === "fulfilled" && codexStatsResult.value.ok) {
+        try {
+          const statsOutput = await codexStatsResult.value.text();
+          setCodexStatsOutput(statsOutput);
+        } catch {
+          setCodexStatsError("Failed to parse Codex stats response");
+        }
+      } else {
+        setCodexStatsError(describeSettledError(codexStatsResult));
       }
     } catch (error) {
       const durationMs = Math.round(performance.now() - startedAt);
@@ -506,6 +531,24 @@ export default function HealthCheckPage() {
           </div>
         )}
       </div>
+
+      {(codexStatsOutput || codexStatsError) && (
+        <div className="health-check-card health-check-stats-card">
+          <h2>🤖 Codex Usage</h2>
+          <p className="health-check-note">
+            The backend proxies terminal output from <code>@ccusage/codex</code>
+            via <code>{CODEX_STATS_API_URL}</code>. Alignment is preserved with a
+            fixed-width terminal view.
+          </p>
+          {codexStatsError ? (
+            <p className="health-check-stats-error">
+              Unable to load Codex usage stats: {codexStatsError}
+            </p>
+          ) : codexStatsOutput ? (
+            <pre className="health-check-terminal-output">{codexStatsOutput}</pre>
+          ) : null}
+        </div>
+      )}
 
       {(statsData || statsError) && (
         <div className="health-check-card health-check-stats-card">
