@@ -12,6 +12,7 @@ test("claude tasks send the selected model without forcing custom_agent", () => 
       task: "claude",
     }),
     {
+      task: "claude",
       model: "opus",
     }
   );
@@ -27,8 +28,25 @@ test("custom agent remains an independent override field", () => {
       task: "claude",
     }),
     {
+      task: "claude",
       custom_agent: "claude",
       model: "sonnet",
+    }
+  );
+});
+
+test("opencode tasks send the selected deepseek model", () => {
+  assert.deepEqual(
+    buildCreateTaskRequestFields({
+      customAgent: "",
+      model: "deepseek-v4-flash",
+      reasoningEffort: "",
+      reasoningSummary: "",
+      task: "opencode",
+    }),
+    {
+      task: "opencode",
+      model: "deepseek-v4-flash",
     }
   );
 });
@@ -45,6 +63,7 @@ test("codex tasks keep codex-only options in the payload", () => {
       taskDelayMs: 60000,
     }),
     {
+      task: "codex",
       agent_id: 17,
       custom_agent: "custom-runner",
       model: "gpt-5.4",

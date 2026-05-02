@@ -744,7 +744,7 @@ export const REASONING_SUMMARY_VALUES = [
 
 export type ReasoningSummary = (typeof REASONING_SUMMARY_VALUES)[number];
 
-export const CREATE_TASK_RUNNER_VALUES = ["codex", "claude"] as const;
+export const CREATE_TASK_RUNNER_VALUES = ["codex", "claude", "opencode"] as const;
 
 export type CreateTaskRunner = (typeof CREATE_TASK_RUNNER_VALUES)[number];
 
@@ -752,10 +752,18 @@ export const CLAUDE_MODEL_VALUES = ["sonnet", "opus"] as const;
 
 export type ClaudeModel = (typeof CLAUDE_MODEL_VALUES)[number];
 
+export const OPENCODE_MODEL_VALUES = [
+  "deepseek-v4-pro",
+  "deepseek-v4-flash",
+] as const;
+
+export type OpencodeModel = (typeof OPENCODE_MODEL_VALUES)[number];
+
 export interface CreateTaskRequest {
   repo: string;
   problem_statement: string;
   base_ref: string;
+  task: CreateTaskRunner;
   branch_title?: string | null;
   agent_id?: number;
   custom_agent?: string;
