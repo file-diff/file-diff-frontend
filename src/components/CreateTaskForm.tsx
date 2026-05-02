@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildCreateTaskJobUrl } from "../config/api";
 import {
-  CLAUDE_MODEL_VALUES,
   PULL_REQUEST_COMPLETION_MODE_VALUES,
   REASONING_EFFORT_VALUES,
   REASONING_SUMMARY_VALUES,
@@ -11,9 +10,11 @@ import {
 } from "../utils/repositorySelection";
 import {
   buildCreateTaskRequestFields,
+  CLAUDE_MODEL_VALUES,
   CODEX_DEFAULT_MODEL,
   CODEX_MODEL_VALUES,
   normalizeModelSelection,
+  OPENCODE_MODEL_VALUES,
 } from "../utils/createTaskSubmission";
 import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
 import { requestPromptTitle } from "../utils/promptTitle";
@@ -52,7 +53,11 @@ const TASK_DELAY_MINIMUM_ERROR = "Task delay must be at least 1 whole minute.";
 const MIN_TASK_DELAY_MINUTES = 1;
 
 function normalizeTaskSelection(value: CreateTaskRunner | undefined): CreateTaskRunner {
-  return value === "claude" ? "claude" : DEFAULT_TASK;
+  if (value === "claude" || value === "opencode") {
+    return value;
+  }
+
+  return DEFAULT_TASK;
 }
 
 function prefixGeneratedBranchTitle(title: string): string {
@@ -357,6 +362,7 @@ export default function CreateTaskForm({
       repo,
       base_ref: validatedBaseRef,
       problem_statement: validatedProblemStatement,
+      task,
       branch_title: validatedGeneratedBranchTitle || null,
       create_pull_request: true,
       pull_request_completion_mode: pullRequestCompletionMode,
@@ -562,6 +568,7 @@ export default function CreateTaskForm({
         >
           <option value="codex">codex</option>
           <option value="claude">claude</option>
+          <option value="opencode">opencode</option>
         </select>
       </div>
 
@@ -574,6 +581,18 @@ export default function CreateTaskForm({
             onChange={(e) => setModel(e.target.value)}
           >
             {CLAUDE_MODEL_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        ) : task === "opencode" ? (
+          <select
+            id="create-task-model"
+            value={normalizeModelSelection(task, model)}
+            onChange={(e) => setModel(e.target.value)}
+          >
+            {OPENCODE_MODEL_VALUES.map((value) => (
               <option key={value} value={value}>
                 {value}
               </option>

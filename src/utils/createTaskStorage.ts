@@ -1,6 +1,7 @@
 import {
   CLAUDE_MODEL_VALUES,
   CREATE_TASK_RUNNER_VALUES,
+  OPENCODE_MODEL_VALUES,
   PULL_REQUEST_COMPLETION_MODE_VALUES,
   REASONING_EFFORT_VALUES,
   REASONING_SUMMARY_VALUES,
@@ -53,6 +54,15 @@ function isClaudeModel(value: unknown): boolean {
   );
 }
 
+function isOpencodeModel(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    OPENCODE_MODEL_VALUES.includes(
+      value as (typeof OPENCODE_MODEL_VALUES)[number]
+    )
+  );
+}
+
 function usesLegacyCustomAgentRunnerValue(
   task: unknown,
   customAgent: unknown
@@ -73,11 +83,15 @@ function normalizeStoredTask(
   }
 
   if (value === LEGACY_OPENCODE_RUNNER || customAgent === LEGACY_OPENCODE_RUNNER) {
-    return CLAUDE_RUNNER;
+    return LEGACY_OPENCODE_RUNNER;
   }
 
   if (customAgent === CLAUDE_RUNNER) {
     return CLAUDE_RUNNER;
+  }
+
+  if (isOpencodeModel(model)) {
+    return LEGACY_OPENCODE_RUNNER;
   }
 
   if (isClaudeModel(model)) {
