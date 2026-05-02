@@ -886,6 +886,27 @@ export default function RepositoryBrowserPage({
                     )}
                   </div>
                   <div className="repo-browser__commit-badges">
+                    {entry.branch && (
+                      <span className="repo-browser__branch-badge">
+                        {entry.branch}
+                      </span>
+                    )}
+                    {entry.tags.map((tag) => (
+                      <span key={tag} className="repo-browser__tag-badge">
+                        {tag}
+                      </span>
+                    ))}
+                    {entry.pullRequest && (
+                      <a
+                        href={entry.pullRequest.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="repo-browser__pr-badge"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        #{entry.pullRequest.number}
+                      </a>
+                    )}
                     <CommitActionsMenu
                       commit={entry.commit}
                       grepUrl={buildGrepPageUrl(loadedRepo, entry.commit)}
@@ -917,27 +938,6 @@ export default function RepositoryBrowserPage({
                         setCreateTagCommit(entry.commit);
                       }}
                     />
-                    {entry.branch && (
-                      <span className="repo-browser__branch-badge">
-                        {entry.branch}
-                      </span>
-                    )}
-                    {entry.tags.map((tag) => (
-                      <span key={tag} className="repo-browser__tag-badge">
-                        {tag}
-                      </span>
-                    ))}
-                    {entry.pullRequest && (
-                      <a
-                        href={entry.pullRequest.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="repo-browser__pr-badge"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        #{entry.pullRequest.number}
-                      </a>
-                    )}
                   </div>
                 </div>
               );
