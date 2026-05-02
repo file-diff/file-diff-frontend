@@ -16,6 +16,7 @@ export const VERSION_API_URL = `${trimmedDefaultApiBaseUrl}/version`;
 export const CACHE_API_URL = `${JOBS_API_URL}/cache`;
 export const COMMITS_API_URL = `${JOBS_API_URL}/commits`;
 export const BRANCHES_API_URL = `${JOBS_API_URL}/branches`;
+export const CODEX_STATS_API_URL = "/api/codex/stats";
 export const STATS_API_URL = `${trimmedDefaultApiBaseUrl}/stats`;
 export const SHORTEN_PROMPT_API_URL = `${trimmedDefaultApiBaseUrl}/shorten-prompt`;
 export const CREATE_TASK_API_URL = `${JOBS_API_URL}/create-task`;
