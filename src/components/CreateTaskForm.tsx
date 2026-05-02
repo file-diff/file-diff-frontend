@@ -47,6 +47,7 @@ const CODEX_MODEL_VALUES = [
   "gpt-5.2-codex",
 ] as const;
 const BASE_REF_REQUIRED_ERROR = "Please enter a target branch.";
+const BRANCH_TITLE_REQUIRED_ERROR = "Please generate a branch title.";
 const AGENT_ID_INTEGER_ERROR = "Agent ID must be a whole number.";
 const PROBLEM_STATEMENT_REQUIRED_ERROR = "Please enter a problem statement.";
 const TASK_DELAY_REQUIRED_ERROR = "Please enter how many minutes to delay the task.";
@@ -334,6 +335,10 @@ export default function CreateTaskForm({
     }
 
     const validatedGeneratedBranchTitle = generatedBranchTitle.trim();
+    if (!validatedGeneratedBranchTitle) {
+      setSubmitError(BRANCH_TITLE_REQUIRED_ERROR);
+      return;
+    }
 
     const validatedModel = normalizeModelSelection(task, model);
     const effectiveCustomAgent =
@@ -518,6 +523,7 @@ export default function CreateTaskForm({
     !isSubmitting &&
     repoInput.trim() !== "" &&
     problemStatement.trim() !== "" &&
+    generatedBranchTitle.trim() !== "" &&
     baseRef.trim() !== "" &&
     bearerToken.trim() !== "";
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
@@ -673,8 +679,7 @@ export default function CreateTaskForm({
 
       <div className="create-task-form__field">
         <label htmlFor="create-task-generated-branch-title">
-          Branch title{" "}
-          <span className="create-task-form__optional">(generated)</span>
+          Branch title
         </label>
         <div className="create-task-form__input-row">
           <input
@@ -684,6 +689,7 @@ export default function CreateTaskForm({
             readOnly
             placeholder="Generate from the problem statement"
             spellCheck={false}
+            aria-required={true}
           />
           <button
             type="button"
@@ -704,7 +710,7 @@ export default function CreateTaskForm({
               ? isGeneratedBranchTitleStale
                 ? "Generated from an older problem statement. Generate again to refresh it."
                 : "Generated from the current problem statement and will be included in task creation."
-              : 'Generate a lowercase hyphenated branch title prefixed with "fd-agent/" from the current problem statement.'}
+              : 'Required. Generate a lowercase hyphenated branch title prefixed with "fd-agent/" from the current problem statement.'}
           </div>
         )}
       </div>
