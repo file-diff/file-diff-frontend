@@ -9,6 +9,12 @@ import {
   requestRepositoryBranches,
   requestCreateTask,
 } from "../utils/repositorySelection";
+import {
+  buildCreateTaskRequestFields,
+  CODEX_DEFAULT_MODEL,
+  CODEX_MODEL_VALUES,
+  normalizeModelSelection,
+} from "../utils/createTaskSubmission";
 import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
 import { requestPromptTitle } from "../utils/promptTitle";
 import {
@@ -31,21 +37,10 @@ import RepositorySelector from "./RepositorySelector";
 import CreateTaskConfirmPopup from "./CreateTaskConfirmPopup";
 import "./CreateTaskForm.css";
 
-const CODEX_DEFAULT_MODEL = "gpt-5.2-codex";
-const DEFAULT_CODEX_MODEL = "";
 const DEFAULT_BRANCH_NAME = "main";
-const DEFAULT_CLAUDE_MODEL = CLAUDE_MODEL_VALUES[0];
 const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 const DEFAULT_TASK: CreateTaskRunner = "codex";
 const BRANCH_TITLE_PREFIX = "fd-agent/";
-const CODEX_MODEL_VALUES = [
-  "gpt-5.5",
-  "gpt-5.4",
-  "gpt-5.4-mini",
-  "gpt-5.3-codex",
-  "gpt-5.3-codex-spark",
-  "gpt-5.2-codex",
-] as const;
 const BASE_REF_REQUIRED_ERROR = "Please enter a target branch.";
 const BRANCH_TITLE_REQUIRED_ERROR = "Please generate a branch title.";
 const AGENT_ID_INTEGER_ERROR = "Agent ID must be a whole number.";
@@ -56,31 +51,8 @@ const TASK_DELAY_INTEGER_ERROR = "Task delay must be a whole number of minutes."
 const TASK_DELAY_MINIMUM_ERROR = "Task delay must be at least 1 whole minute.";
 const MIN_TASK_DELAY_MINUTES = 1;
 
-function isCodexModel(value: string): boolean {
-  return (CODEX_MODEL_VALUES as readonly string[]).includes(value);
-}
-
-function isClaudeModel(value: string): boolean {
-  return CLAUDE_MODEL_VALUES.includes(
-    value as (typeof CLAUDE_MODEL_VALUES)[number]
-  );
-}
-
 function normalizeTaskSelection(value: CreateTaskRunner | undefined): CreateTaskRunner {
   return value === "claude" ? "claude" : DEFAULT_TASK;
-}
-
-function normalizeModelSelection(
-  task: CreateTaskRunner,
-  value: string | undefined
-): string {
-  const trimmed = value?.trim() ?? "";
-
-  if (task === "claude") {
-    return isClaudeModel(trimmed) ? trimmed : DEFAULT_CLAUDE_MODEL;
-  }
-
-  return isCodexModel(trimmed) ? trimmed : DEFAULT_CODEX_MODEL;
 }
 
 function prefixGeneratedBranchTitle(title: string): string {
@@ -340,10 +312,6 @@ export default function CreateTaskForm({
       return;
     }
 
-    const validatedModel = normalizeModelSelection(task, model);
-    const effectiveCustomAgent =
-      customAgent.trim() || (task === "claude" ? "claude" : "");
-
     const validatedAgentId = agentId.trim();
     let parsedAgentId: number | undefined;
     if (validatedAgentId) {
@@ -394,24 +362,18 @@ export default function CreateTaskForm({
       pull_request_completion_mode: pullRequestCompletionMode,
     };
 
-    if (parsedAgentId !== undefined) {
-      request.agent_id = parsedAgentId;
-    }
-    if (validatedModel) {
-      request.model = validatedModel;
-    }
-    if (effectiveCustomAgent) {
-      request.custom_agent = effectiveCustomAgent;
-    }
-    if (task === "codex" && reasoningEffort) {
-      request.reasoning_effort = reasoningEffort;
-    }
-    if (task === "codex" && reasoningSummary) {
-      request.reasoning_summary = reasoningSummary;
-    }
-    if (typeof taskDelayMs === "number") {
-      request.task_delay_ms = taskDelayMs;
-    }
+    Object.assign(
+      request,
+      buildCreateTaskRequestFields({
+        agentId: parsedAgentId,
+        customAgent,
+        model,
+        reasoningEffort,
+        reasoningSummary,
+        task,
+        taskDelayMs,
+      })
+    );
 
     try {
       const result = await requestCreateTask(request, bearerToken.trim());
