@@ -323,8 +323,24 @@
 .repo-browser__commit-title-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 4px;
+}
+
+.repo-browser__commit-title-row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.repo-browser__commit-title-row-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .repo-browser__commit-badge {
@@ -349,6 +365,8 @@
 .repo-browser__commit-title {
   font-size: 0.9rem;
   color: #e0e0e0;
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
