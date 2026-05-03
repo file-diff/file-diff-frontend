@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   CACHE_API_URL,
+  CLAUDE_STATS_API_URL,
   CODEX_STATS_API_URL,
   DEFAULT_API_BASE_URL,
   HEALTH_API_URL,
@@ -239,6 +240,8 @@ export default function HealthCheckPage() {
   const [cacheError, setCacheError] = useState<string | null>(null);
   const [codexStatsOutput, setCodexStatsOutput] = useState<string | null>(null);
   const [codexStatsError, setCodexStatsError] = useState<string | null>(null);
+  const [claudeStatsOutput, setClaudeStatsOutput] = useState<string | null>(null);
+  const [claudeStatsError, setClaudeStatsError] = useState<string | null>(null);
   const [statsData, setStatsData] = useState<StatsData | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
 
@@ -249,6 +252,8 @@ export default function HealthCheckPage() {
     setCacheError(null);
     setCodexStatsOutput(null);
     setCodexStatsError(null);
+    setClaudeStatsOutput(null);
+    setClaudeStatsError(null);
     setStatsData(null);
     setStatsError(null);
 
@@ -259,6 +264,7 @@ export default function HealthCheckPage() {
         cacheResult,
         statsResult,
         codexStatsResult,
+        claudeStatsResult,
       ] =
         await Promise.allSettled([
           fetch(HEALTH_API_URL, {
@@ -278,6 +284,9 @@ export default function HealthCheckPage() {
             headers: { Accept: "application/json" },
           }),
           fetch(CODEX_STATS_API_URL, {
+            headers: { Accept: "text/plain" },
+          }),
+          fetch(CLAUDE_STATS_API_URL, {
             headers: { Accept: "text/plain" },
           }),
         ]);
@@ -351,6 +360,17 @@ export default function HealthCheckPage() {
         }
       } else {
         setCodexStatsError(describeSettledError(codexStatsResult));
+      }
+
+      if (claudeStatsResult.status === "fulfilled" && claudeStatsResult.value.ok) {
+        try {
+          const statsOutput = await claudeStatsResult.value.text();
+          setClaudeStatsOutput(statsOutput);
+        } catch {
+          setClaudeStatsError("Failed to parse Claude stats response");
+        }
+      } else {
+        setClaudeStatsError(describeSettledError(claudeStatsResult));
       }
     } catch (error) {
       const durationMs = Math.round(performance.now() - startedAt);
@@ -546,6 +566,24 @@ export default function HealthCheckPage() {
             </p>
           ) : codexStatsOutput ? (
             <pre className="health-check-terminal-output">{codexStatsOutput}</pre>
+          ) : null}
+        </div>
+      )}
+
+      {(claudeStatsOutput || claudeStatsError) && (
+        <div className="health-check-card health-check-stats-card">
+          <h2>🤖 Claude Usage</h2>
+          <p className="health-check-note">
+            The backend proxies terminal output from <code>ccusage</code>
+            via <code>{CLAUDE_STATS_API_URL}</code>. Alignment is preserved with a
+            fixed-width terminal view.
+          </p>
+          {claudeStatsError ? (
+            <p className="health-check-stats-error">
+              Unable to load Claude usage stats: {claudeStatsError}
+            </p>
+          ) : claudeStatsOutput ? (
+            <pre className="health-check-terminal-output">{claudeStatsOutput}</pre>
           ) : null}
         </div>
       )}
