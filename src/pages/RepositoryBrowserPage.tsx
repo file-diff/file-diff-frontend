@@ -774,14 +774,54 @@ export default function RepositoryBrowserPage({
                 >
                   <div className="repo-browser__commit-main">
                     <div className="repo-browser__commit-title-row">
-                      {isSelected && (
-                        <span className="repo-browser__commit-badge">
-                          {isLeft ? "L" : "R"}
+                      <div className="repo-browser__commit-title-row-left">
+                        {isSelected && (
+                          <span className="repo-browser__commit-badge">
+                            {isLeft ? "L" : "R"}
+                          </span>
+                        )}
+                        <span className="repo-browser__commit-title">
+                          {entry.title}
                         </span>
-                      )}
-                      <span className="repo-browser__commit-title">
-                        {entry.title}
-                      </span>
+                      </div>
+                      <div className="repo-browser__commit-title-row-right">
+                        {entry.branch && (
+                          <span className="repo-browser__branch-badge">
+                            {entry.branch}
+                          </span>
+                        )}
+                        <CommitActionsMenu
+                          commit={entry.commit}
+                          grepUrl={buildGrepPageUrl(loadedRepo, entry.commit)}
+                          isLeft={isLeft}
+                          isRight={isRight}
+                          onSelectLeft={() => {
+                            if (isLeft) {
+                              setLeftCommit(null);
+                            } else {
+                              setLeftCommit(entry.commit);
+                            }
+                          }}
+                          onSelectRight={() => {
+                            if (isRight) {
+                              setRightCommit(null);
+                            } else {
+                              setRightCommit(entry.commit);
+                            }
+                          }}
+                          onRevert={() => {
+                            setRevertNotice(null);
+                            setRevertCommitTarget({
+                              commit: entry.commit,
+                              branch: entry.branch || "main",
+                            });
+                          }}
+                          onCreateTag={() => {
+                            setCreateTagNotice("");
+                            setCreateTagCommit(entry.commit);
+                          }}
+                        />
+                      </div>
                     </div>
                     <div className="repo-browser__commit-meta">
                       {githubCommitUrl ? (
@@ -822,6 +862,24 @@ export default function RepositoryBrowserPage({
                       <span className="repo-browser__commit-date">
                         {formatCommitDate(entry.date)}
                       </span>
+                    </div>
+                    <div className="repo-browser__commit-badges">
+                      {entry.tags.map((tag) => (
+                        <span key={tag} className="repo-browser__tag-badge">
+                          {tag}
+                        </span>
+                      ))}
+                      {entry.pullRequest && (
+                        <a
+                          href={entry.pullRequest.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="repo-browser__pr-badge"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          #{entry.pullRequest.number}
+                        </a>
+                      )}
                     </div>
                     {entry.parents.length > 0 && (
                       <div className="repo-browser__commit-parents">
@@ -884,60 +942,6 @@ export default function RepositoryBrowserPage({
                         </div>
                       </div>
                     )}
-                  </div>
-                  <div className="repo-browser__commit-badges">
-                    {entry.branch && (
-                      <span className="repo-browser__branch-badge">
-                        {entry.branch}
-                      </span>
-                    )}
-                    {entry.tags.map((tag) => (
-                      <span key={tag} className="repo-browser__tag-badge">
-                        {tag}
-                      </span>
-                    ))}
-                    {entry.pullRequest && (
-                      <a
-                        href={entry.pullRequest.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="repo-browser__pr-badge"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        #{entry.pullRequest.number}
-                      </a>
-                    )}
-                    <CommitActionsMenu
-                      commit={entry.commit}
-                      grepUrl={buildGrepPageUrl(loadedRepo, entry.commit)}
-                      isLeft={isLeft}
-                      isRight={isRight}
-                      onSelectLeft={() => {
-                        if (isLeft) {
-                          setLeftCommit(null);
-                        } else {
-                          setLeftCommit(entry.commit);
-                        }
-                      }}
-                      onSelectRight={() => {
-                        if (isRight) {
-                          setRightCommit(null);
-                        } else {
-                          setRightCommit(entry.commit);
-                        }
-                      }}
-                      onRevert={() => {
-                        setRevertNotice(null);
-                        setRevertCommitTarget({
-                          commit: entry.commit,
-                          branch: entry.branch || "main",
-                        });
-                      }}
-                      onCreateTag={() => {
-                        setCreateTagNotice("");
-                        setCreateTagCommit(entry.commit);
-                      }}
-                    />
                   </div>
                 </div>
               );
