@@ -25,6 +25,9 @@ const codexStatsArgs = [
   "--compact",
   "--noColor",
 ];
+const claudeStatsTimeoutMs = 30_000;
+const claudeStatsCommand = "npx";
+const claudeStatsArgs = ["-y", "ccusage@latest", "daily", "--compact", "--noColor"];
 const ansiPattern =
   /[\u001B\u009B][[\]()#;?]*(?:(?:(?:;[-a-zA-Z\d/#&.:=?%@~_]+)*)?\u0007|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
 
@@ -133,6 +136,80 @@ function runCodexStats() {
   });
 }
 
+function runClaudeStats() {
+  return new Promise((resolve, reject) => {
+    const child = spawn(claudeStatsCommand, claudeStatsArgs, {
+      env: {
+        ...process.env,
+        FORCE_COLOR: "0",
+        NO_COLOR: "1",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const finish = (callback) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timeoutHandle);
+      callback();
+    };
+
+    const timeoutHandle = setTimeout(() => {
+      child.kill("SIGTERM");
+      finish(() => {
+        reject({
+          message: `Timed out after ${claudeStatsTimeoutMs} ms while generating Claude usage stats.`,
+          statusCode: 504,
+        });
+      });
+    }, claudeStatsTimeoutMs);
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", (error) => {
+      finish(() => {
+        reject({
+          message:
+            error.code === "ENOENT"
+              ? "The Claude usage analyzer is unavailable because `npx` is not installed."
+              : `Failed to start the Claude usage analyzer: ${error.message}`,
+          statusCode: 503,
+        });
+      });
+    });
+
+    child.on("close", (code) => {
+      finish(() => {
+        const trimmedStdout = stdout.replace(ansiPattern, "").trimEnd();
+        const trimmedStderr = stderr.replace(ansiPattern, "").trim();
+
+        if (code === 0) {
+          resolve(trimmedStdout || "No Claude usage data available.");
+          return;
+        }
+
+        const detail = trimmedStderr || trimmedStdout || `Process exited with code ${String(code)}.`;
+        reject({
+          message: `Failed to generate Claude usage stats.\n\n${detail}`,
+          statusCode: 502,
+        });
+      });
+    });
+  });
+}
+
 // Serve static client assets (do not serve index.html for /)
 app.use(express.static(clientDir, { index: false }));
 
@@ -160,6 +237,37 @@ app.get("/api/codex/stats", async (_req, res) => {
         : "Failed to generate Codex usage stats.";
 
     console.error("Codex stats error:", error);
+    res
+      .status(statusCode)
+      .set({ "Content-Type": "text/plain; charset=utf-8" })
+      .send(message);
+  }
+});
+
+app.get("/api/claude/stats", async (_req, res) => {
+  try {
+    const output = await runClaudeStats();
+    res
+      .status(200)
+      .set({ "Content-Type": "text/plain; charset=utf-8" })
+      .send(output);
+  } catch (error) {
+    const statusCode =
+      typeof error === "object" &&
+      error !== null &&
+      "statusCode" in error &&
+      typeof error.statusCode === "number"
+        ? error.statusCode
+        : 500;
+    const message =
+      typeof error === "object" &&
+      error !== null &&
+      "message" in error &&
+      typeof error.message === "string"
+        ? error.message
+        : "Failed to generate Claude usage stats.";
+
+    console.error("Claude stats error:", error);
     res
       .status(statusCode)
       .set({ "Content-Type": "text/plain; charset=utf-8" })
