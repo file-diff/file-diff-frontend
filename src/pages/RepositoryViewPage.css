@@ -85,7 +85,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
 }
 
@@ -96,14 +96,14 @@
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 10px 32px 10px 14px;
+  padding: 8px 30px 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--repo-tile-color);
   background: color-mix(in srgb, var(--repo-tile-color) 14%, #161616 86%);
   color: #f0f6fc;
   text-decoration: none;
   font-family: var(--code-font-family);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem - 2px);
   font-weight: 600;
   cursor: pointer;
   max-width: 400px;
@@ -120,7 +120,7 @@
 
 .repository-view-page__recent-tile--active {
   border-width: 2px;
-  padding: 9px 31px 9px 13px;
+  padding: 7px 29px 7px 11px;
   background: color-mix(in srgb, var(--repo-tile-color) 36%, #0d1117 64%);
   box-shadow: 0 0 0 1px var(--repo-tile-color) inset;
 }
