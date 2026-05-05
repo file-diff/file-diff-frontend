@@ -31,12 +31,12 @@ import "./App.css";
 function AppShell() {
   const buildVersion = import.meta.env.VITE_BUILD_VERSION?.trim();
   const gitCommit = import.meta.env.VITE_GIT_COMMIT?.trim();
+  const gitRepoUrl = import.meta.env.VITE_GIT_REPO_URL?.trim();
   const location = useLocation();
   const isTreeCompare2Route = location.pathname === "/tree";
   const pageTitle = findNavRouteTitle(location.pathname);
-  const buildLabel = [buildVersion, gitCommit && `(${gitCommit})`]
-    .filter(Boolean)
-    .join(" ");
+  const commitUrl = gitCommit && gitRepoUrl ? `${gitRepoUrl.replace(/\/$/, "")}/commit/${gitCommit}` : null;
+  const buildLabel = gitCommit || buildVersion;
 
   const handleClearAll = async () => {
     await clearAllStoredData();
@@ -54,7 +54,21 @@ function AppShell() {
           <div className="nav-brand-group">
             <div className="nav-brand">Git Diff Online</div>
             {buildLabel && (
-              <div className="nav-build-version">Build version: {buildLabel}</div>
+              <div className="nav-build-version">
+                Build version:{" "}
+                {commitUrl ? (
+                  <a
+                    href={commitUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="nav-build-version-link"
+                  >
+                    {buildLabel}
+                  </a>
+                ) : (
+                  buildLabel
+                )}
+              </div>
             )}
           </div>
           {pageTitle && <div className="nav-page-title">{pageTitle}</div>}

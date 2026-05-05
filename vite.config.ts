@@ -24,6 +24,7 @@ function readGitCommit() {
 
 const buildVersion = process.env.VITE_BUILD_VERSION?.trim() || process.env.npm_package_version || '0.0.0'
 const gitCommit = readGitCommit()
+const gitRepoUrl = process.env.VITE_GIT_REPO_URL?.trim() || 'https://github.com/file-diff/file-diff-frontend'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -41,5 +42,6 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_BUILD_VERSION': JSON.stringify(buildVersion),
     'import.meta.env.VITE_GIT_COMMIT': JSON.stringify(gitCommit),
+    'import.meta.env.VITE_GIT_REPO_URL': JSON.stringify(gitRepoUrl),
   },
 })
