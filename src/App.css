@@ -67,6 +67,15 @@
   color: #8fb9ff;
 }
 
+.nav-build-version-link {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.nav-build-version-link:hover {
+  color: #c4dcff;
+}
+
 .nav-clear-button {
   appearance: none;
   border: 1px solid #5a2b2b;
