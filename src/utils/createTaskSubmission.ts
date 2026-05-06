@@ -5,8 +5,10 @@ import type {
   ReasoningSummary,
 } from "./repositorySelection";
 
-export const CODEX_DEFAULT_MODEL = "gpt-5.2-codex";
-export const DEFAULT_CODEX_MODEL = "";
+export const CODEX_DEFAULT_MODEL = "gpt-5.5";
+export const DEFAULT_CODEX_MODEL = CODEX_DEFAULT_MODEL;
+export const DEFAULT_CODEX_REASONING_EFFORT: ReasoningEffort = "high";
+export const DEFAULT_CODEX_REASONING_SUMMARY: ReasoningSummary = "detailed";
 export const CLAUDE_MODEL_VALUES = ["sonnet", "opus"] as const;
 export const DEFAULT_CLAUDE_MODEL = CLAUDE_MODEL_VALUES[0];
 export const OPENCODE_MODEL_VALUES = [
@@ -88,11 +90,11 @@ export function buildCreateTaskRequestFields({
   if (validatedCustomAgent) {
     request.custom_agent = validatedCustomAgent;
   }
-  if (task === "codex" && reasoningEffort) {
-    request.reasoning_effort = reasoningEffort;
-  }
-  if (task === "codex" && reasoningSummary) {
-    request.reasoning_summary = reasoningSummary;
+  if (task === "codex") {
+    request.reasoning_effort =
+      reasoningEffort || DEFAULT_CODEX_REASONING_EFFORT;
+    request.reasoning_summary =
+      reasoningSummary || DEFAULT_CODEX_REASONING_SUMMARY;
   }
   if (typeof taskDelayMs === "number") {
     request.task_delay_ms = taskDelayMs;
