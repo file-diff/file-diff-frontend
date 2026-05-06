@@ -9,7 +9,7 @@ export const CODEX_DEFAULT_MODEL = "gpt-5.5";
 export const DEFAULT_CODEX_MODEL = CODEX_DEFAULT_MODEL;
 export const DEFAULT_CODEX_REASONING_EFFORT: ReasoningEffort = "high";
 export const DEFAULT_CODEX_REASONING_SUMMARY: ReasoningSummary = "detailed";
-export const CLAUDE_MODEL_VALUES = ["sonnet", "opus"] as const;
+export const CLAUDE_MODEL_VALUES = ["opus", "sonnet"] as const;
 export const DEFAULT_CLAUDE_MODEL = CLAUDE_MODEL_VALUES[0];
 export const OPENCODE_MODEL_VALUES = [
   "deepseek-v4-pro",

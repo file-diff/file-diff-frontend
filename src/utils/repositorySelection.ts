@@ -748,7 +748,7 @@ export const CREATE_TASK_RUNNER_VALUES = ["codex", "claude", "opencode"] as cons
 
 export type CreateTaskRunner = (typeof CREATE_TASK_RUNNER_VALUES)[number];
 
-export const CLAUDE_MODEL_VALUES = ["sonnet", "opus"] as const;
+export const CLAUDE_MODEL_VALUES = ["opus", "sonnet"] as const;
 
 export type ClaudeModel = (typeof CLAUDE_MODEL_VALUES)[number];
 
