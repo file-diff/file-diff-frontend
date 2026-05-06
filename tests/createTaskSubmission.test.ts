@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildCreateTaskRequestFields } from "../src/utils/createTaskSubmission.ts";
+import {
+  buildCreateTaskRequestFields,
+  normalizeModelSelection,
+} from "../src/utils/createTaskSubmission.ts";
 
 test("claude tasks send the selected model without forcing custom_agent", () => {
   assert.deepEqual(
@@ -72,4 +75,26 @@ test("codex tasks keep codex-only options in the payload", () => {
       task_delay_ms: 60000,
     }
   );
+});
+
+test("codex tasks default to gpt-5.5 with high detailed reasoning", () => {
+  assert.deepEqual(
+    buildCreateTaskRequestFields({
+      customAgent: "",
+      model: "",
+      reasoningEffort: "",
+      reasoningSummary: "",
+      task: "codex",
+    }),
+    {
+      task: "codex",
+      model: "gpt-5.5",
+      reasoning_effort: "high",
+      reasoning_summary: "detailed",
+    }
+  );
+});
+
+test("invalid codex model selections normalize to gpt-5.5", () => {
+  assert.equal(normalizeModelSelection("codex", "gpt-4.1"), "gpt-5.5");
 });

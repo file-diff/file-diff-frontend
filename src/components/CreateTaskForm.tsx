@@ -11,8 +11,9 @@ import {
 import {
   buildCreateTaskRequestFields,
   CLAUDE_MODEL_VALUES,
-  CODEX_DEFAULT_MODEL,
   CODEX_MODEL_VALUES,
+  DEFAULT_CODEX_REASONING_EFFORT,
+  DEFAULT_CODEX_REASONING_SUMMARY,
   normalizeModelSelection,
   OPENCODE_MODEL_VALUES,
 } from "../utils/createTaskSubmission";
@@ -150,11 +151,17 @@ export default function CreateTaskForm({
         DEFAULT_PULL_REQUEST_COMPLETION_MODE
     );
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort | "">(
-    initialRepoDraft?.reasoningEffort ?? savedDraft?.reasoningEffort ?? ""
+    initialRepoDraft?.reasoningEffort ??
+      savedDraft?.reasoningEffort ??
+      (initialTask === "codex" ? DEFAULT_CODEX_REASONING_EFFORT : "")
   );
   const [reasoningSummary, setReasoningSummary] = useState<
     ReasoningSummary | ""
-  >(initialRepoDraft?.reasoningSummary ?? savedDraft?.reasoningSummary ?? "");
+  >(
+    initialRepoDraft?.reasoningSummary ??
+      savedDraft?.reasoningSummary ??
+      (initialTask === "codex" ? DEFAULT_CODEX_REASONING_SUMMARY : "")
+  );
   const [taskDelayEnabled, setTaskDelayEnabled] = useState(
     initialRepoDraft?.taskDelayEnabled ?? savedDraft?.taskDelayEnabled ?? false
   );
@@ -240,6 +247,14 @@ export default function CreateTaskForm({
   const handleTaskChange = useCallback((value: CreateTaskRunner) => {
     setTask(value);
     setModel((currentModel) => normalizeModelSelection(value, currentModel));
+    if (value === "codex") {
+      setReasoningEffort((currentReasoningEffort) =>
+        currentReasoningEffort || DEFAULT_CODEX_REASONING_EFFORT
+      );
+      setReasoningSummary((currentReasoningSummary) =>
+        currentReasoningSummary || DEFAULT_CODEX_REASONING_SUMMARY
+      );
+    }
   }, []);
 
   const handleTaskDelayChange = useCallback((checked: boolean) => {
@@ -632,7 +647,6 @@ export default function CreateTaskForm({
             value={normalizeModelSelection(task, model)}
             onChange={(e) => setModel(e.target.value)}
           >
-            <option value="">{`Server default (${CODEX_DEFAULT_MODEL})`}</option>
             {CODEX_MODEL_VALUES.map((value) => (
               <option key={value} value={value}>
                 {value}
