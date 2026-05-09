@@ -11,9 +11,14 @@ const configuredApiBaseUrl = trimTrailingSlash(
 const configuredJobsApiUrl = trimTrailingSlash(
   import.meta.env.VITE_JOBS_API_URL?.trim() || `${configuredApiBaseUrl}/jobs`
 );
-const protectedApiBases = [configuredApiBaseUrl, configuredJobsApiUrl].map(
-  (url) => new URL(url)
-);
+const configuredAgentsApiUrl = `${configuredApiBaseUrl}/agents`;
+const configuredFilesApiUrl = `${configuredApiBaseUrl}/files`;
+const protectedApiBases = [
+  configuredApiBaseUrl,
+  configuredJobsApiUrl,
+  configuredAgentsApiUrl,
+  configuredFilesApiUrl,
+].map((url) => new URL(url));
 
 let isInstalled = false;
 let originalFetch: typeof window.fetch | null = null;

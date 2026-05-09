@@ -10,7 +10,7 @@ import {
   buildCommitFilesUrl,
   buildGrepUrl,
   buildTokenizeUrl,
-  JOBS_API_URL,
+  INDEX_TASK_API_URL,
 } from "../config/api";
 import { DEFAULT_SHIKI_THEME, SHIKI_THEMES } from "../constants/shikiThemes";
 import "./GrepPage.css";
@@ -279,7 +279,7 @@ export default function GrepPage() {
       const key = `${trimmedRepo}\n${trimmedCommit}`;
       if (startedJobKeysRef.current.has(key)) return;
       try {
-        const resp = await fetch(JOBS_API_URL, {
+        const resp = await fetch(INDEX_TASK_API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ repo: trimmedRepo, commit: trimmedCommit }),

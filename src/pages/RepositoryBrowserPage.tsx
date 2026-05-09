@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { JOBS_API_URL } from "../config/api";
+import { INDEX_TASK_API_URL } from "../config/api";
 import CommitActionsMenu from "../components/CommitActionsMenu";
 import {
   resolveRepositoryInput,
@@ -36,7 +36,7 @@ import "./RepositoryBrowserPage.css";
 const DEFAULT_COMMIT_LIMIT = 20;
 const MAX_COMMIT_LIMIT = 200;
 const COMMIT_LIMIT_OPTIONS = [20, 50, 100, 200] as const;
-const INDEXING_TRIGGER_URL = JOBS_API_URL;
+const INDEXING_TRIGGER_URL = INDEX_TASK_API_URL;
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 interface JobRequest {
