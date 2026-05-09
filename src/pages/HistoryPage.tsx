@@ -84,7 +84,7 @@ export default function HistoryPage() {
             Start a directory comparison to see entries here. History is saved
             automatically when you run an indexing job.
           </p>
-          <Link to="/" className="back-link">
+          <Link to="/directory" className="back-link">
             ← Back to Directory Compare
           </Link>
         </div>

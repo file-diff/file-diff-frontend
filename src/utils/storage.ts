@@ -20,6 +20,7 @@ const TREE_COMPARE2_FILE_NAME_FILTER_VALUE_STORAGE_KEY =
   "tree-compare2-file-name-filter-value";
 const TREE_COMPARE2_SCROLL_PATH_STORAGE_KEY =
   "tree-compare2-scroll-path";
+const DIRECTORY_COMPARE_PATH = "/directory";
 
 export interface LastSelectedParams {
   leftRepo: string;
@@ -178,7 +179,7 @@ export function buildComparePermalink(
   applyComparePermalinkParams(params, left, right, options);
 
   const query = params.toString();
-  return query ? `/?${query}` : "/";
+  return query ? `${DIRECTORY_COMPARE_PATH}?${query}` : DIRECTORY_COMPARE_PATH;
 }
 
 export function buildTreeComparisonLink(
@@ -233,7 +234,7 @@ export function buildHistoryEntryPermalink(
     const params = new URLSearchParams(existingUrl.search);
     applyComparePermalinkParams(params, entry.left, entry.right, options);
     const query = params.toString();
-    return query ? `/?${query}` : "/";
+    return query ? `${DIRECTORY_COMPARE_PATH}?${query}` : DIRECTORY_COMPARE_PATH;
   } catch {
     return buildComparePermalink(entry.left, entry.right, options);
   }
