@@ -10,7 +10,8 @@ export interface NavRoute {
 }
 
 export const NAV_ROUTES: NavRoute[] = [
-  { path: "/", label: "📂 Directory Compare", title: "📂 Directory Compare" },
+  { path: "/", label: "🩺 Backend Check", title: "🩺 Backend Check" },
+  { path: "/directory", label: "📂 Directory Compare", title: "📂 Directory Compare" },
   { path: "/files", label: "📄 File Compare", title: "📄 File Compare" },
   { path: "/history", label: "📜 History", title: "📜 History" },
   { path: "/commits", label: "🔀 Commits", title: "🔀 Commits" },
@@ -23,7 +24,6 @@ export const NAV_ROUTES: NavRoute[] = [
   { path: "/agent-tasks", label: "📋 Agent Tasks", title: "📋 Agent Tasks" },
   { path: "/tokenize", label: "🎨 Tokenize", title: "🎨 Tokenize" },
   { path: "/grep", label: "🔎 Grep", title: "🔎 Grep" },
-  { path: "/health", label: "🩺 Backend Check", title: "🩺 Backend Check" },
   { path: "/pelican", label: "🚲 Pelican Ride", title: "🚲 Pelican Ride" },
   {
     path: "/ssr-health",
@@ -34,6 +34,10 @@ export const NAV_ROUTES: NavRoute[] = [
 ];
 
 export function findNavRouteTitle(pathname: string): string | undefined {
+  if (pathname === "/health") {
+    return "🩺 Backend Check";
+  }
+
   const match = NAV_ROUTES.find((r) => r.path === pathname);
   return match?.title;
 }

@@ -42,7 +42,7 @@ function AppShell() {
     await clearAllStoredData();
     applyFont(DEFAULT_FONT_ID);
     window.location.replace(
-      location.pathname === "/" ? "/?clear=1" : location.pathname
+      location.pathname === "/directory" ? "/directory?clear=1" : location.pathname
     );
   };
 
@@ -82,7 +82,8 @@ function AppShell() {
       </nav>
       <main className={`app-main${isTreeCompare2Route ? " app-main--tree-compare2" : ""}`}>
         <Routes>
-          <Route path="/" element={<TreeComparePage />} />
+          <Route path="/" element={<HealthCheckPage />} />
+          <Route path="/directory" element={<TreeComparePage />} />
           <Route path="/tree" element={<TreeCompare2Page />} />
           <Route path="/files" element={<FileComparePage />} />
           <Route path="/history" element={<HistoryPage />} />

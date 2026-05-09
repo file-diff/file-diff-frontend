@@ -1019,7 +1019,7 @@ export default function FileComparePage() {
             Navigate to a file comparison from the directory view by clicking the
             compare icon next to a text file.
           </p>
-          <Link to="/" className="back-link">
+          <Link to="/directory" className="back-link">
             ← Go to Directory Comparison
           </Link>
         </div>
