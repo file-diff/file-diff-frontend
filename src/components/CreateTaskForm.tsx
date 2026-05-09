@@ -50,7 +50,10 @@ const DEFAULT_PULL_REQUEST_COMPLETION_MODE: PullRequestCompletionMode = "None";
 const DEFAULT_TASK: CreateTaskRunner = "codex";
 const BRANCH_TITLE_PREFIX = "fd-agent/";
 const BASE_REF_REQUIRED_ERROR = "Please enter a target branch.";
-const BRANCH_TITLE_REQUIRED_ERROR = "Please generate a branch title.";
+const BASE_REF_UNVERIFIED_ERROR =
+  "Download branches to verify the target branch exists.";
+const BASE_REF_NOT_FOUND_ERROR = "Target branch does not exist.";
+const BRANCH_TITLE_REQUIRED_ERROR = "Please fill in a branch title.";
 const AGENT_ID_INTEGER_ERROR = "Agent ID must be a whole number.";
 const PROBLEM_STATEMENT_REQUIRED_ERROR = "Please enter a problem statement.";
 const TASK_DELAY_REQUIRED_ERROR = "Please enter how many minutes to delay the task.";
@@ -533,14 +536,43 @@ export default function CreateTaskForm({
     }
   }, [repoInput, loadedBranchesRepo]);
 
+  const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
+  const validatedBaseRef = baseRef.trim();
+  const validatedGeneratedBranchTitle = generatedBranchTitle.trim();
+  const isBranchListCurrent =
+    resolvedRepo !== "" && loadedBranchesRepo === resolvedRepo;
+  const targetBranchExists =
+    isBranchListCurrent &&
+    branches.some((branch) => branch.name === validatedBaseRef);
+  const branchTitleValidationError =
+    validatedGeneratedBranchTitle === "" ? BRANCH_TITLE_REQUIRED_ERROR : "";
+  const targetBranchValidationError = useMemo(() => {
+    if (validatedBaseRef === "") {
+      return BASE_REF_REQUIRED_ERROR;
+    }
+
+    if (!resolvedRepo) {
+      return "";
+    }
+
+    if (!isBranchListCurrent) {
+      return BASE_REF_UNVERIFIED_ERROR;
+    }
+
+    if (!targetBranchExists) {
+      return BASE_REF_NOT_FOUND_ERROR;
+    }
+
+    return "";
+  }, [isBranchListCurrent, resolvedRepo, targetBranchExists, validatedBaseRef]);
   const canSubmit =
     !isSubmitting &&
-    repoInput.trim() !== "" &&
+    !branchesLoading &&
+    resolvedRepo !== "" &&
     problemStatement.trim() !== "" &&
-    generatedBranchTitle.trim() !== "" &&
-    baseRef.trim() !== "" &&
+    branchTitleValidationError === "" &&
+    targetBranchValidationError === "" &&
     bearerToken.trim() !== "";
-  const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const variantLabel = useMemo(() => {
     const labels: string[] = [task];
     if (taskDelayEnabled) {
@@ -723,9 +755,9 @@ export default function CreateTaskForm({
             {isGeneratingBranchTitle ? "Generating..." : "Generate title"}
           </button>
         </div>
-        {generatedBranchTitleError ? (
+        {generatedBranchTitleError || branchTitleValidationError ? (
           <div className="create-task-form__field-error">
-            {generatedBranchTitleError}
+            {generatedBranchTitleError || branchTitleValidationError}
           </div>
         ) : (
           <div className="create-task-form__field-hint">
@@ -790,6 +822,11 @@ export default function CreateTaskForm({
           <div className="create-task-form__field-hint">
             Type a branch name, or click Download branches to load suggestions
             from the server.
+          </div>
+        )}
+        {!branchesError && targetBranchValidationError && (
+          <div className="create-task-form__field-error">
+            {targetBranchValidationError}
           </div>
         )}
       </div>
