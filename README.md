@@ -16,9 +16,10 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-To override the default indexing backend, set `VITE_JOBS_API_URL` before
-starting the app. Otherwise the frontend uses
-`https://filediff.org/api/jobs`.
+To override the default indexing backend, set `VITE_API_BASE_URL` before
+starting the app. Otherwise the frontend uses `https://filediff.org/api`,
+which exposes agent tasks at `/agents/...` and file indexing at
+`/files/...`.
 
 The create-task page also supports prefilled query parameters such as
 `repo`, `problemStatement` (or `problem_statement`), and `title`/`body`

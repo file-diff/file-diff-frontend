@@ -15,7 +15,12 @@ import {
   useResolvedCommit,
 } from "../utils/repositorySelection";
 import TreeDiffView from "../components/TreeDiffView";
-import { buildJobFileDownloadUrl, JOBS_API_URL } from "../config/api";
+import {
+  buildIndexTaskFilesUrl,
+  buildIndexTaskStatusUrl,
+  buildJobFileDownloadUrl,
+  INDEX_TASK_API_URL,
+} from "../config/api";
 import {
   buildComparePermalink,
   buildTreeComparisonLink,
@@ -27,8 +32,7 @@ import {
 import type { CompareSide, StoredIndexingSideParams, IndexingHistoryEntry } from "../utils/storage";
 import "./TreeComparePage.css";
 
-const INDEXING_TRIGGER_URL = JOBS_API_URL;
-const JOBS_BASE_URL = JOBS_API_URL;
+const INDEXING_TRIGGER_URL = INDEX_TASK_API_URL;
 const POLL_INTERVAL_MS = 2000;
 const DEFAULT_JOB_STATUS = "waiting";
 const DEFAULT_LEFT_REF = "main";
@@ -110,14 +114,10 @@ interface IndexingJobState extends IndexingJobStatusResponse {
 }
 
 
-function buildJobFilesUrl(jobId: string): string {
-  return `${JOBS_BASE_URL}/${jobId}/files`;
-}
-
 function extractJobIdFromFilesUrl(filesUrl: string): string {
   const match = filesUrl
     .trim()
-    .match(/\/jobs\/([^/]+)\/files(?:[/?#]|$)/);
+    .match(/\/(?:files\/index-task|jobs)\/([^/]+)\/files(?:[/?#]|$)/);
 
   return match?.[1] ? decodeURIComponent(match[1]) : "";
 }
@@ -553,7 +553,7 @@ export default function TreeComparePage() {
     async (side: CompareSide, currentJob: IndexingJobState) => {
       try {
         const [statusResult, filesResult] = await Promise.allSettled([
-          fetch(`${JOBS_BASE_URL}/${currentJob.id}`),
+          fetch(buildIndexTaskStatusUrl(currentJob.id)),
           fetch(currentJob.filesUrl),
         ]);
 
@@ -733,7 +733,7 @@ export default function TreeComparePage() {
           updated_at: getUpdatedAt(data) ?? "",
           error: data.error,
           filesLoaded: 0,
-          filesUrl: buildJobFilesUrl(data.id),
+          filesUrl: buildIndexTaskFilesUrl(data.id),
           historyEntryId,
           inputRefName: ref,
           resolvedCommit: extractResolvedCommit(data) || resolvedCommit.commit,
@@ -1030,7 +1030,7 @@ export default function TreeComparePage() {
                 type="url"
                 value={leftEndpoint}
                 onChange={(e) => setLeftEndpoint(e.target.value)}
-                placeholder={`${JOBS_API_URL}/<left-job-id>/files`}
+                placeholder={`${INDEX_TASK_API_URL}/<left-job-id>/files`}
                 spellCheck={false}
               />
               <label htmlFor="left-csv">Left</label>
@@ -1047,7 +1047,7 @@ export default function TreeComparePage() {
                 type="url"
                 value={rightEndpoint}
                 onChange={(e) => setRightEndpoint(e.target.value)}
-                placeholder={`${JOBS_API_URL}/<right-job-id>/files`}
+                placeholder={`${INDEX_TASK_API_URL}/<right-job-id>/files`}
                 spellCheck={false}
               />
               <label htmlFor="right-csv">Right</label>
