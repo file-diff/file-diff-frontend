@@ -14,6 +14,7 @@ export const NAV_ROUTES: NavRoute[] = [
   { path: "/directory", label: "📂 Directory Compare", title: "📂 Directory Compare" },
   { path: "/files", label: "📄 File Compare", title: "📄 File Compare" },
   { path: "/history", label: "📜 History", title: "📜 History" },
+  { path: "/indexing-tasks", label: "🧩 Indexing Tasks", title: "🧩 Indexing Tasks" },
   { path: "/commits", label: "🔀 Commits", title: "🔀 Commits" },
   { path: "/repository", label: "🗂️ Repository", title: "🗂️ Repository View" },
   { path: "/branches", label: "🌿 Branches", title: "🌿 Branches" },
