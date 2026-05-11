@@ -4,8 +4,11 @@ function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
-const configuredJobsApiUrl = import.meta.env.VITE_JOBS_API_URL?.trim();
-const trimmedDefaultApiBaseUrl = trimTrailingSlash(import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL);
+const importMetaEnv = import.meta.env ?? {};
+const configuredJobsApiUrl = importMetaEnv.VITE_JOBS_API_URL?.trim();
+const trimmedDefaultApiBaseUrl = trimTrailingSlash(
+  importMetaEnv.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL
+);
 
 export const JOBS_API_URL = trimTrailingSlash(
   configuredJobsApiUrl || `${trimmedDefaultApiBaseUrl}/jobs`
