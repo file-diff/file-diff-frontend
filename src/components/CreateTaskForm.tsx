@@ -17,6 +17,7 @@ import {
   normalizeModelSelection,
   OPENCODE_MODEL_VALUES,
 } from "../utils/createTaskSubmission";
+import { getDefaultSystemPrompt } from "../utils/defaultSystemPrompts";
 import { loadBearerToken, saveBearerToken } from "../utils/bearerTokenStorage";
 import { requestPromptTitle } from "../utils/promptTitle";
 import {
@@ -125,13 +126,20 @@ export default function CreateTaskForm({
   const initialTask = normalizeTaskSelection(
     initialRepoDraft?.task ?? savedDraft?.task
   );
+  const initialStoredSystemPrompt =
+    initialRepoDraft?.systemPrompt ?? savedDraft?.systemPrompt;
+  const initialDefaultSystemPrompt = getDefaultSystemPrompt(initialTask);
 
   const [repoInput, setRepoInput] = useState(initialRepoInput);
   const [problemStatement, setProblemStatement] = useState(
     effectiveInitialProblemStatement
   );
   const [systemPrompt, setSystemPrompt] = useState(
-    initialRepoDraft?.systemPrompt ?? savedDraft?.systemPrompt ?? ""
+    initialStoredSystemPrompt ?? initialDefaultSystemPrompt
+  );
+  const [systemPromptWasEdited, setSystemPromptWasEdited] = useState(
+    initialStoredSystemPrompt !== undefined &&
+      initialStoredSystemPrompt !== initialDefaultSystemPrompt
   );
   const [task, setTask] = useState<CreateTaskRunner>(initialTask);
   const [model, setModel] = useState(
@@ -251,8 +259,17 @@ export default function CreateTaskForm({
   }, []);
 
   const handleTaskChange = useCallback((value: CreateTaskRunner) => {
+    const previousDefaultSystemPrompt = getDefaultSystemPrompt(task);
+    const nextDefaultSystemPrompt = getDefaultSystemPrompt(value);
+
     setTask(value);
     setModel((currentModel) => normalizeModelSelection(value, currentModel));
+    setSystemPrompt((currentSystemPrompt) =>
+      !systemPromptWasEdited &&
+      currentSystemPrompt === previousDefaultSystemPrompt
+        ? nextDefaultSystemPrompt
+        : currentSystemPrompt
+    );
     if (value === "codex") {
       setReasoningEffort((currentReasoningEffort) =>
         currentReasoningEffort || DEFAULT_CODEX_REASONING_EFFORT
@@ -261,7 +278,12 @@ export default function CreateTaskForm({
         currentReasoningSummary || DEFAULT_CODEX_REASONING_SUMMARY
       );
     }
-  }, []);
+  }, [systemPromptWasEdited, task]);
+
+  const handleResetSystemPrompt = useCallback(() => {
+    setSystemPrompt(getDefaultSystemPrompt(task));
+    setSystemPromptWasEdited(false);
+  }, [task]);
 
   const handleTaskDelayChange = useCallback((checked: boolean) => {
     setTaskDelayEnabled(checked);
@@ -730,16 +752,28 @@ export default function CreateTaskForm({
 
       {task !== "claude" && (
         <div className="create-task-form__field">
-          <label htmlFor="create-task-system-prompt">
-            System prompt{" "}
-            <span className="create-task-form__optional">
-              (Codex and opencode only, optional)
-            </span>
-          </label>
+          <div className="create-task-form__label-row">
+            <label htmlFor="create-task-system-prompt">
+              System prompt{" "}
+              <span className="create-task-form__optional">
+                (Codex and opencode only, optional)
+              </span>
+            </label>
+            <button
+              type="button"
+              className="create-task-form__secondary-btn create-task-form__compact-btn"
+              onClick={handleResetSystemPrompt}
+            >
+              Reset to default
+            </button>
+          </div>
           <textarea
             id="create-task-system-prompt"
             value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
+            onChange={(e) => {
+              setSystemPrompt(e.target.value);
+              setSystemPromptWasEdited(true);
+            }}
             placeholder="Optional system prompt sent to the agent..."
             rows={4}
             spellCheck={false}
