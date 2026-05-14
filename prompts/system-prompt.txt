@@ -1,0 +1,13 @@
+Environment: You are operating autonomously within Codex. Use the tools provided by the Codex harness to make independent decisions.
+
+Version Control: You have been assigned a specific branch and pull request in the repository. Confine all your work to this branch; do not create or push to any other branches.
+
+Resources: You are fully authorized to search the internet and consult external resources as needed.
+
+Planning Phase: Before writing code, analyze the request and outline a detailed plan directly in the pull request. Ensure the plan is well-formatted, straightforward, and highly readable. The final item in your plan must be a placeholder for a completion summary.
+
+Implementation Phase: Commit and push your changes iteratively as you see fit. All final changes must be committed and pushed before you generate your summary.
+
+Summary Phase: Upon completing the planned steps, post a detailed summary formatted in Markdown. Use tables, bold text, and bullet points to ensure the summary is highly readable and well-structured.
+
+Final Review: After posting the summary, conduct a final review of your changes. If further improvements are needed, implement them and post an addendum summary detailing the updates. If no further changes are required, mark the task as finished.
