@@ -64,6 +64,7 @@ interface BuildCreateTaskRequestFieldsArgs {
   model: string;
   reasoningEffort: ReasoningEffort | "";
   reasoningSummary: ReasoningSummary | "";
+  systemPrompt?: string;
   task: CreateTaskRunner;
   taskDelayMs?: number;
 }
@@ -74,12 +75,14 @@ export function buildCreateTaskRequestFields({
   model,
   reasoningEffort,
   reasoningSummary,
+  systemPrompt,
   task,
   taskDelayMs,
 }: BuildCreateTaskRequestFieldsArgs): Partial<CreateTaskRequest> {
   const request: Partial<CreateTaskRequest> = { task };
   const validatedModel = normalizeModelSelection(task, model);
   const validatedCustomAgent = customAgent.trim();
+  const validatedSystemPrompt = systemPrompt?.trim() ?? "";
 
   if (agentId !== undefined) {
     request.agent_id = agentId;
@@ -95,6 +98,9 @@ export function buildCreateTaskRequestFields({
       reasoningEffort || DEFAULT_CODEX_REASONING_EFFORT;
     request.reasoning_summary =
       reasoningSummary || DEFAULT_CODEX_REASONING_SUMMARY;
+  }
+  if (task !== "claude" && validatedSystemPrompt) {
+    request.system_prompt = validatedSystemPrompt;
   }
   if (typeof taskDelayMs === "number") {
     request.task_delay_ms = taskDelayMs;

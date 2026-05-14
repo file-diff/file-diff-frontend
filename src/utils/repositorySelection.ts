@@ -772,6 +772,7 @@ export interface CreateTaskRequest {
   model?: string;
   reasoning_effort?: ReasoningEffort;
   reasoning_summary?: ReasoningSummary;
+  system_prompt?: string;
   task_delay_ms?: number;
 }
 

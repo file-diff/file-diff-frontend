@@ -22,6 +22,7 @@ const CLAUDE_RUNNER: CreateTaskRunner = "claude";
 export interface CreateTaskDraft {
   repoInput: string;
   problemStatement: string;
+  systemPrompt: string;
   task: CreateTaskRunner;
   model: string;
   agentId: string;
@@ -146,6 +147,8 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
 
   return {
     problemStatement: candidate.problemStatement,
+    systemPrompt:
+      typeof candidate.systemPrompt === "string" ? candidate.systemPrompt : "",
     task: normalizeStoredTask(
       candidate.task,
       candidate.model,

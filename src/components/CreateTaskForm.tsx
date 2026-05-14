@@ -130,6 +130,9 @@ export default function CreateTaskForm({
   const [problemStatement, setProblemStatement] = useState(
     effectiveInitialProblemStatement
   );
+  const [systemPrompt, setSystemPrompt] = useState(
+    initialRepoDraft?.systemPrompt ?? savedDraft?.systemPrompt ?? ""
+  );
   const [task, setTask] = useState<CreateTaskRunner>(initialTask);
   const [model, setModel] = useState(
     normalizeModelSelection(
@@ -401,6 +404,7 @@ export default function CreateTaskForm({
         model,
         reasoningEffort,
         reasoningSummary,
+        systemPrompt,
         task,
         taskDelayMs,
       })
@@ -423,6 +427,7 @@ export default function CreateTaskForm({
     repoInput,
     bearerToken,
     problemStatement,
+    systemPrompt,
     baseRef,
     task,
     model,
@@ -440,6 +445,7 @@ export default function CreateTaskForm({
     saveCreateTaskDraft({
       repoInput,
       problemStatement,
+      systemPrompt,
       task,
       model,
       agentId,
@@ -454,6 +460,7 @@ export default function CreateTaskForm({
   }, [
     repoInput,
     problemStatement,
+    systemPrompt,
     task,
     model,
     agentId,
@@ -472,6 +479,7 @@ export default function CreateTaskForm({
       saveRepoProblemStatement(repo, problemStatement);
       saveRepoCreateTaskDraft(repo, {
         problemStatement,
+        systemPrompt,
         task,
         model,
         agentId,
@@ -487,6 +495,7 @@ export default function CreateTaskForm({
   }, [
     repoInput,
     problemStatement,
+    systemPrompt,
     task,
     model,
     agentId,
@@ -718,6 +727,25 @@ export default function CreateTaskForm({
           spellCheck={false}
         />
       </div>
+
+      {task !== "claude" && (
+        <div className="create-task-form__field">
+          <label htmlFor="create-task-system-prompt">
+            System prompt{" "}
+            <span className="create-task-form__optional">
+              (Codex and opencode only, optional)
+            </span>
+          </label>
+          <textarea
+            id="create-task-system-prompt"
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            placeholder="Optional system prompt sent to the agent..."
+            rows={4}
+            spellCheck={false}
+          />
+        </div>
+      )}
 
       <div className="create-task-form__field">
         <label htmlFor="create-task-problem-statement">Problem statement</label>
