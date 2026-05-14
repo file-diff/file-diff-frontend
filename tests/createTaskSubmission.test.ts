@@ -98,3 +98,77 @@ test("codex tasks default to gpt-5.5 with high detailed reasoning", () => {
 test("invalid codex model selections normalize to gpt-5.5", () => {
   assert.equal(normalizeModelSelection("codex", "gpt-4.1"), "gpt-5.5");
 });
+
+test("system prompt is forwarded for codex tasks", () => {
+  assert.deepEqual(
+    buildCreateTaskRequestFields({
+      customAgent: "",
+      model: "gpt-5.5",
+      reasoningEffort: "",
+      reasoningSummary: "",
+      systemPrompt: "You are a helpful assistant.",
+      task: "codex",
+    }),
+    {
+      task: "codex",
+      model: "gpt-5.5",
+      reasoning_effort: "high",
+      reasoning_summary: "detailed",
+      system_prompt: "You are a helpful assistant.",
+    }
+  );
+});
+
+test("system prompt is forwarded for opencode tasks", () => {
+  assert.deepEqual(
+    buildCreateTaskRequestFields({
+      customAgent: "",
+      model: "deepseek-v4-pro",
+      reasoningEffort: "",
+      reasoningSummary: "",
+      systemPrompt: "Stay concise.",
+      task: "opencode",
+    }),
+    {
+      task: "opencode",
+      model: "deepseek-v4-pro",
+      system_prompt: "Stay concise.",
+    }
+  );
+});
+
+test("system prompt is omitted for claude tasks even when provided", () => {
+  assert.deepEqual(
+    buildCreateTaskRequestFields({
+      customAgent: "",
+      model: "opus",
+      reasoningEffort: "",
+      reasoningSummary: "",
+      systemPrompt: "Claude does not accept this.",
+      task: "claude",
+    }),
+    {
+      task: "claude",
+      model: "opus",
+    }
+  );
+});
+
+test("blank system prompt does not add the field", () => {
+  assert.deepEqual(
+    buildCreateTaskRequestFields({
+      customAgent: "",
+      model: "gpt-5.5",
+      reasoningEffort: "",
+      reasoningSummary: "",
+      systemPrompt: "   ",
+      task: "codex",
+    }),
+    {
+      task: "codex",
+      model: "gpt-5.5",
+      reasoning_effort: "high",
+      reasoning_summary: "detailed",
+    }
+  );
+});
