@@ -20,6 +20,20 @@
   font-weight: 600;
 }
 
+.create-task-form__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.create-task-form__label-row label {
+  color: #bbb;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .create-task-form__optional {
   font-weight: 400;
   color: #6e7681;
@@ -108,6 +122,11 @@
 .create-task-form__secondary-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.create-task-form__compact-btn {
+  padding: 5px 10px;
+  font-size: 0.78rem;
 }
 
 .create-task-form__submit-btn {
