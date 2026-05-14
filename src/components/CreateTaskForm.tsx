@@ -98,6 +98,14 @@ function getCreatedTaskInfo(
   };
 }
 
+function getDefaultSystemPromptLabel(task: CreateTaskRunner): string {
+  if (task === "opencode") {
+    return "(using default OpenCode prompt, change if needed)";
+  }
+
+  return "(using default Codex prompt, change if needed)";
+}
+
 export interface CreateTaskFormProps {
   initialRepo?: string;
   initialProblemStatement?: string;
@@ -646,6 +654,11 @@ export default function CreateTaskForm({
 
     return generatedBranchTitleSource !== problemStatement.trim();
   }, [generatedBranchTitleSource, problemStatement]);
+  const defaultSystemPrompt = useMemo(() => getDefaultSystemPrompt(task), [task]);
+  const isUsingDefaultSystemPrompt = systemPrompt === defaultSystemPrompt;
+  const systemPromptStatusLabel = isUsingDefaultSystemPrompt
+    ? getDefaultSystemPromptLabel(task)
+    : "(warning, using custom prompt)";
 
   return (
     <div className="create-task-form">
@@ -755,8 +768,14 @@ export default function CreateTaskForm({
           <div className="create-task-form__label-row">
             <label htmlFor="create-task-system-prompt">
               System prompt{" "}
-              <span className="create-task-form__optional">
-                (Codex and opencode only, optional)
+              <span
+                className={
+                  isUsingDefaultSystemPrompt
+                    ? "create-task-form__system-prompt-status"
+                    : "create-task-form__system-prompt-status create-task-form__system-prompt-status--custom"
+                }
+              >
+                {systemPromptStatusLabel}
               </span>
             </label>
             <button

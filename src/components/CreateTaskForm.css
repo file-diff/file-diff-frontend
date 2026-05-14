@@ -39,6 +39,20 @@
   color: #6e7681;
 }
 
+.create-task-form__system-prompt-status {
+  font-weight: 400;
+  color: #8b949e;
+}
+
+.create-task-form__system-prompt-status--custom {
+  padding: 1px 5px;
+  border: 1px solid rgba(210, 153, 34, 0.45);
+  border-radius: 4px;
+  background: rgba(210, 153, 34, 0.14);
+  color: #d29922;
+  font-weight: 700;
+}
+
 .create-task-form__input-row {
   display: flex;
   gap: 8px;
