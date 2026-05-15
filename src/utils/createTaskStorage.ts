@@ -27,6 +27,7 @@ export interface CreateTaskDraft {
   model: string;
   agentId: string;
   customAgent: string;
+  branchTitle: string;
   baseRef: string;
   pullRequestCompletionMode: PullRequestCompletionMode;
   reasoningEffort: ReasoningEffort | "";
@@ -161,6 +162,8 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
       !usesLegacyCustomAgentRunnerValue(candidate.task, candidate.customAgent)
         ? candidate.customAgent
         : "",
+    branchTitle:
+      typeof candidate.branchTitle === "string" ? candidate.branchTitle : "",
     baseRef: candidate.baseRef,
     pullRequestCompletionMode: isPullRequestCompletionMode(
       candidate.pullRequestCompletionMode

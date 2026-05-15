@@ -190,10 +190,12 @@ export default function CreateTaskForm({
   const [taskDelayMinutes, setTaskDelayMinutes] = useState(
     initialRepoDraft?.taskDelayMinutes ?? savedDraft?.taskDelayMinutes ?? ""
   );
-  const [generatedBranchTitle, setGeneratedBranchTitle] = useState("");
-  const [generatedBranchTitleSource, setGeneratedBranchTitleSource] = useState("");
+  const [branchTitle, setBranchTitle] = useState(
+    initialRepoDraft?.branchTitle ?? savedDraft?.branchTitle ?? ""
+  );
+  const [branchTitleGeneratedFrom, setBranchTitleGeneratedFrom] = useState("");
   const [isGeneratingBranchTitle, setIsGeneratingBranchTitle] = useState(false);
-  const [generatedBranchTitleError, setGeneratedBranchTitleError] = useState("");
+  const [branchTitleGenerationError, setBranchTitleGenerationError] = useState("");
 
   const [branches, setBranches] = useState<RepositoryBranch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
@@ -303,9 +305,9 @@ export default function CreateTaskForm({
   const handleGenerateBranchTitle = useCallback(async () => {
     const trimmedProblemStatement = problemStatement.trim();
     if (!trimmedProblemStatement) {
-      setGeneratedBranchTitle("");
-      setGeneratedBranchTitleSource("");
-      setGeneratedBranchTitleError(PROBLEM_STATEMENT_REQUIRED_ERROR);
+      setBranchTitle("");
+      setBranchTitleGeneratedFrom("");
+      setBranchTitleGenerationError(PROBLEM_STATEMENT_REQUIRED_ERROR);
       return;
     }
 
@@ -314,7 +316,7 @@ export default function CreateTaskForm({
     promptTitleAbortControllerRef.current = controller;
 
     setIsGeneratingBranchTitle(true);
-    setGeneratedBranchTitleError("");
+    setBranchTitleGenerationError("");
 
     try {
       const result = await requestPromptTitle(
@@ -325,16 +327,16 @@ export default function CreateTaskForm({
         return;
       }
 
-      setGeneratedBranchTitle(prefixGeneratedBranchTitle(result.title));
-      setGeneratedBranchTitleSource(trimmedProblemStatement);
+      setBranchTitle(prefixGeneratedBranchTitle(result.title));
+      setBranchTitleGeneratedFrom(trimmedProblemStatement);
     } catch (err) {
       if (controller.signal.aborted) {
         return;
       }
 
-      setGeneratedBranchTitle("");
-      setGeneratedBranchTitleSource("");
-      setGeneratedBranchTitleError(
+      setBranchTitle("");
+      setBranchTitleGeneratedFrom("");
+      setBranchTitleGenerationError(
         err instanceof Error && err.message
           ? err.message
           : "Unable to generate branch title"
@@ -369,8 +371,8 @@ export default function CreateTaskForm({
       return;
     }
 
-    const validatedGeneratedBranchTitle = generatedBranchTitle.trim();
-    if (!validatedGeneratedBranchTitle) {
+    const validatedBranchTitle = branchTitle.trim();
+    if (!validatedBranchTitle) {
       setSubmitError(BRANCH_TITLE_REQUIRED_ERROR);
       return;
     }
@@ -421,7 +423,7 @@ export default function CreateTaskForm({
       base_ref: validatedBaseRef,
       problem_statement: validatedProblemStatement,
       task,
-      branch_title: validatedGeneratedBranchTitle || null,
+      branch_title: validatedBranchTitle || null,
       create_pull_request: true,
       pull_request_completion_mode: pullRequestCompletionMode,
     };
@@ -466,7 +468,7 @@ export default function CreateTaskForm({
     taskDelayEnabled,
     taskDelayMinutes,
     pullRequestCompletionMode,
-    generatedBranchTitle,
+    branchTitle,
     reasoningEffort,
     reasoningSummary,
   ]);
@@ -480,6 +482,7 @@ export default function CreateTaskForm({
       model,
       agentId,
       customAgent,
+      branchTitle,
       baseRef,
       pullRequestCompletionMode,
       reasoningEffort,
@@ -495,6 +498,7 @@ export default function CreateTaskForm({
     model,
     agentId,
     customAgent,
+    branchTitle,
     baseRef,
     pullRequestCompletionMode,
     reasoningEffort,
@@ -514,6 +518,7 @@ export default function CreateTaskForm({
         model,
         agentId,
         customAgent,
+        branchTitle,
         baseRef,
         pullRequestCompletionMode,
         reasoningEffort,
@@ -530,6 +535,7 @@ export default function CreateTaskForm({
     model,
     agentId,
     customAgent,
+    branchTitle,
     baseRef,
     pullRequestCompletionMode,
     reasoningEffort,
@@ -577,14 +583,14 @@ export default function CreateTaskForm({
 
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const validatedBaseRef = baseRef.trim();
-  const validatedGeneratedBranchTitle = generatedBranchTitle.trim();
+  const validatedBranchTitle = branchTitle.trim();
   const isBranchListCurrent =
     resolvedRepo !== "" && loadedBranchesRepo === resolvedRepo;
   const targetBranchExists =
     isBranchListCurrent &&
     branches.some((branch) => branch.name === validatedBaseRef);
   const branchTitleValidationError =
-    validatedGeneratedBranchTitle === "" ? BRANCH_TITLE_REQUIRED_ERROR : "";
+    validatedBranchTitle === "" ? BRANCH_TITLE_REQUIRED_ERROR : "";
   const targetBranchValidationError = useMemo(() => {
     if (validatedBaseRef === "") {
       return BASE_REF_REQUIRED_ERROR;
@@ -648,12 +654,12 @@ export default function CreateTaskForm({
     [submitResult]
   );
   const isGeneratedBranchTitleStale = useMemo(() => {
-    if (!generatedBranchTitleSource) {
+    if (!branchTitleGeneratedFrom) {
       return false;
     }
 
-    return generatedBranchTitleSource !== problemStatement.trim();
-  }, [generatedBranchTitleSource, problemStatement]);
+    return branchTitleGeneratedFrom !== problemStatement.trim();
+  }, [branchTitleGeneratedFrom, problemStatement]);
   const defaultSystemPrompt = useMemo(() => getDefaultSystemPrompt(task), [task]);
   const isUsingDefaultSystemPrompt = systemPrompt === defaultSystemPrompt;
   const systemPromptStatusLabel = isUsingDefaultSystemPrompt
@@ -821,9 +827,13 @@ export default function CreateTaskForm({
           <input
             id="create-task-generated-branch-title"
             type="text"
-            value={generatedBranchTitle}
-            readOnly
-            placeholder="Generate from the problem statement"
+            value={branchTitle}
+            onChange={(e) => {
+              setBranchTitle(e.target.value);
+              setBranchTitleGeneratedFrom("");
+              setBranchTitleGenerationError("");
+            }}
+            placeholder="fd-agent/my-branch-title"
             spellCheck={false}
             aria-required={true}
           />
@@ -836,17 +846,19 @@ export default function CreateTaskForm({
             {isGeneratingBranchTitle ? "Generating..." : "Generate title"}
           </button>
         </div>
-        {generatedBranchTitleError || branchTitleValidationError ? (
+        {branchTitleGenerationError || branchTitleValidationError ? (
           <div className="create-task-form__field-error">
-            {generatedBranchTitleError || branchTitleValidationError}
+            {branchTitleGenerationError || branchTitleValidationError}
           </div>
         ) : (
           <div className="create-task-form__field-hint">
-            {generatedBranchTitle
-              ? isGeneratedBranchTitleStale
+            {branchTitle
+              ? branchTitleGeneratedFrom && isGeneratedBranchTitleStale
                 ? "Generated from an older problem statement. Generate again to refresh it."
-                : "Generated from the current problem statement and will be included in task creation."
-              : 'Required. Generate a lowercase hyphenated branch title prefixed with "fd-agent/" from the current problem statement.'}
+                : branchTitleGeneratedFrom
+                ? "Generated from the current problem statement and will be included in task creation."
+                : "This branch title will be included in task creation."
+              : 'Required. Enter a lowercase hyphenated branch title prefixed with "fd-agent/", or generate one from the current problem statement.'}
           </div>
         )}
       </div>
