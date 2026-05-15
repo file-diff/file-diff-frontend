@@ -305,8 +305,6 @@ export default function CreateTaskForm({
   const handleGenerateBranchTitle = useCallback(async () => {
     const trimmedProblemStatement = problemStatement.trim();
     if (!trimmedProblemStatement) {
-      setBranchTitle("");
-      setBranchTitleGeneratedFrom("");
       setBranchTitleGenerationError(PROBLEM_STATEMENT_REQUIRED_ERROR);
       return;
     }
@@ -334,8 +332,6 @@ export default function CreateTaskForm({
         return;
       }
 
-      setBranchTitle("");
-      setBranchTitleGeneratedFrom("");
       setBranchTitleGenerationError(
         err instanceof Error && err.message
           ? err.message
