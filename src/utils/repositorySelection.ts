@@ -762,9 +762,10 @@ export type OpencodeModel = (typeof OPENCODE_MODEL_VALUES)[number];
 export interface CreateTaskRequest {
   repo: string;
   problem_statement: string;
-  base_ref: string;
+  base_ref: string | null;
   task: CreateTaskRunner;
   branch_title?: string | null;
+  previous_session?: string;
   agent_id?: number;
   custom_agent?: string;
   create_pull_request?: true;

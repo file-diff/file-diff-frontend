@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildCreateTaskRequestBase,
   buildCreateTaskRequestFields,
   normalizeModelSelection,
 } from "../src/utils/createTaskSubmission.ts";
@@ -169,6 +170,51 @@ test("blank system prompt does not add the field", () => {
       model: "gpt-5.5",
       reasoning_effort: "high",
       reasoning_summary: "detailed",
+    }
+  );
+});
+
+test("new task requests include branch title and target branch", () => {
+  assert.deepEqual(
+    buildCreateTaskRequestBase({
+      baseRef: "main",
+      branchTitle: "fd-agent/new-work",
+      problemStatement: "Add the feature.",
+      pullRequestCompletionMode: "AutoMerge",
+      repo: "file-diff/file-diff-frontend",
+      task: "codex",
+    }),
+    {
+      repo: "file-diff/file-diff-frontend",
+      base_ref: "main",
+      problem_statement: "Add the feature.",
+      task: "codex",
+      create_pull_request: true,
+      pull_request_completion_mode: "AutoMerge",
+      branch_title: "fd-agent/new-work",
+    }
+  );
+});
+
+test("resume task requests reuse the previous session target branch", () => {
+  assert.deepEqual(
+    buildCreateTaskRequestBase({
+      baseRef: "main",
+      branchTitle: "fd-agent/ignored",
+      previousSessionId: "52f07ad5-6596-460f-90bc-b174f7fe1ba2",
+      problemStatement: "Continue this work.",
+      pullRequestCompletionMode: "AutoMerge",
+      repo: "file-diff/file-diff-frontend",
+      task: "codex",
+    }),
+    {
+      repo: "file-diff/file-diff-frontend",
+      base_ref: null,
+      problem_statement: "Continue this work.",
+      task: "codex",
+      create_pull_request: true,
+      pull_request_completion_mode: "AutoMerge",
+      previous_session: "52f07ad5-6596-460f-90bc-b174f7fe1ba2",
     }
   );
 });

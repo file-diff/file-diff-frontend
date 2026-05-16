@@ -6,6 +6,8 @@ export interface CreateTaskConfirmPopupProps {
   variantLabel: string;
   repo: string;
   branch: string;
+  existingSessionLabel?: string;
+  isContinuingExistingSession?: boolean;
   pullRequestCompletionModeLabel: string;
   problemStatement: string;
   isSubmitting: boolean;
@@ -18,6 +20,8 @@ export default function CreateTaskConfirmPopup({
   variantLabel,
   repo,
   branch,
+  existingSessionLabel,
+  isContinuingExistingSession = false,
   pullRequestCompletionModeLabel,
   problemStatement,
   isSubmitting,
@@ -26,6 +30,9 @@ export default function CreateTaskConfirmPopup({
 }: CreateTaskConfirmPopupProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const taskLabel = variantLabel === "task" ? "task" : `${variantLabel} task`;
+  const actionLabel = isContinuingExistingSession
+    ? `continue ${taskLabel}`
+    : `create ${taskLabel}`;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -75,14 +82,26 @@ export default function CreateTaskConfirmPopup({
 
         <div className="create-task-confirm__content">
           <p className="create-task-confirm__lead">
-            Are you sure you want to create{" "}
+            Are you sure you want to {isContinuingExistingSession ? "continue" : "create"}{" "}
             <strong className="create-task-confirm__variant">{taskLabel}</strong>{" "}
             in repository
           </p>
           <p className="create-task-confirm__repo">{repo || "(no repository)"}</p>
-          <p className="create-task-confirm__branch">
-            on branch <strong>{branch || "(default)"}</strong>
-          </p>
+          {isContinuingExistingSession ? (
+            <>
+              <p className="create-task-confirm__branch">
+                existing session{" "}
+                <strong>{existingSessionLabel || "(no session selected)"}</strong>
+              </p>
+              <p className="create-task-confirm__branch">
+                branch title and target branch will be ignored
+              </p>
+            </>
+          ) : (
+            <p className="create-task-confirm__branch">
+              on branch <strong>{branch || "(default)"}</strong>
+            </p>
+          )}
           <p className="create-task-confirm__branch">
             pull request completion{" "}
             <strong>{pullRequestCompletionModeLabel}</strong>
@@ -119,7 +138,7 @@ export default function CreateTaskConfirmPopup({
             onClick={onConfirm}
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Creating task…" : `Yes, create ${taskLabel}`}
+            {isSubmitting ? "Creating task…" : `Yes, ${actionLabel}`}
           </button>
         </div>
       </div>
