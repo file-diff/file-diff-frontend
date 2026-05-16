@@ -69,6 +69,44 @@ interface BuildCreateTaskRequestFieldsArgs {
   taskDelayMs?: number;
 }
 
+interface BuildCreateTaskRequestArgs {
+  baseRef: string;
+  branchTitle: string;
+  previousSessionId?: string;
+  problemStatement: string;
+  pullRequestCompletionMode: CreateTaskRequest["pull_request_completion_mode"];
+  repo: string;
+  task: CreateTaskRunner;
+}
+
+export function buildCreateTaskRequestBase({
+  baseRef,
+  branchTitle,
+  previousSessionId,
+  problemStatement,
+  pullRequestCompletionMode,
+  repo,
+  task,
+}: BuildCreateTaskRequestArgs): CreateTaskRequest {
+  const validatedPreviousSessionId = previousSessionId?.trim() ?? "";
+  const request: CreateTaskRequest = {
+    repo,
+    base_ref: validatedPreviousSessionId ? null : baseRef,
+    problem_statement: problemStatement,
+    task,
+    create_pull_request: true,
+    pull_request_completion_mode: pullRequestCompletionMode,
+  };
+
+  if (validatedPreviousSessionId) {
+    request.previous_session = validatedPreviousSessionId;
+  } else {
+    request.branch_title = branchTitle || null;
+  }
+
+  return request;
+}
+
 export function buildCreateTaskRequestFields({
   agentId,
   customAgent,

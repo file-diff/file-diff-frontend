@@ -7,8 +7,10 @@ import {
   resolveRepositoryInput,
   requestRepositoryBranches,
   requestCreateTask,
+  requestAgentTasks,
 } from "../utils/repositorySelection";
 import {
+  buildCreateTaskRequestBase,
   buildCreateTaskRequestFields,
   CLAUDE_MODEL_VALUES,
   CODEX_MODEL_VALUES,
@@ -26,6 +28,11 @@ import {
   saveCreateTaskDraft,
   saveRepoCreateTaskDraft,
 } from "../utils/createTaskStorage";
+import {
+  extractTaskSummaries,
+  splitOwnerRepo,
+  type TaskSummary,
+} from "../utils/agentTasks";
 import { saveRepoProblemStatement } from "../utils/repoProblemStatementStorage";
 import {
   loadCachedBranches,
@@ -62,6 +69,10 @@ const TASK_DELAY_NUMBER_ERROR = "Task delay must be a valid number of minutes.";
 const TASK_DELAY_INTEGER_ERROR = "Task delay must be a whole number of minutes.";
 const TASK_DELAY_MINIMUM_ERROR = "Task delay must be at least 1 whole minute.";
 const MIN_TASK_DELAY_MINUTES = 1;
+const EXISTING_SESSION_REQUIRED_ERROR =
+  "Select an existing agent session to continue.";
+
+type SessionMode = "new" | "continue";
 
 function normalizeTaskSelection(value: CreateTaskRunner | undefined): CreateTaskRunner {
   if (value === "claude" || value === "opencode") {
@@ -69,6 +80,25 @@ function normalizeTaskSelection(value: CreateTaskRunner | undefined): CreateTask
   }
 
   return DEFAULT_TASK;
+}
+
+function isContinuableTask(task: TaskSummary): boolean {
+  if (!task.pullRequestNumber && !task.pullRequestUrl) {
+    return false;
+  }
+
+  const status = task.status.toLowerCase();
+  return status !== "cancelled" && status !== "canceled" && status !== "deleted";
+}
+
+function formatTaskSessionLabel(task: TaskSummary): string {
+  const prLabel = task.pullRequestNumber
+    ? `PR #${String(task.pullRequestNumber)}`
+    : "PR";
+  const branchLabel = task.branch ? ` · ${task.branch}` : "";
+  const statusLabel = task.status ? ` · ${task.status}` : "";
+
+  return `${prLabel}${branchLabel}${statusLabel} · ${task.id}`;
 }
 
 function prefixGeneratedBranchTitle(title: string): string {
@@ -196,6 +226,12 @@ export default function CreateTaskForm({
   const [branchTitleGeneratedFrom, setBranchTitleGeneratedFrom] = useState("");
   const [isGeneratingBranchTitle, setIsGeneratingBranchTitle] = useState(false);
   const [branchTitleGenerationError, setBranchTitleGenerationError] = useState("");
+  const [sessionMode, setSessionMode] = useState<SessionMode>("new");
+  const [existingTasks, setExistingTasks] = useState<TaskSummary[]>([]);
+  const [selectedExistingTaskId, setSelectedExistingTaskId] = useState("");
+  const [existingTasksLoading, setExistingTasksLoading] = useState(false);
+  const [existingTasksError, setExistingTasksError] = useState("");
+  const [loadedExistingTasksRepo, setLoadedExistingTasksRepo] = useState("");
 
   const [branches, setBranches] = useState<RepositoryBranch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
@@ -209,6 +245,7 @@ export default function CreateTaskForm({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const agentTasksAbortControllerRef = useRef<AbortController | null>(null);
   const promptTitleAbortControllerRef = useRef<AbortController | null>(null);
 
   const loadBranches = useCallback(async (repo: string) => {
@@ -262,6 +299,68 @@ export default function CreateTaskForm({
     }
     void loadBranches(repo);
   }, [loadBranches, repoInput]);
+
+  const loadExistingTasks = useCallback(async () => {
+    const repo = resolveRepositoryInput(repoInput);
+    if (!repo) {
+      setExistingTasksError("Please enter a repository in owner/repo format.");
+      return;
+    }
+
+    const ownerRepo = splitOwnerRepo(repo);
+    if (!ownerRepo) {
+      setExistingTasksError("Please enter a repository in owner/repo format.");
+      return;
+    }
+
+    const token = bearerToken.trim();
+    if (!token) {
+      setExistingTasksError("Please enter a bearer token.");
+      return;
+    }
+
+    agentTasksAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    agentTasksAbortControllerRef.current = controller;
+
+    setExistingTasksLoading(true);
+    setExistingTasksError("");
+
+    try {
+      const result = await requestAgentTasks(
+        ownerRepo.owner,
+        ownerRepo.name,
+        token,
+        controller.signal
+      );
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      const nextTasks = extractTaskSummaries(result).filter(isContinuableTask);
+      setExistingTasks(nextTasks);
+      setLoadedExistingTasksRepo(repo);
+      setSelectedExistingTaskId((currentTaskId) =>
+        nextTasks.some((agentTask) => agentTask.id === currentTaskId)
+          ? currentTaskId
+          : nextTasks[0]?.id ?? ""
+      );
+    } catch (err) {
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setExistingTasksError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Unable to load existing agent sessions"
+      );
+    } finally {
+      if (!controller.signal.aborted) {
+        setExistingTasksLoading(false);
+      }
+    }
+  }, [bearerToken, repoInput]);
 
   const handleBearerTokenChange = useCallback((value: string) => {
     setBearerToken(value);
@@ -361,14 +460,21 @@ export default function CreateTaskForm({
       return;
     }
 
+    const validatedExistingTaskId = selectedExistingTaskId.trim();
+    const isContinuingExistingSession = sessionMode === "continue";
+    if (isContinuingExistingSession && !validatedExistingTaskId) {
+      setSubmitError(EXISTING_SESSION_REQUIRED_ERROR);
+      return;
+    }
+
     const validatedBaseRef = baseRef.trim();
-    if (!validatedBaseRef) {
+    if (!isContinuingExistingSession && !validatedBaseRef) {
       setSubmitError(BASE_REF_REQUIRED_ERROR);
       return;
     }
 
     const validatedBranchTitle = branchTitle.trim();
-    if (!validatedBranchTitle) {
+    if (!isContinuingExistingSession && !validatedBranchTitle) {
       setSubmitError(BRANCH_TITLE_REQUIRED_ERROR);
       return;
     }
@@ -414,15 +520,17 @@ export default function CreateTaskForm({
     setSubmitError("");
     setSubmitResult(null);
 
-    const request: CreateTaskRequest = {
+    const request: CreateTaskRequest = buildCreateTaskRequestBase({
       repo,
-      base_ref: validatedBaseRef,
-      problem_statement: validatedProblemStatement,
+      baseRef: validatedBaseRef,
+      branchTitle: validatedBranchTitle,
+      previousSessionId: isContinuingExistingSession
+        ? validatedExistingTaskId
+        : undefined,
+      problemStatement: validatedProblemStatement,
       task,
-      branch_title: validatedBranchTitle || null,
-      create_pull_request: true,
-      pull_request_completion_mode: pullRequestCompletionMode,
-    };
+      pullRequestCompletionMode,
+    });
 
     Object.assign(
       request,
@@ -465,6 +573,8 @@ export default function CreateTaskForm({
     taskDelayMinutes,
     pullRequestCompletionMode,
     branchTitle,
+    selectedExistingTaskId,
+    sessionMode,
     reasoningEffort,
     reasoningSummary,
   ]);
@@ -543,6 +653,7 @@ export default function CreateTaskForm({
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
+      agentTasksAbortControllerRef.current?.abort();
       promptTitleAbortControllerRef.current?.abort();
     };
   }, []);
@@ -552,6 +663,24 @@ export default function CreateTaskForm({
       setRepoInput(initialRepo);
     }
   }, [initialRepo, showRepositorySelector]);
+
+  useEffect(() => {
+    const repo = resolveRepositoryInput(repoInput);
+    if (!repo) {
+      setExistingTasks([]);
+      setSelectedExistingTaskId("");
+      setLoadedExistingTasksRepo("");
+      setExistingTasksError("");
+      return;
+    }
+
+    if (loadedExistingTasksRepo && repo !== loadedExistingTasksRepo) {
+      setExistingTasks([]);
+      setSelectedExistingTaskId("");
+      setLoadedExistingTasksRepo("");
+      setExistingTasksError("");
+    }
+  }, [repoInput, loadedExistingTasksRepo]);
 
   useEffect(() => {
     const repo = resolveRepositoryInput(repoInput);
@@ -580,14 +709,25 @@ export default function CreateTaskForm({
   const resolvedRepo = useMemo(() => resolveRepositoryInput(repoInput), [repoInput]);
   const validatedBaseRef = baseRef.trim();
   const validatedBranchTitle = branchTitle.trim();
+  const isContinuingExistingSession = sessionMode === "continue";
+  const selectedExistingTask = useMemo(
+    () => existingTasks.find((agentTask) => agentTask.id === selectedExistingTaskId),
+    [existingTasks, selectedExistingTaskId]
+  );
   const isBranchListCurrent =
     resolvedRepo !== "" && loadedBranchesRepo === resolvedRepo;
   const targetBranchExists =
     isBranchListCurrent &&
     branches.some((branch) => branch.name === validatedBaseRef);
   const branchTitleValidationError =
-    validatedBranchTitle === "" ? BRANCH_TITLE_REQUIRED_ERROR : "";
+    !isContinuingExistingSession && validatedBranchTitle === ""
+      ? BRANCH_TITLE_REQUIRED_ERROR
+      : "";
   const targetBranchValidationError = useMemo(() => {
+    if (isContinuingExistingSession) {
+      return "";
+    }
+
     if (validatedBaseRef === "") {
       return BASE_REF_REQUIRED_ERROR;
     }
@@ -605,14 +745,29 @@ export default function CreateTaskForm({
     }
 
     return "";
-  }, [isBranchListCurrent, resolvedRepo, targetBranchExists, validatedBaseRef]);
+  }, [
+    isBranchListCurrent,
+    isContinuingExistingSession,
+    resolvedRepo,
+    targetBranchExists,
+    validatedBaseRef,
+  ]);
+  const existingSessionValidationError =
+    isContinuingExistingSession && !selectedExistingTaskId
+      ? EXISTING_SESSION_REQUIRED_ERROR
+      : "";
+  const branchTitleFieldError = isContinuingExistingSession
+    ? ""
+    : branchTitleGenerationError || branchTitleValidationError;
   const canSubmit =
     !isSubmitting &&
-    !branchesLoading &&
+    (!branchesLoading || isContinuingExistingSession) &&
+    !existingTasksLoading &&
     resolvedRepo !== "" &&
     problemStatement.trim() !== "" &&
     branchTitleValidationError === "" &&
     targetBranchValidationError === "" &&
+    existingSessionValidationError === "" &&
     bearerToken.trim() !== "";
   const variantLabel = useMemo(() => {
     const labels: string[] = [task];
@@ -623,8 +778,9 @@ export default function CreateTaskForm({
   }, [task, taskDelayEnabled]);
   const buttonLabel = useMemo(() => {
     if (isSubmitting) return "Creating task...";
+    if (isContinuingExistingSession) return `Continue ${variantLabel} session`;
     return `Create ${variantLabel} task`;
-  }, [isSubmitting, variantLabel]);
+  }, [isContinuingExistingSession, isSubmitting, variantLabel]);
 
   const handleAttemptSubmit = useCallback(() => {
     if (!canSubmit) return;
@@ -679,6 +835,91 @@ export default function CreateTaskForm({
           />
         </div>
       )}
+
+      <div className="create-task-form__field">
+        <label>Agent session</label>
+        <div className="create-task-form__radio-group">
+          <label>
+            <input
+              type="radio"
+              name="create-task-session-mode"
+              value="new"
+              checked={sessionMode === "new"}
+              onChange={() => setSessionMode("new")}
+            />
+            Start a new session
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="create-task-session-mode"
+              value="continue"
+              checked={sessionMode === "continue"}
+              onChange={() => setSessionMode("continue")}
+            />
+            Continue existing session
+          </label>
+        </div>
+
+        {isContinuingExistingSession && (
+          <div className="create-task-form__existing-session">
+            <div className="create-task-form__input-row">
+              <select
+                id="create-task-existing-session"
+                value={selectedExistingTaskId}
+                onChange={(e) => setSelectedExistingTaskId(e.target.value)}
+                disabled={existingTasksLoading || existingTasks.length === 0}
+                aria-invalid={existingSessionValidationError !== ""}
+              >
+                <option value="">
+                  {existingTasksLoading
+                    ? "Loading existing sessions..."
+                    : "Select an existing session"}
+                </option>
+                {existingTasks.map((agentTask) => (
+                  <option key={agentTask.id} value={agentTask.id}>
+                    {formatTaskSessionLabel(agentTask)}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="create-task-form__secondary-btn"
+                onClick={() => void loadExistingTasks()}
+                disabled={existingTasksLoading || !repoInput.trim() || !bearerToken.trim()}
+              >
+                {existingTasksLoading ? "Loading..." : "Load sessions"}
+              </button>
+            </div>
+            {existingTasksError && (
+              <div className="create-task-form__field-error">
+                {existingTasksError}
+              </div>
+            )}
+            {!existingTasksError && existingSessionValidationError && (
+              <div className="create-task-form__field-error">
+                {existingSessionValidationError}
+              </div>
+            )}
+            {!existingTasksError && loadedExistingTasksRepo && (
+              <div className="create-task-form__field-hint">
+                {existingTasks.length} existing session
+                {existingTasks.length !== 1 ? "s" : ""} with pull requests for{" "}
+                {loadedExistingTasksRepo}.
+              </div>
+            )}
+            {selectedExistingTask && (
+              <div className="create-task-form__warning">
+                Continuing {selectedExistingTask.pullRequestNumber
+                  ? `PR #${String(selectedExistingTask.pullRequestNumber)}`
+                  : "the selected pull request"}
+                . Branch title and target branch are ignored because the
+                existing pull request branch and target branch will be reused.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="create-task-form__field">
         <label htmlFor="create-task-runner">Task runner</label>
@@ -831,24 +1072,31 @@ export default function CreateTaskForm({
             }}
             placeholder="fd-agent/my-branch-title"
             spellCheck={false}
-            aria-required={true}
+            disabled={isContinuingExistingSession}
+            aria-required={!isContinuingExistingSession}
           />
           <button
             type="button"
             className="create-task-form__secondary-btn"
             onClick={() => void handleGenerateBranchTitle()}
-            disabled={isGeneratingBranchTitle || !problemStatement.trim()}
+            disabled={
+              isContinuingExistingSession ||
+              isGeneratingBranchTitle ||
+              !problemStatement.trim()
+            }
           >
             {isGeneratingBranchTitle ? "Generating..." : "Generate title"}
           </button>
         </div>
-        {branchTitleGenerationError || branchTitleValidationError ? (
+        {branchTitleFieldError ? (
           <div className="create-task-form__field-error">
-            {branchTitleGenerationError || branchTitleValidationError}
+            {branchTitleFieldError}
           </div>
         ) : (
           <div className="create-task-form__field-hint">
-            {branchTitle
+            {isContinuingExistingSession
+              ? "Ignored while continuing an existing session."
+              : branchTitle
               ? branchTitleGeneratedFrom && isGeneratedBranchTitleStale
                 ? "Generated from an older problem statement. Generate again to refresh it."
                 : branchTitleGeneratedFrom
@@ -880,12 +1128,15 @@ export default function CreateTaskForm({
             onChange={setBaseRef}
             branches={branches}
             placeholder="main"
+            disabled={isContinuingExistingSession}
           />
           <button
             type="button"
             className="create-task-form__secondary-btn"
             onClick={handleLoadBranches}
-            disabled={branchesLoading || !repoInput.trim()}
+            disabled={
+              isContinuingExistingSession || branchesLoading || !repoInput.trim()
+            }
             title={
               loadedBranchesRepo
                 ? `Refresh branches for ${loadedBranchesRepo}`
@@ -895,10 +1146,10 @@ export default function CreateTaskForm({
             {branchesLoading ? "Downloading..." : "Download branches"}
           </button>
         </div>
-        {branchesError && (
+        {!isContinuingExistingSession && branchesError && (
           <div className="create-task-form__field-error">{branchesError}</div>
         )}
-        {!branchesError && loadedBranchesRepo && (
+        {!isContinuingExistingSession && !branchesError && loadedBranchesRepo && (
           <div className="create-task-form__field-hint">
             {branches.length} branch{branches.length !== 1 ? "es" : ""} cached
             for {loadedBranchesRepo}
@@ -907,10 +1158,11 @@ export default function CreateTaskForm({
               : ""}
           </div>
         )}
-        {!branchesError && !loadedBranchesRepo && (
+        {(isContinuingExistingSession || (!branchesError && !loadedBranchesRepo)) && (
           <div className="create-task-form__field-hint">
-            Type a branch name, or click Download branches to load suggestions
-            from the server.
+            {isContinuingExistingSession
+              ? "Ignored while continuing an existing session."
+              : "Type a branch name, or click Download branches to load suggestions from the server."}
           </div>
         )}
         {!branchesError && targetBranchValidationError && (
@@ -1045,7 +1297,11 @@ export default function CreateTaskForm({
         {resolvedRepo && (
           <span className="create-task-form__submit-btn-repo">
             {resolvedRepo}
-            {baseRef ? (
+            {isContinuingExistingSession && selectedExistingTask ? (
+              <span className="create-task-form__submit-btn-branch">
+                {" "}@ {selectedExistingTask.branch || selectedExistingTask.id}
+              </span>
+            ) : baseRef ? (
               <span className="create-task-form__submit-btn-branch">
                 {" "}@ {baseRef}
               </span>
@@ -1059,6 +1315,10 @@ export default function CreateTaskForm({
         variantLabel={variantLabel}
         repo={resolvedRepo}
         branch={baseRef}
+        existingSessionLabel={
+          selectedExistingTask ? formatTaskSessionLabel(selectedExistingTask) : ""
+        }
+        isContinuingExistingSession={isContinuingExistingSession}
         pullRequestCompletionModeLabel={pullRequestCompletionMode}
         problemStatement={problemStatement}
         isSubmitting={isSubmitting}
