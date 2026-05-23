@@ -231,7 +231,7 @@ export default function PelicanRidePage() {
                 />
               </g>
             </g>
-            <g transform="translate(520, 310)">
+            <g transform="translate(490, 310)">
               <circle r="42" fill="none" stroke="#222" strokeWidth="4" />
               <circle r="6" fill="#444" />
               <g>
@@ -251,18 +251,18 @@ export default function PelicanRidePage() {
             <g stroke="#c0392b" strokeWidth="6" strokeLinecap="round" fill="none">
               {/* Bottom bracket at (400, 295) */}
               <line x1="400" y1="295" x2="280" y2="310" /> {/* chain stay */}
-              <line x1="400" y1="295" x2="520" y2="310" /> {/* down tube to front hub via fork base */}
+              <line x1="400" y1="295" x2="490" y2="310" /> {/* down tube to front hub via fork base */}
               <line x1="400" y1="295" x2="350" y2="225" /> {/* seat tube */}
               <line x1="350" y1="225" x2="280" y2="310" /> {/* seat stay */}
-              <line x1="350" y1="225" x2="500" y2="220" /> {/* top tube */}
-              <line x1="500" y1="220" x2="520" y2="310" /> {/* fork */}
-              <line x1="500" y1="220" x2="510" y2="195" /> {/* head/stem */}
+              <line x1="350" y1="225" x2="470" y2="220" /> {/* top tube */}
+              <line x1="470" y1="220" x2="490" y2="310" /> {/* fork */}
+              <line x1="470" y1="220" x2="480" y2="195" /> {/* head/stem */}
             </g>
 
             {/* Handlebar */}
             <g stroke="#222" strokeWidth="4" strokeLinecap="round" fill="none">
-              <path d="M 510,195 Q 520,185 535,190" />
-              <path d="M 510,195 Q 500,205 488,200" />
+              <path d="M 480,195 Q 490,185 505,190" />
+              <path d="M 480,195 Q 470,205 458,200" />
             </g>
 
             {/* Seat */}
@@ -338,8 +338,8 @@ export default function PelicanRidePage() {
               stroke="#bbb"
               strokeWidth="1.2"
             />
-            {/* Wing tip resting on handlebar at ~(488,200) */}
-            <ellipse cx="486" cy="206" rx="8" ry="4" fill="#ececec" stroke="#bbb" strokeWidth="1" />
+            {/* Wing tip resting on handlebar at ~(458,200) */}
+            <ellipse cx="456" cy="206" rx="8" ry="4" fill="#ececec" stroke="#bbb" strokeWidth="1" />
 
             {/* Neck */}
             <path
