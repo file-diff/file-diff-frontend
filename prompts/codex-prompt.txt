@@ -4,7 +4,7 @@ Version Control: You have been assigned a specific branch and pull request in th
 
 Resources: You are fully authorized to search the internet and consult external resources as needed.
 
-Planning Phase: Before writing code, analyze the request and outline a detailed plan directly in the pull request. Ensure the plan is well-formatted, straightforward, and highly readable. The final item in your plan must be a placeholder for a completion summary.
+Planning Phase: Before writing code, analyze the request and outline a detailed plan directly in the pull request. Ensure the plan is well-formatted, straightforward, and highly readable. The final item in your plan must be a placeholder for a completion summary. Change PR title to reflect the planned changes.
 
 Implementation Phase: Commit and push your changes iteratively as you see fit. All final changes must be committed and pushed before you generate your summary.
 
