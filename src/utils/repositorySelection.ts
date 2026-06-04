@@ -775,6 +775,7 @@ export interface CreateTaskRequest {
   reasoning_summary?: ReasoningSummary;
   system_prompt?: string;
   task_delay_ms?: number;
+  queue?: boolean;
 }
 
 export interface CreateTaskResponse {

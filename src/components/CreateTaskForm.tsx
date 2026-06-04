@@ -167,6 +167,8 @@ export default function CreateTaskForm({
   const initialStoredSystemPrompt =
     initialRepoDraft?.systemPrompt ?? savedDraft?.systemPrompt;
   const initialDefaultSystemPrompt = getDefaultSystemPrompt(initialTask);
+  const initialTaskQueueEnabled =
+    initialRepoDraft?.taskQueueEnabled ?? savedDraft?.taskQueueEnabled ?? false;
 
   const [repoInput, setRepoInput] = useState(initialRepoInput);
   const [problemStatement, setProblemStatement] = useState(
@@ -215,10 +217,14 @@ export default function CreateTaskForm({
       (initialTask === "codex" ? DEFAULT_CODEX_REASONING_SUMMARY : "")
   );
   const [taskDelayEnabled, setTaskDelayEnabled] = useState(
-    initialRepoDraft?.taskDelayEnabled ?? savedDraft?.taskDelayEnabled ?? false
+    !initialTaskQueueEnabled &&
+      (initialRepoDraft?.taskDelayEnabled ?? savedDraft?.taskDelayEnabled ?? false)
   );
   const [taskDelayMinutes, setTaskDelayMinutes] = useState(
     initialRepoDraft?.taskDelayMinutes ?? savedDraft?.taskDelayMinutes ?? ""
+  );
+  const [taskQueueEnabled, setTaskQueueEnabled] = useState(
+    initialTaskQueueEnabled
   );
   const [branchTitle, setBranchTitle] = useState(
     initialRepoDraft?.branchTitle ?? savedDraft?.branchTitle ?? ""
@@ -396,7 +402,18 @@ export default function CreateTaskForm({
 
   const handleTaskDelayChange = useCallback((checked: boolean) => {
     setTaskDelayEnabled(checked);
+    if (checked) {
+      setTaskQueueEnabled(false);
+    }
     if (!checked) {
+      setTaskDelayMinutes("");
+    }
+  }, []);
+
+  const handleTaskQueueChange = useCallback((checked: boolean) => {
+    setTaskQueueEnabled(checked);
+    if (checked) {
+      setTaskDelayEnabled(false);
       setTaskDelayMinutes("");
     }
   }, []);
@@ -543,6 +560,7 @@ export default function CreateTaskForm({
         systemPrompt,
         task,
         taskDelayMs,
+        taskQueueEnabled,
       })
     );
 
@@ -571,6 +589,7 @@ export default function CreateTaskForm({
     agentId,
     taskDelayEnabled,
     taskDelayMinutes,
+    taskQueueEnabled,
     pullRequestCompletionMode,
     branchTitle,
     selectedExistingTaskId,
@@ -595,6 +614,7 @@ export default function CreateTaskForm({
       reasoningSummary,
       taskDelayEnabled,
       taskDelayMinutes,
+      taskQueueEnabled,
     });
   }, [
     repoInput,
@@ -611,6 +631,7 @@ export default function CreateTaskForm({
     reasoningSummary,
     taskDelayEnabled,
     taskDelayMinutes,
+    taskQueueEnabled,
   ]);
 
   useEffect(() => {
@@ -631,6 +652,7 @@ export default function CreateTaskForm({
         reasoningSummary,
         taskDelayEnabled,
         taskDelayMinutes,
+        taskQueueEnabled,
       });
     }
   }, [
@@ -648,6 +670,7 @@ export default function CreateTaskForm({
     reasoningSummary,
     taskDelayEnabled,
     taskDelayMinutes,
+    taskQueueEnabled,
   ]);
 
   useEffect(() => {
@@ -774,8 +797,12 @@ export default function CreateTaskForm({
     if (taskDelayEnabled) {
       labels.push("delayed");
     }
+    if (taskQueueEnabled) {
+      labels.push("queued");
+    }
     return labels.join(" ");
-  }, [task, taskDelayEnabled]);
+  }, [task, taskDelayEnabled, taskQueueEnabled]);
+  const needsStartConfirmation = taskDelayEnabled || taskQueueEnabled;
   const buttonLabel = useMemo(() => {
     if (isSubmitting) return "Creating task...";
     if (isContinuingExistingSession) return `Continue ${variantLabel} session`;
@@ -1251,6 +1278,14 @@ export default function CreateTaskForm({
           />
           Delay task start
         </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={taskQueueEnabled}
+            onChange={(e) => handleTaskQueueChange(e.target.checked)}
+          />
+          Queue task start
+        </label>
       </div>
 
       <div className="create-task-form__field">
@@ -1275,6 +1310,8 @@ export default function CreateTaskForm({
         >
           {taskDelayEnabled
             ? "Remote task creation waits until the delay expires."
+            : taskQueueEnabled
+            ? "The task starts from the runner queue after earlier queued tasks finish."
             : 'Enable "Delay task start" to schedule the task for later.'}
         </div>
       </div>
@@ -1288,7 +1325,9 @@ export default function CreateTaskForm({
         onClick={handleAttemptSubmit}
         disabled={!canSubmit}
         className={`create-task-form__submit-btn${
-          taskDelayEnabled ? " create-task-form__submit-btn--needs-confirm" : ""
+          needsStartConfirmation
+            ? " create-task-form__submit-btn--needs-confirm"
+            : ""
         }`}
       >
         <span className="create-task-form__submit-btn-label">

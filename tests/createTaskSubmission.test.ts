@@ -78,6 +78,26 @@ test("codex tasks keep codex-only options in the payload", () => {
   );
 });
 
+test("queued task requests include the queue flag", () => {
+  assert.deepEqual(
+    buildCreateTaskRequestFields({
+      customAgent: "",
+      model: "gpt-5.5",
+      reasoningEffort: "high",
+      reasoningSummary: "detailed",
+      task: "codex",
+      taskQueueEnabled: true,
+    }),
+    {
+      task: "codex",
+      model: "gpt-5.5",
+      reasoning_effort: "high",
+      reasoning_summary: "detailed",
+      queue: true,
+    }
+  );
+});
+
 test("codex tasks default to gpt-5.5 with high detailed reasoning", () => {
   assert.deepEqual(
     buildCreateTaskRequestFields({

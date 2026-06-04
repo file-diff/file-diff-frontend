@@ -47,6 +47,7 @@ const draft: CreateTaskDraft = {
   reasoningSummary: "detailed",
   taskDelayEnabled: false,
   taskDelayMinutes: "",
+  taskQueueEnabled: false,
 };
 
 afterEach(() => {
@@ -78,6 +79,31 @@ test("repo create task drafts persist manually edited branch titles", () => {
   );
 });
 
+test("create task drafts persist queued start selections", () => {
+  installLocalStorage();
+
+  saveCreateTaskDraft({
+    ...draft,
+    taskQueueEnabled: true,
+  });
+
+  assert.equal(loadCreateTaskDraft()?.taskQueueEnabled, true);
+});
+
+test("repo create task drafts persist queued start selections", () => {
+  installLocalStorage();
+
+  saveRepoCreateTaskDraft("File-Diff/File-Diff-Frontend", {
+    ...draft,
+    taskQueueEnabled: true,
+  });
+
+  assert.equal(
+    loadRepoCreateTaskDraft("file-diff/file-diff-frontend")?.taskQueueEnabled,
+    true
+  );
+});
+
 test("legacy create task drafts default missing branch titles to empty string", () => {
   installLocalStorage({
     [CREATE_TASK_DRAFT_STORAGE_KEY]: JSON.stringify({
@@ -102,5 +128,32 @@ test("legacy repo create task drafts default missing branch titles to empty stri
   assert.equal(
     loadRepoCreateTaskDraft("file-diff/file-diff-frontend")?.branchTitle,
     ""
+  );
+});
+
+test("legacy create task drafts default missing queued start to false", () => {
+  installLocalStorage({
+    [CREATE_TASK_DRAFT_STORAGE_KEY]: JSON.stringify({
+      ...draft,
+      taskQueueEnabled: undefined,
+    }),
+  });
+
+  assert.equal(loadCreateTaskDraft()?.taskQueueEnabled, false);
+});
+
+test("legacy repo create task drafts default missing queued start to false", () => {
+  installLocalStorage({
+    [REPO_CREATE_TASK_DRAFTS_STORAGE_KEY]: JSON.stringify({
+      "file-diff/file-diff-frontend": {
+        ...draft,
+        taskQueueEnabled: undefined,
+      },
+    }),
+  });
+
+  assert.equal(
+    loadRepoCreateTaskDraft("file-diff/file-diff-frontend")?.taskQueueEnabled,
+    false
   );
 });

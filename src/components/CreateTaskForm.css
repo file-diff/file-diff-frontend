@@ -102,6 +102,7 @@
 .create-task-form__checkbox-field {
   flex-direction: row;
   align-items: center;
+  gap: 18px;
 }
 
 .create-task-form__checkbox-field label {
