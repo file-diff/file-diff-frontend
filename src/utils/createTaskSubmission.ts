@@ -67,6 +67,7 @@ interface BuildCreateTaskRequestFieldsArgs {
   systemPrompt?: string;
   task: CreateTaskRunner;
   taskDelayMs?: number;
+  taskQueueEnabled?: boolean;
 }
 
 interface BuildCreateTaskRequestArgs {
@@ -116,6 +117,7 @@ export function buildCreateTaskRequestFields({
   systemPrompt,
   task,
   taskDelayMs,
+  taskQueueEnabled,
 }: BuildCreateTaskRequestFieldsArgs): Partial<CreateTaskRequest> {
   const request: Partial<CreateTaskRequest> = { task };
   const validatedModel = normalizeModelSelection(task, model);
@@ -142,6 +144,9 @@ export function buildCreateTaskRequestFields({
   }
   if (typeof taskDelayMs === "number") {
     request.task_delay_ms = taskDelayMs;
+  }
+  if (taskQueueEnabled) {
+    request.queue = true;
   }
 
   return request;

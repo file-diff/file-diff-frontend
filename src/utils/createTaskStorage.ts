@@ -34,6 +34,7 @@ export interface CreateTaskDraft {
   reasoningSummary: ReasoningSummary | "";
   taskDelayEnabled: boolean;
   taskDelayMinutes: string;
+  taskQueueEnabled: boolean;
 }
 
 export type RepoCreateTaskDraft = Omit<CreateTaskDraft, "repoInput">;
@@ -183,6 +184,9 @@ function parseRepoCreateTaskDraft(value: unknown): RepoCreateTaskDraft | null {
       typeof candidate.taskDelayMinutes === "string"
         ? candidate.taskDelayMinutes
         : "",
+    taskQueueEnabled: isBoolean(candidate.taskQueueEnabled)
+      ? candidate.taskQueueEnabled
+      : false,
   };
 }
 
